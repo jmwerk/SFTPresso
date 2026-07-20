@@ -1,4 +1,4 @@
-## Unreleased
+## 1.26.2 - 2026-07-20
 * Fix : `SFTP: Test Connection` no longer requires `.vscode/sftp.json` to be the active editor. Running it from the Command Palette while any workspace file is open now resolves that file's config; with no matching editor it falls back to the workspace's only config, or prompts to pick one when several are configured (the same resolution `SFTP: Toggle Upload on Save` uses).
 
 ## 1.26.1 - 2026-07-18
