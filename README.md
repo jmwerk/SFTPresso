@@ -19,7 +19,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 - **Upload on save** — with a one-click **`SFTP: Toggle Upload on Save`** command and a status-bar indicator — and a **file watcher** for changes made outside the editor
 - **Add to Ignore** from the file-explorer right-click menu — appends a file or folder to `ignore` without hand-editing `sftp.json`
 - **Conflict check** (`conflictCheck`) to catch uploads that would overwrite a remote changed by someone else
-- **Transfers view** with byte-level per-file progress, cancellation, and retry — cancelling stops the directory scan too, not just the queued files
+- **Transfers view** with byte-level per-file progress, live speed/ETA, cancellation, and retry — cancelling stops the directory scan too, not just the queued files
 - **Test Connection** from a command or a CodeLens on `sftp.json`, plus a **connection-status indicator** in the status bar
 - **Secure password storage** backed by the OS keychain (`SFTP: Save Password` / `Clear Password`), plus one-click `SFTP: Migrate Plaintext Password` to move a password out of `sftp.json`
 - **Multiple configurations**, switchable **profiles**, SSH **connection hopping**, and temp-file/atomic uploads

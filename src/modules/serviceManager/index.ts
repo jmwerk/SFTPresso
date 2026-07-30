@@ -4,6 +4,7 @@ import app from '../../app';
 import logger from '../../logger';
 import { simplifyPath, reportError } from '../../helper';
 import { getActiveTextEditor } from '../../host';
+import { formatBytes } from '../../utils';
 import { UResource, FileService, TransferTask } from '../../core';
 import { validateConfig } from '../config';
 import watcherService from '../fileWatcher';
@@ -45,7 +46,18 @@ function updateTransferProgress() {
     return;
   }
 
-  app.transferBarItem.showMsg(`Transferring ${doneTransferCount}/${queuedTransferCount} files`);
+  let message = `Transferring ${doneTransferCount}/${queuedTransferCount} files`;
+  // omit the figure until at least one in-flight task has a defined rate,
+  // rather than showing a misleading "0 B/s" before any samples exist
+  const rates = getRunningTransformTasks()
+    .map(task => task.bytesPerSecond)
+    .filter((rate): rate is number => rate !== undefined);
+  if (rates.length > 0) {
+    const combinedBytesPerSecond = rates.reduce((sum, rate) => sum + rate, 0);
+    message += ` — ${formatBytes(combinedBytesPerSecond)}/s`;
+  }
+
+  app.transferBarItem.showMsg(message);
   app.transferBarItem.show();
 }
 
@@ -195,6 +207,7 @@ export function createFileService(config: any, workspace: string) {
     transferEventEmitter.fire({ type: 'start', task });
   });
   service.onProgressTransfer(task => {
+    updateTransferProgress();
     transferEventEmitter.fire({ type: 'progress', task });
   });
   service.afterTransfer((error, task) => {

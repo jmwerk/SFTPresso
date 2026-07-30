@@ -37,6 +37,14 @@ export interface TransferOption {
 // throttle progress reporting to ~2 updates/sec per task
 const PROGRESS_REPORT_INTERVAL = 500;
 
+// number of throttled samples kept for the bytesPerSecond rolling window
+const PROGRESS_SAMPLE_WINDOW = 5;
+
+interface ProgressSample {
+  time: number;
+  bytes: number;
+}
+
 export default class TransferTask implements Task {
   readonly id: number;
   readonly fileType: FileType;
@@ -56,6 +64,8 @@ export default class TransferTask implements Task {
   readonly totalBytes: number | undefined;
   private _progressListener: (() => void) | undefined;
   private _lastProgressReportAt: number = 0;
+  // rolling window of recent (timestamp, transferredBytes) samples, oldest first
+  private _progressSamples: ProgressSample[] = [];
 
   constructor(
     src: FileHandle,
@@ -88,6 +98,7 @@ export default class TransferTask implements Task {
     this._handle = undefined as any;
     this.transferredBytes = 0;
     this._lastProgressReportAt = 0;
+    this._progressSamples = [];
     if (this._cancelTokenSource) {
       this._cancelTokenSource.dispose();
     }
@@ -102,8 +113,27 @@ export default class TransferTask implements Task {
     const now = Date.now();
     if (now - this._lastProgressReportAt >= PROGRESS_REPORT_INTERVAL) {
       this._lastProgressReportAt = now;
+      this._progressSamples.push({ time: now, bytes: transferred });
+      if (this._progressSamples.length > PROGRESS_SAMPLE_WINDOW) {
+        this._progressSamples.shift();
+      }
       this._progressListener();
     }
+  }
+
+  // throughput over the current sample window, or undefined until at least
+  // 2 throttled samples have been recorded (~1s into the transfer)
+  get bytesPerSecond(): number | undefined {
+    if (this._progressSamples.length < 2) {
+      return undefined;
+    }
+    const oldest = this._progressSamples[0];
+    const newest = this._progressSamples[this._progressSamples.length - 1];
+    const elapsedSeconds = (newest.time - oldest.time) / 1000;
+    if (elapsedSeconds <= 0) {
+      return undefined;
+    }
+    return (newest.bytes - oldest.bytes) / elapsedSeconds;
   }
 
   get localFsPath() {
