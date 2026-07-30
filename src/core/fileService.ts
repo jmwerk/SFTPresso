@@ -114,6 +114,9 @@ interface TransferScheduler {
   add(x: TransferTask): void;
   run(): Promise<void>;
   stop(): void;
+  // true once stop() ran, so the tree walk feeding this scheduler can bail out
+  // instead of collecting tasks nothing will ever run
+  isStopped(): boolean;
 }
 
 type ConfigValidator = (x: any) => { message: string } | undefined;
@@ -492,6 +495,9 @@ export default class FileService {
       stop() {
         isStopped = true;
         scheduler.empty();
+      },
+      isStopped() {
+        return isStopped;
       },
       add(task: TransferTask) {
         if (isStopped) {

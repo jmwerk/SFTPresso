@@ -55,14 +55,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Start FTP servers
-        # --wait blocks until both containers report healthy (compose
-        # healthchecks), so no fixed sleeps are needed.
-        run: docker compose -f test/integration/docker-compose.yml up -d --wait
+      - name: Start test servers
+        # Generates the throwaway ssh keypair, then brings up the FTP and SSH
+        # containers. --wait blocks until every container reports healthy
+        # (compose healthchecks), so no fixed sleeps are needed.
+        run: npm run test:integration:up
 
       - name: Run integration tests
         run: npm run test:integration
 
-      - name: Stop FTP servers
+      - name: Stop test servers
         if: always()
-        run: docker compose -f test/integration/docker-compose.yml down -v
+        run: npm run test:integration:down

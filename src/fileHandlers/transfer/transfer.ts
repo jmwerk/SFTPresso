@@ -8,7 +8,7 @@ import {
   fileOperations,
 } from '../../core';
 import { FileHandleOption } from '../option';
-import { flatten } from '../../utils';
+import { flatten, createLimiter, Limiter } from '../../utils';
 import logger from '../../logger';
 import { getOpenTextDocuments } from '../../host';
 
@@ -37,6 +37,12 @@ interface SyncOption extends TransferOption {
   bothDiretions?: boolean;
 }
 
+// Consulted while the tree is being walked so that cancelling a transfer stops
+// the scan itself, not just the tasks already queued on the scheduler.
+export interface TransferCancellationToken {
+  isCancelled(): boolean;
+}
+
 interface BaseTransferHandleConfig {
   srcFsPath: string;
   targetFsPath: string;
@@ -45,10 +51,76 @@ interface BaseTransferHandleConfig {
   srcFs: FileSystem;
   targetFs: FileSystem;
   transferDirection: TransferDirection;
+  // how many remote operations the walk may have in flight at once
+  walkConcurrency?: number;
+  token?: TransferCancellationToken;
+  // shared by the whole walk; installed by transfer()/sync(), then carried
+  // along by the `{ ...config }` spreads below
+  limiter?: Limiter;
 }
 
 interface TransferHandleConfig<T> extends BaseTransferHandleConfig {
   transferOption: T;
+}
+
+// matches `concurrency` in the config defaults; FTP resolves to 1 upstream
+const DEFAULT_WALK_CONCURRENCY = 4;
+
+function isCancelled(config: BaseTransferHandleConfig): boolean {
+  return Boolean(config.token && config.token.isCancelled());
+}
+
+// Every remote call in the walk goes through here so the fan-out stays bounded.
+function limited<T>(
+  config: BaseTransferHandleConfig,
+  fn: () => Promise<T>
+): Promise<T> {
+  return config.limiter ? config.limiter(fn) : fn();
+}
+
+function withLimiter<T extends BaseTransferHandleConfig>(config: T): T {
+  return {
+    ...config,
+    limiter:
+      config.limiter ||
+      createLimiter(config.walkConcurrency || DEFAULT_WALK_CONCURRENCY),
+  };
+}
+
+function describeFailure(error: any, action: string, fsPath: string): Error {
+  const message = error && error.message ? error.message : String(error);
+  const wrapped = new Error(`${action} ${fsPath} failed: ${message}`);
+  if (error && error.stack) {
+    wrapped.stack = error.stack;
+  }
+  return wrapped;
+}
+
+/**
+ * Apply `dirPerm` to a directory we just created.
+ *
+ * Awaited — it used to be fire-and-forget, so the mode could be applied after
+ * the directory's contents had already been written and a rejection surfaced as
+ * an unhandled promise rejection. A server that refuses SETSTAT still shouldn't
+ * fail the transfer, so failures are logged instead of thrown.
+ */
+async function applyDirPerm(
+  config: TransferHandleConfig<InternalTransferOption>,
+  dirPath: string
+): Promise<void> {
+  const { dirPerm } = config.transferOption;
+  if (!dirPerm) {
+    return;
+  }
+
+  logger.info(`chmod remote directory ${dirPath} as configured by dirPerm: ${dirPerm}`);
+  try {
+    await limited(config, () =>
+      config.targetFs.chmod(dirPath, parseInt(String(dirPerm), 8))
+    );
+  } catch (error) {
+    logger.warn(describeFailure(error, 'chmod', dirPath).message);
+  }
 }
 
 function getAltDirection(direction: TransferDirection) {
@@ -76,20 +148,21 @@ async function transferFolder(
 ) {
   const { srcFsPath, targetFsPath, srcFs, targetFs, transferOption } = config;
 
+  if (isCancelled(config)) {
+    return;
+  }
+
   if (transferOption.ignore && transferOption.ignore(srcFsPath)) {
     return;
   }
 
   // Need this to make sure file can correct transfer
-  await targetFs.ensureDir(targetFsPath);
+  await limited(config, () => targetFs.ensureDir(targetFsPath));
 
-  // If dirPerm is configured, we chmod the remote directory after creation.
-  if(config.transferOption.dirPerm) {
-    logger.info("chmod remote directory as configured by dirPerm, dirPerm is: ", config.transferOption.dirPerm)
-    targetFs.chmod(targetFsPath, parseInt(String(config.transferOption.dirPerm), 8))
-  }
+  // If dirPerm is configured, chmod the directory before its contents land in it.
+  await applyDirPerm(config as TransferHandleConfig<InternalTransferOption>, targetFsPath);
 
-  const fileEntries = await srcFs.list(srcFsPath);
+  const fileEntries = await limited(config, () => srcFs.list(srcFsPath));
   await Promise.all(
     fileEntries.map(file =>
       transferWithType(
@@ -119,6 +192,10 @@ async function transferFile(
   fileType: FileType,
   collect: (t: TransferTask) => void
 ) {
+  if (isCancelled(config)) {
+    return;
+  }
+
   if (config.transferOption.ignore && config.transferOption.ignore(config.srcFsPath)) {
     return;
   }
@@ -149,6 +226,10 @@ async function transferWithType(
   fileType: FileType,
   collect: (t: TransferTask) => void
 ) {
+  if (isCancelled(config)) {
+    return;
+  }
+
   switch (fileType) {
     case FileType.Directory:
       await transferFolder(config, collect);
@@ -157,12 +238,10 @@ async function transferWithType(
     case FileType.SymbolicLink:
       if (config.ensureDirExist) {
         const { targetFs, targetFsPath } = config;
-        await targetFs.ensureDir(targetFs.pathResolver.dirname(targetFsPath));
+        const parentDir = targetFs.pathResolver.dirname(targetFsPath);
+        await limited(config, () => targetFs.ensureDir(parentDir));
         // If dirPerm is configured, we chmod the remote directory after creation.
-        if(config.transferOption.dirPerm) {
-          logger.info("Running chmod on remote directory with perm: ", config.transferOption.dirPerm)
-          targetFs.chmod(targetFs.pathResolver.dirname(targetFsPath), parseInt(String(config.transferOption.dirPerm), 8));
-        }
+        await applyDirPerm(config, parentDir);
       }
       // <<< save before upload: start
       if (config.transferDirection === TransferDirection.LOCAL_TO_REMOTE) {
@@ -204,6 +283,32 @@ async function removeFile(file: string, fs: FileSystem, fileType: FileType, opti
   }
 }
 
+/**
+ * Delete the entries `syncOption.delete` says are extraneous.
+ *
+ * These used to be fired without awaiting, so they raced the transfers into the
+ * same tree and their failures were discarded — a sync could report success
+ * while leaving files behind. Files go before directories so a recursive
+ * directory removal can't race a removal of something inside it.
+ */
+async function removeMissing(
+  config: TransferHandleConfig<SyncOption>,
+  fileMissed: string[],
+  dirMissed: string[]
+): Promise<void> {
+  const { targetFs, transferOption } = config;
+
+  const remove = (fsPath: string, fileType: FileType) =>
+    limited(config, () =>
+      removeFile(fsPath, targetFs, fileType, transferOption)
+    ).catch(error => {
+      throw describeFailure(error, 'delete', fsPath);
+    });
+
+  await Promise.all(fileMissed.map(file => remove(file, FileType.File)));
+  await Promise.all(dirMissed.map(dir => remove(dir, FileType.Directory)));
+}
+
 async function _sync(
   config: TransferHandleConfig<SyncOption>,
   collect: (t: TransferTask) => void,
@@ -211,6 +316,10 @@ async function _sync(
 ) {
 
   const { srcFsPath, targetFsPath, srcFs, targetFs, transferOption, transferDirection } = config;
+  if (isCancelled(config)) {
+    return;
+  }
+
   if (transferOption.ignore && transferOption.ignore(srcFsPath)) {
     return;
   }
@@ -369,9 +478,8 @@ async function _sync(
       });
     }
 
-    // side-effect
-    fileMissed.forEach(file => removeFile(file, targetFs, FileType.File, transferOption));
-    dirMissed.forEach(file => removeFile(file, targetFs, FileType.Directory, transferOption));
+    // awaited below with everything else, so a failed delete fails the sync
+    const removePromise = removeMissing(config, fileMissed, dirMissed);
 
     const transFilePromise = file2trans.map(([src, target, direction, option]) =>
       transferFile(
@@ -410,15 +518,20 @@ async function _sync(
       )
     );
 
-    return Promise.all([...transFilePromise, ...transDirPromise, ...syncPromise]).then(flatten);
+    return Promise.all([
+      removePromise,
+      ...transFilePromise,
+      ...transDirPromise,
+      ...syncPromise,
+    ]).then(flatten);
   };
 
   // create dir here so we don't have to ensure it for children files.
-  await targetFs.ensureDir(targetFsPath);
+  await limited(config, () => targetFs.ensureDir(targetFsPath));
 
   const files = await Promise.all([
-    srcFs.list(srcFsPath).catch(err => []),
-    targetFs.list(targetFsPath).catch(err => []),
+    limited(config, () => srcFs.list(srcFsPath)).catch(err => []),
+    limited(config, () => targetFs.list(targetFsPath)).catch(err => []),
   ]);
   await syncFiles(...files);
 }
@@ -429,17 +542,24 @@ export async function transfer(
   config: TransferHandleConfig<TransferOption>,
   collect: (t: TransferTask) => void
 ) {
-  const stat = await config.srcFs.lstat(config.srcFsPath);
+  const walkConfig = withLimiter(config);
+  const stat = await limited(walkConfig, () =>
+    walkConfig.srcFs.lstat(walkConfig.srcFsPath)
+  );
   const transferOption = {
-    ...config.transferOption,
+    ...walkConfig.transferOption,
     fallbackMode: stat.mode,
     mtime: stat.mtime,
     atime: stat.atime,
-    filePerm: config?.filePerm,
-    dirPerm: config?.dirPerm,
+    filePerm: walkConfig?.filePerm,
+    dirPerm: walkConfig?.dirPerm,
     size: stat.size,
   };
-  await transferWithType({ ...config, transferOption, ensureDirExist: true }, stat.type, collect);
+  await transferWithType(
+    { ...walkConfig, transferOption, ensureDirExist: true },
+    stat.type,
+    collect
+  );
 }
 
 export async function sync(
@@ -447,6 +567,6 @@ export async function sync(
   collect: (t: TransferTask) => void
 ): Promise<FileEntry[]> {
   const deleted: FileEntry[] = [];
-  await _sync(config, collect, deleted);
+  await _sync(withLimiter(config), collect, deleted);
   return deleted;
 }

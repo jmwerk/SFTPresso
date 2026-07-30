@@ -52,15 +52,24 @@ npm run typecheck
 npm run lint
 ```
 
-### FTP integration tests
+### FTP and SFTP integration tests
 
-The `test/integration/` suite drives the `basic-ftp` client layer against real
-FTP servers running in Docker — a plain vsftpd (LIST) and an explicit-FTPS
-pure-ftpd (MLSD). It is **not** part of `npm test`; it needs the compose stack
-up and Docker available.
+The `test/integration/` suite drives the remote client layers against real
+servers running in Docker:
+
+- **FTP** (`ftpClient.spec.ts`) — a plain vsftpd (LIST) and an explicit-FTPS
+  pure-ftpd (MLSD), covering the `basic-ftp` client.
+- **SFTP** (`sftpClient.spec.ts`) — an OpenSSH server, covering the ssh2 client
+  and `SFTPFileSystem`: password and key auth, the
+  `filePerm` / `perserveTargetMode` / `fallbackMode` mode cascade, `futimes`
+  mtime preservation, symlinks, the `useTempFile` atomic-rename paths, the
+  bounded directory walk, and `limitOpenFilesOnRemote`.
+
+It is **not** part of `npm test`; it needs the compose stack up and Docker
+available.
 
 ```sh
-# 1. Start the servers (blocks until both report healthy)
+# 1. Start the servers (blocks until all report healthy)
 npm run test:integration:up
 
 # 2. Run the suite
@@ -70,12 +79,17 @@ npm run test:integration
 npm run test:integration:down
 ```
 
-`test:integration:up` / `:down` are thin wrappers around
-`docker compose -f test/integration/docker-compose.yml up -d --wait` / `down -v`.
-The servers use throwaway, test-only credentials and a self-signed certificate
-generated at container start — never reuse them anywhere else. Both images are
-multi-arch, so the stack runs the same on Apple Silicon and on CI. The same
-suite runs on every push/PR in the `integration-tests` GitHub Actions job.
+`test:integration:up` generates the throwaway SSH keypair
+(`test/integration/openssh/prepare-keys.sh`, gitignored — no private key is ever
+committed) and then runs
+`docker compose -f test/integration/docker-compose.yml up -d --build --wait`;
+`:down` is `down -v`. The SSH server is built from
+`test/integration/openssh/Dockerfile` so the sftp subsystem, OpenSSH's
+posix-rename extension, and the test user's permissions are pinned; the FTP
+images are pulled. Every credential, certificate, and key here is throwaway and
+test-only — never reuse them anywhere else. All images are multi-arch, so the
+stack runs the same on Apple Silicon and on CI. The same suite runs on every
+push/PR in the `integration-tests` GitHub Actions job.
 
 [branch-link]: <http://guides.github.com/introduction/flow/>
 [clone-link]: <https://help.github.com/articles/cloning-a-repository/>
