@@ -47,11 +47,15 @@
         {
           "id": "remoteExplorer",
           "name": "Explorer",
+          "icon": "resources/remote-explorer.svg",
+          "contextualTitle": "SFTP",
           "when": "sftp.enabled"
         },
         {
           "id": "sftpTransfers",
           "name": "Transfers",
+          "icon": "resources/transfers.svg",
+          "contextualTitle": "SFTP",
           "when": "sftp.enabled"
         }
       ]
