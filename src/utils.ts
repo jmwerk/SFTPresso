@@ -72,6 +72,19 @@ export function formatBytes(bytes: number): string {
   return `${formatted} ${units[unit]}`;
 }
 
+export function formatDuration(seconds: number): string {
+  const safeSeconds = !isFinite(seconds) || seconds < 0 ? 0 : seconds;
+  const totalSeconds = Math.round(safeSeconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const secs = totalSeconds % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  if (hours > 0) {
+    return `${hours}:${pad(minutes)}:${pad(secs)}`;
+  }
+  return `${pad(minutes)}:${pad(secs)}`;
+}
+
 export function interpolate(str: string, props: { [x: string]: string }) {
   return str.replace(/\${([^{}]*)}/g, (match, expr) => {
     const value = props[expr];

@@ -81,8 +81,8 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Feature | Where to find it | Details |
 | --- | --- | --- |
 | Remote Explorer | SFTP icon in the Activity Bar | Browse remote files, multi-select download/upload — see [Using the Remote Explorer](#using-the-remote-explorer) |
-| Transfers view | SFTP sidebar → **Transfers** | Live per-file status (queued / transferring / failed) with byte-level progress, per-file cancel, and retry for failed transfers — see [Monitoring and cancelling transfers](#monitoring-and-cancelling-transfers) |
-| Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter; click to cancel all |
+| Transfers view | SFTP sidebar → **Transfers** | Live per-file status (queued / transferring / failed) with byte-level progress, speed, and ETA, per-file cancel, and retry for failed transfers — see [Monitoring and cancelling transfers](#monitoring-and-cancelling-transfers) |
+| Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter plus combined transfer speed; click to cancel all |
 | Diff local ↔ remote | `SFTP: Diff with Remote` | Opens VS Code's diff view against the remote copy |
 | Compare Folders | `SFTP: Compare Folders with Remote` | Recursive local/remote diff with per-file actions — see [Comparing folders](#comparing-folders-with-the-remote) |
 | Test Connection | `SFTP: Test Connection` / CodeLens on `sftp.json` | Verifies the active profile can connect |
@@ -1045,9 +1045,9 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 
 During bulk operations (folder upload/download, sync, project transfers):
 
-- The **status bar** shows a live "Transferring X/Y files" counter — click it to cancel everything.
+- The **status bar** shows a live "Transferring X/Y files" counter, plus the combined transfer speed across every in-flight file once it's available — click the counter to cancel everything.
 - The **Transfers** view in the SFTP sidebar lists each file with its status (queued / transferring / failed) and an inline **✕** button to cancel just that file.
-- While a file is transferring, its row shows **byte-level progress** in the description — e.g. `42% — 3.1 MB / 7.4 MB`, or just the bytes transferred when the total size isn't known. Updates are throttled to a couple per second per file.
+- While a file is transferring, its row shows **byte-level progress**, current **speed**, and, once the total size is known, an **ETA** in the description — e.g. `42% — 3.1 MB / 7.4 MB — 1.2 MB/s — ETA 00:04`, or just bytes and speed when the total size isn't known. The speed and ETA are computed from a rolling window of recent progress and appear a moment into the transfer, once enough samples have been collected. Updates are throttled to a couple per second per file.
 - A failed transfer keeps its row (marked *failed*) with an inline **↻ Retry** button (`sftp.retryTransfer`). Retrying re-queues just that file with its original direction and options and resets its status to *queued*.
 - `SFTP: Cancel All Transfers` is also available from the Command Palette and the Transfers view title bar. It stops the directory scan as well as the queued transfers, so cancelling a large folder or project transfer takes effect immediately instead of after the whole tree has been walked.
 

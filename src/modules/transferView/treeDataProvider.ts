@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import TransferTask, { TransferDirection } from '../../core/transferTask';
-import { formatBytes } from '../../utils';
+import { formatBytes, formatDuration } from '../../utils';
 import { onTransferEvent } from '../serviceManager';
 
 type TransferStatus = 'queued' | 'transferring' | 'error';
@@ -63,12 +63,28 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
   private _progressDescription(task: TransferTask): string {
     const transferred = task.transferredBytes;
     const total = task.totalBytes;
+    const bytesPerSecond = task.bytesPerSecond;
+
+    const parts: string[] = [];
     if (total && total > 0) {
       const percent = Math.min(100, Math.floor((transferred / total) * 100));
-      return `${percent}% — ${formatBytes(transferred)} / ${formatBytes(total)}`;
+      parts.push(`${percent}% — ${formatBytes(transferred)} / ${formatBytes(total)}`);
+    } else {
+      // unknown total size: show bytes only
+      parts.push(formatBytes(transferred));
     }
-    // unknown total size: show bytes only
-    return formatBytes(transferred);
+
+    // omit the speed segment until a second sample lands, rather than
+    // showing a misleading "0 B/s" on the first progress tick
+    if (bytesPerSecond !== undefined) {
+      parts.push(`${formatBytes(bytesPerSecond)}/s`);
+      if (total && total > 0 && bytesPerSecond > 0) {
+        const remainingSeconds = Math.max(0, total - transferred) / bytesPerSecond;
+        parts.push(`ETA ${formatDuration(remainingSeconds)}`);
+      }
+    }
+
+    return parts.join(' — ');
   }
 
   getTreeItem(task: TransferTask): vscode.TreeItem {
