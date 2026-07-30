@@ -11,12 +11,7 @@ import {
   FTPFileSystem,
 } from './fs';
 import localFs from './localFs';
-
-function hashOption(opiton) {
-  return Object.keys(opiton)
-    .map(key => opiton[key])
-    .join('');
-}
+import { connectionIdentity } from './connectionIdentity';
 
 class KeepAliveRemoteFs {
   private isValid: boolean = false;
@@ -133,7 +128,7 @@ export function createRemoteIfNoneExist(option): Promise<FileSystem> {
     return getLocalFs();
   }
 
-  const identity = hashOption(option);
+  const identity = connectionIdentity(option);
   const fs = fsTable[identity];
   if (fs !== undefined) {
     return fs.getFs(option);
@@ -145,7 +140,7 @@ export function createRemoteIfNoneExist(option): Promise<FileSystem> {
 }
 
 export function removeRemoteFs(option) {
-  const identity = hashOption(option);
+  const identity = connectionIdentity(option);
   const fs = fsTable[identity];
   if (fs !== undefined) {
     fs.end();

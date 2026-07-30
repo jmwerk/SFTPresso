@@ -24,10 +24,16 @@ function createTransferHandle(direction: TransferDirection) {
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
     const scheduler = this.fileService.createTransferScheduler(this.config.concurrency);
+    // cancelling stops the scan too, not just the tasks already queued
+    const walkOption = {
+      walkConcurrency: this.config.concurrency,
+      token: { isCancelled: () => scheduler.isStopped() },
+    };
     let transferConfig;
 
     if (direction === TransferDirection.REMOTE_TO_LOCAL) {
       transferConfig = {
+        ...walkOption,
         srcFsPath: remoteFsPath,
         srcFs: remoteFs,
         targetFsPath: localFsPath,
@@ -37,6 +43,7 @@ function createTransferHandle(direction: TransferDirection) {
       };
     } else {
       transferConfig = {
+        ...walkOption,
         srcFsPath: localFsPath,
         srcFs: localFs,
         targetFsPath: remoteFsPath,
@@ -47,7 +54,6 @@ function createTransferHandle(direction: TransferDirection) {
         transferDirection: TransferDirection.LOCAL_TO_REMOTE,
       };
     }
-    // todo: abort at here. we should stop collect task
     await transfer(transferConfig, t => scheduler.add(t));
     await scheduler.run();
 
@@ -83,6 +89,8 @@ export const sync2Remote = createFileHandler<SyncOption>({
         targetFs: remoteFs,
         transferOption: option,
         transferDirection: TransferDirection.LOCAL_TO_REMOTE,
+        walkConcurrency: this.config.concurrency,
+        token: { isCancelled: () => scheduler.isStopped() },
       },
       t => scheduler.add(t)
     );
@@ -128,6 +136,8 @@ export const sync2Local = createFileHandler<SyncOption>({
         targetFs: localFs,
         transferOption: option,
         transferDirection: TransferDirection.REMOTE_TO_LOCAL,
+        walkConcurrency: this.config.concurrency,
+        token: { isCancelled: () => scheduler.isStopped() },
       },
       t => scheduler.add(t)
     );

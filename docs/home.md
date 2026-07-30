@@ -4,7 +4,7 @@
 
 > **SFTPresso** — SFTP/FTP sync for Visual Studio Code. Actively maintained fork of `vscode-sftp`.
 >
-> - **Publisher:** `jmwerk` · **Current version:** 1.26.2 · **License:** MIT
+> - **Publisher:** `jmwerk` · **Current version:** 1.26.3 · **License:** MIT
 > - **Repository:** https://github.com/jmwerk/SFTPresso
 > - **Requires:** VS Code `^1.64.2`
 > - **Lineage:** forked from [Natizyskunk/vscode-sftp](https://github.com/Natizyskunk/vscode-sftp), which continued [liximomo's original SFTP plugin](https://github.com/liximomo/vscode-sftp) after it went unmaintained.
@@ -582,7 +582,7 @@ Tunes the [Remote Explorer](#using-the-remote-explorer) view.
 ```
 
 #### concurrency
-Maximum simultaneous transfers. Lower it if your server limits concurrent connections/operations.
+Maximum simultaneous transfers. It also bounds how many directory listings the scan of a folder transfer or sync issues at once, so a large tree can't flood a single connection with requests. Lower it if your server limits concurrent connections/operations. FTP always uses `1`.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -596,9 +596,11 @@ Maximum time (ms) to wait when establishing a connection.
 | `connectTimeout` | number | `10000` |
 
 #### limitOpenFilesOnRemote
-Cap the number of file descriptors opened on the remote server. Set `true` for the default limit (222), or a number for a custom limit. Use it if transfers fail with the generic [`Error: Failure`](#error-failure) because the server runs out of descriptors.
+Cap the number of file descriptors opened on the remote server. Set `true` for the default limit (222), or a number for a custom limit (values below 127 are raised to 127). Use it if transfers fail with the generic [`Error: Failure`](#error-failure) because the server runs out of descriptors.
 
 > 💡 **Do not set this unless you have to.**
+
+> ℹ️ Broken between the `ssh2` 1.x upgrade and **1.26.3** — setting it threw `Cannot read properties of undefined (reading 'open')` and no connection could be established. Update to 1.26.3 or later if you need it.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -1047,7 +1049,7 @@ During bulk operations (folder upload/download, sync, project transfers):
 - The **Transfers** view in the SFTP sidebar lists each file with its status (queued / transferring / failed) and an inline **✕** button to cancel just that file.
 - While a file is transferring, its row shows **byte-level progress** in the description — e.g. `42% — 3.1 MB / 7.4 MB`, or just the bytes transferred when the total size isn't known. Updates are throttled to a couple per second per file.
 - A failed transfer keeps its row (marked *failed*) with an inline **↻ Retry** button (`sftp.retryTransfer`). Retrying re-queues just that file with its original direction and options and resets its status to *queued*.
-- `SFTP: Cancel All Transfers` is also available from the Command Palette and the Transfers view title bar.
+- `SFTP: Cancel All Transfers` is also available from the Command Palette and the Transfers view title bar. It stops the directory scan as well as the queued transfers, so cancelling a large folder or project transfer takes effect immediately instead of after the whole tree has been walked.
 
 ### Comparing folders with the remote
 
@@ -1176,6 +1178,9 @@ For historical context (these are already fixed on `develop`):
 - **`TypeError: isDate is not a function`** from `ssh2/lib/protocol/SFTP.js` on upload/download — Node removed `util.isDate`, which `ssh2@1.13.0` still used. Fixed via `patches/ssh2+1.13.0.patch`, applied automatically by `patch-package` on `npm install`.
 - Compile errors on `develop` (missing command-constant imports, `vscode-uri` default-export mismatch, `string`/`URI` type mismatch) — fixed; `npm run compile` succeeds.
 - Test-suite breakage under Jest 28+ and `memfs` stream-close bugs — fixed; all suites pass.
+- **Two different remotes sharing one connection** — the pooled-connection cache keyed entries by concatenating config values with no separators or key names, so configs differing only in an object-valued option (`hop`, `algorithms`, `secureOptions`) collided. Two profiles reaching the same host through different bastions reused a single connection and could transfer to the wrong server. Fixed in 1.26.3: the cache key is a digest of a canonical, key-sorted, type-tagged serialization of the connection options.
+- **[`limitOpenFilesOnRemote`](#limitopenfilesonremote) broke every connection that set it** — the file-descriptor throttle reached into `sftp._stream`, an `ssh2` 0.8 internal that no longer exists since the 1.x upgrade, so enabling the option threw `Cannot read properties of undefined (reading 'open')` at connect time. Fixed in 1.26.3.
+- **Deletions from `syncOption.delete` were fired without being awaited** — they raced the transfers into the same tree and their failures were discarded, so a sync could report success while leaving files on the remote. Fixed in 1.26.3.
 
 ---
 
@@ -1234,9 +1239,20 @@ npm run compile    # production build (esbuild)
 npm run dev        # watch mode for development
 npm run typecheck  # TypeScript type check (tsc --noEmit)
 npm run lint       # ESLint
-npm test           # jest test suites
+npm test           # jest unit suites (no Docker, no network)
 npm run package    # build the .vsix
 ```
+
+Integration tests drive the real client layers against servers in Docker — FTP
+(vsftpd + pure-ftpd) and SFTP (OpenSSH). They are not part of `npm test`:
+
+```sh
+npm run test:integration:up     # generates the throwaway ssh key, starts the containers
+npm run test:integration
+npm run test:integration:down
+```
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md) for what each suite covers.
 
 Highlights of the codebase:
 

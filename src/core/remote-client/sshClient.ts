@@ -170,20 +170,27 @@ export default class SSHClient extends RemoteClient {
   // }
 
   private _limitSftpFileDescriptor() {
-    if (!this.sftp) {
+    const sftp = this.sftp;
+    // ssh2 0.8 kept the protocol object behind `sftp._stream`; since ssh2 1.x
+    // the SFTP instance carries open/opendir/close itself, so the old hook
+    // threw "Cannot read properties of undefined" and broke every connection
+    // that set limitOpenFilesOnRemote.
+    if (
+      !sftp ||
+      typeof sftp.open !== 'function' ||
+      typeof sftp.opendir !== 'function' ||
+      typeof sftp.close !== 'function'
+    ) {
+      logger.warn(
+        'limitOpenFilesOnRemote is not supported by this ssh2 client; continuing without the file-descriptor limit.'
+      );
       return;
     }
 
-    const sftp = this.sftp;
-    sftp._stream.open = this._hookCallForRequestFileDescriptor(
-      sftp._stream.open
-    );
-    sftp._stream.opendir = this._hookCallForRequestFileDescriptor(
-      sftp._stream.opendir
-    );
-    sftp._stream.close = this._hookCallForReleaseFileDescriptor(
-      sftp._stream.close
-    );
+    const { open, opendir, close } = sftp;
+    sftp.open = this._hookCallForRequestFileDescriptor(open);
+    sftp.opendir = this._hookCallForRequestFileDescriptor(opendir);
+    sftp.close = this._hookCallForReleaseFileDescriptor(close);
   }
 
   private _hookCallForReleaseFileDescriptor(fn) {
@@ -324,6 +331,7 @@ export default class SSHClient extends RemoteClient {
       client.sftp((err, sftp) => {
         if (err) {
           reject(err);
+          return;
         }
 
         resolve(sftp);
