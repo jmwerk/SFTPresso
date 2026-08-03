@@ -385,6 +385,10 @@ function mergeProfile(
   return res;
 }
 
+// cache key standing in for "no profile applies", so it can't collide with a
+// real profile name
+const NO_PROFILE_KEY = ' no-profile';
+
 enum Event {
   QUEUE_TRANSFER = 'QUEUE_TRANSFER',
   BEFORE_TRANSFER = 'BEFORE_TRANSFER',
@@ -403,6 +407,13 @@ export default class FileService {
   private _transferSchedulers: TransferScheduler[] = [];
   private _config: FileServiceConfig;
   private _configValidator: ConfigValidator;
+  // resolved configs by profile name. getConfig() is on hot paths (every file
+  // save, every explorer entry), and resolving re-reads the ssh config and the
+  // ignore file every time.
+  private _configCache: Map<string, ServiceConfig> = new Map();
+  // ignore files whose contents we put in the shared app.fsCache while
+  // resolving, so invalidation can drop them too
+  private _cachedIgnoreFiles: Set<string> = new Set();
   private _watcherService: WatcherService = {
     create() {
       /* do nothing  */
@@ -640,12 +651,22 @@ export default class FileService {
     let config = this._config;
     const hasProfile =
       config.profiles && Object.keys(config.profiles).length > 0;
-    if (hasProfile && useProfile) {
-      logger.info(`Using profile: ${useProfile}`);
-      const profile = config.profiles![useProfile];
+    // a profile only matters when the config defines some, so everything else
+    // shares a single cache entry
+    const activeProfile = hasProfile && useProfile ? useProfile : null;
+    const cacheKey = activeProfile === null ? NO_PROFILE_KEY : activeProfile;
+
+    const cached = this._configCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    if (activeProfile) {
+      logger.info(`Using profile: ${activeProfile}`);
+      const profile = config.profiles![activeProfile];
       if (!profile) {
         throw new Error(
-          `Unkown Profile "${useProfile}".` +
+          `Unkown Profile "${activeProfile}".` +
             ' Please check your profile setting.' +
             ' You can set a profile by running command `SFTP: Set Profile`.'
         );
@@ -661,10 +682,27 @@ export default class FileService {
       if (hasProfile && app.state.profile == null) {
         errorMsg += ' You might want to set a profile first.';
       }
+      // never cache a failure -- it has to surface on every call
       throw new Error(errorMsg);
     }
 
-    return this._resolveServiceConfig(completeConfig);
+    const serviceConfig = this._resolveServiceConfig(completeConfig);
+    if (serviceConfig.ignoreFile) {
+      this._cachedIgnoreFiles.add(serviceConfig.ignoreFile);
+    }
+    this._configCache.set(cacheKey, serviceConfig);
+
+    return serviceConfig;
+  }
+
+  // drop the memoized configs so the next getConfig() resolves from scratch.
+  // Call this whenever the config, or a file it points at, can have changed.
+  invalidateConfigCache() {
+    this._configCache.clear();
+    // ignore file contents live in the shared fs cache, so they'd otherwise
+    // survive and get re-used by the freshly resolved config
+    this._cachedIgnoreFiles.forEach(ignoreFile => app.fsCache.delete(ignoreFile));
+    this._cachedIgnoreFiles.clear();
   }
 
   getAllConfig(): Array<ServiceConfig> {
@@ -681,6 +719,7 @@ export default class FileService {
   // full reload (callers are responsible for persisting the change to disk)
   setConfigValue(key: keyof FileServiceConfig, value: any) {
     (this._config as any)[key] = value;
+    this.invalidateConfigCache();
   }
 
   dispose() {

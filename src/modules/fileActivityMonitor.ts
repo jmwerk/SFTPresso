@@ -27,7 +27,13 @@ async function handleConfigSave(uri: vscode.Uri) {
   const workspacePath = workspaceFolder.uri.fsPath;
 
   // dispose old service
-  findAllFileService(service => service.workspace === workspacePath).forEach(disposeFileService);
+  findAllFileService(service => service.workspace === workspacePath).forEach(service => {
+    disposeFileService(service);
+    // disposing resolves the config one last time, so clear afterwards: the
+    // services created below get a fresh read of the config and of any ignore
+    // file it points at
+    service.invalidateConfigCache();
+  });
 
   // create new service
   try {
