@@ -677,6 +677,25 @@ A reconnect is reported at info level, so that line appears whether or not `sftp
 
 > ℹ️ The check happens when the connection is *reused*, not on a timer, so it can never interrupt a transfer that is still running — a long upload keeps the connection busy and healthy, and a live connection simply answers the probe. The trade-off is that the socket stays open while idle rather than being closed proactively; if your host counts concurrent connections rather than dropping idle ones, this option won't help with that.
 
+#### stallTimeout
+Covers the other half of the problem [`idleTimeout`](#idletimeout) solves. `idleTimeout` catches a connection that died *between* operations; `stallTimeout` catches one that dies *during* a transfer, where there is no error to react to — the bytes simply stop and the upload waits forever.
+
+With `stallTimeout` set, a transfer that goes that many milliseconds without a single byte moving is failed rather than waited on. The failure is classified the same way a dropped connection is, so [`retry`](#retry) picks it up and runs the transfer again instead of surfacing an error.
+
+The clock resets on every chunk, so this measures *stalling*, not total duration — a large file crawling over a slow link keeps resetting the timer and is never interrupted. Set it well above the longest pause you'd expect from a healthy transfer; 30–60 seconds is a reasonable starting point.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `stallTimeout` | number | `0` (wait indefinitely) |
+
+```jsonc
+{
+  // give up on a transfer that hasn't moved a byte in 30 seconds
+  "stallTimeout": 30000,
+  "retry": { "attempts": 2 }
+}
+```
+
 ### SFTP-only options
 
 #### agent

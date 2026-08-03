@@ -600,3 +600,52 @@ describe('probe', () => {
     expect(outcome).toBe('hung');
   });
 });
+
+// The stall watchdog behind `stallTimeout`. The unit tests drive onProgress by
+// hand; what they cannot show is whether a real transfer reports progress often
+// enough to keep the deadline pushed out. If ssh2 only reported at the end, a
+// perfectly healthy upload would be killed, so prove it against a real server.
+describe('stallTimeout', () => {
+  let sftp: SFTPFileSystem;
+
+  beforeAll(async () => {
+    sftp = await connectSftp();
+  });
+
+  afterAll(() => {
+    if (sftp) sftp.end();
+  });
+
+  test('a healthy multi-megabyte upload is never cut off by a short timeout', async () => {
+    const dir = uniqueDir();
+    await sftp.ensureDir(dir);
+    const blob = randomBytes(8 * 1024 * 1024);
+    const local = localFile('stall/big.bin', blob);
+    const remote = upath.join(dir, 'big.bin');
+
+    const stat = await localFs.lstat(local);
+    const task = new TransferTask(
+      { fsPath: local, fileSystem: localFs },
+      { fsPath: remote, fileSystem: sftp },
+      {
+        fileType: FileType.File,
+        transferDirection: TransferDirection.LOCAL_TO_REMOTE,
+        transferOption: {
+          atime: stat.atime,
+          mtime: stat.mtime,
+          perserveTargetMode: false,
+          size: stat.size,
+        },
+      }
+    );
+    // deliberately tight: a transfer that only reported progress at the end
+    // would trip this well before it finished
+    task.stallTimeout = 2000;
+
+    await expect(task.run()).resolves.toBeUndefined();
+    expect(Buffer.compare(await download(sftp, remote), blob)).toBe(0);
+    expect(task.transferredBytes).toBe(blob.length);
+
+    await sftp.rmdir(dir, true);
+  });
+});

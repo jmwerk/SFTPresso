@@ -60,6 +60,8 @@ interface ServiceOption {
   retry: RetryOption;
   // ms of inactivity after which a pooled connection is checked before reuse
   idleTimeout: number;
+  // ms without progress before a transfer is treated as stalled
+  stallTimeout: number;
 }
 
 export interface RetryOption {
@@ -187,6 +189,8 @@ function getHostInfo(config) {
     'sshConfigPath',
     // reuse policy, not part of which remote this is -- see ConnectionPolicy
     'idleTimeout',
+    // transfer policy, likewise
+    'stallTimeout',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -503,7 +507,8 @@ export default class FileService {
 
   createTransferScheduler(
     concurrency,
-    retryOption: RetryOption = DEFAULT_RETRY_OPTION
+    retryOption: RetryOption = DEFAULT_RETRY_OPTION,
+    stallTimeout: number = 0
   ): TransferScheduler {
     const fileService = this;
     const { attempts: maxRetries, delay: retryBaseDelay } = {
@@ -525,6 +530,8 @@ export default class FileService {
 
     scheduler.onTaskStart(task => {
       const transferTask = task as TransferTask;
+      // emitted synchronously before run(), so the task is armed in time
+      transferTask.stallTimeout = stallTimeout;
       this._pendingTransferTasks.add(transferTask);
       transferTask.setProgressListener(() =>
         this._eventEmitter.emit(Event.PROGRESS_TRANSFER, transferTask)
