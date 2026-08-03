@@ -387,7 +387,7 @@ function mergeProfile(
 
 // cache key standing in for "no profile applies", so it can't collide with a
 // real profile name
-const NO_PROFILE_KEY = ' no-profile';
+const NO_PROFILE_KEY = '\u0000no-profile';
 
 enum Event {
   QUEUE_TRANSFER = 'QUEUE_TRANSFER',
