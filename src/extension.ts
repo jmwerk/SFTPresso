@@ -60,7 +60,14 @@ export async function activate(context: vscode.ExtensionContext) {
   app.sftpBarItem.show();
   app.connectionBarItem.show();
   context.subscriptions.push(app.connectionBarItem);
-  app.state.subscribe(_ => {
+  let lastProfile = app.state.profile;
+  app.state.subscribe(state => {
+    if (state.profile !== lastProfile) {
+      lastProfile = state.profile;
+      // the active profile decides which config a service resolves to
+      getAllFileService().forEach(service => service.invalidateConfigCache());
+    }
+
     const currentText = app.sftpBarItem.getText();
     // current is showing profile
     if (currentText.startsWith('SFTP')) {

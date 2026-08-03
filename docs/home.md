@@ -4,7 +4,7 @@
 
 > **SFTPresso** — SFTP/FTP sync for Visual Studio Code. Actively maintained fork of `vscode-sftp`.
 >
-> - **Publisher:** `jmwerk` · **Current version:** 1.26.4 · **License:** MIT
+> - **Publisher:** `jmwerk` · **Current version:** 1.27.0 · **License:** MIT
 > - **Repository:** https://github.com/jmwerk/SFTPresso
 > - **Requires:** VS Code `^1.64.2`
 > - **Lineage:** forked from [Natizyskunk/vscode-sftp](https://github.com/Natizyskunk/vscode-sftp), which continued [liximomo's original SFTP plugin](https://github.com/liximomo/vscode-sftp) after it went unmaintained.
@@ -620,6 +620,29 @@ Reference a connection defined in User Settings under `remotefs.remote` instead 
 | Key | Type |
 | --- | --- |
 | `remote` | string |
+
+#### retry
+Automatically re-runs a transfer that failed with a transient error — a dropped or reset connection, a timeout, a closed SSH channel, or an FTP 4xx reply. Failures that would fail the same way every time (permission denied, file not found, FTP 5xx) are never retried.
+
+Each retry waits `delay × 2ⁿ` milliseconds, capped at 15 seconds — with the defaults that's 2s, then 4s. Set `attempts` to `0` to turn retrying off.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `retry` | object | `{ "attempts": 2, "delay": 1000 }` |
+
+| Sub-option | Type | Effect |
+| --- | --- | --- |
+| `retry.attempts` | number | How many extra attempts a failed transfer gets (default `2`). |
+| `retry.delay` | number | Base backoff in ms, doubled on every attempt (default `1000`). |
+
+```json
+{
+  "retry": {
+    "attempts": 3,
+    "delay": 2000
+  }
+}
+```
 
 ### SFTP-only options
 

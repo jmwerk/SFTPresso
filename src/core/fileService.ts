@@ -12,7 +12,7 @@ import Ignore from './ignore';
 import { FileSystem } from './fs';
 import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
-import TransferTask from './transferTask';
+import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
 
 type Omit<T, U> = Pick<T, Exclude<keyof T, U>>;
@@ -57,6 +57,14 @@ interface ServiceOption {
   };
   remoteTimeOffsetInHours: number;
   limitOpenFilesOnRemote: number | true;
+  retry: RetryOption;
+}
+
+export interface RetryOption {
+  // how many extra attempts a failed transfer gets
+  attempts: number;
+  // base backoff in ms, doubled on every attempt
+  delay: number;
 }
 
 interface WatcherConfig {
@@ -122,6 +130,18 @@ interface TransferScheduler {
 type ConfigValidator = (x: any) => { message: string } | undefined;
 
 const DEFAULT_SSHCONFIG_FILE = '~/.ssh/config';
+
+export const DEFAULT_RETRY_OPTION: RetryOption = { attempts: 2, delay: 1000 };
+
+// however long the backoff grows to, never make the user wait longer than this
+// between attempts
+const MAX_RETRY_DELAY = 15 * 1000;
+
+// Backoff before retry number `attempt` (1 for the first retry). With the
+// default base delay that gives 2s, 4s, 8s, ... capped at 15s.
+export function getRetryDelay(attempt: number, baseDelay: number): number {
+  return Math.min(baseDelay * 2 ** attempt, MAX_RETRY_DELAY);
+}
 
 function filesIgnoredFromConfig(config: FileServiceConfig): string[] {
   const cache = app.fsCache;
@@ -365,6 +385,10 @@ function mergeProfile(
   return res;
 }
 
+// cache key standing in for "no profile applies", so it can't collide with a
+// real profile name
+const NO_PROFILE_KEY = '\u0000no-profile';
+
 enum Event {
   QUEUE_TRANSFER = 'QUEUE_TRANSFER',
   BEFORE_TRANSFER = 'BEFORE_TRANSFER',
@@ -383,6 +407,13 @@ export default class FileService {
   private _transferSchedulers: TransferScheduler[] = [];
   private _config: FileServiceConfig;
   private _configValidator: ConfigValidator;
+  // resolved configs by profile name. getConfig() is on hot paths (every file
+  // save, every explorer entry), and resolving re-reads the ssh config and the
+  // ignore file every time.
+  private _configCache: Map<string, ServiceConfig> = new Map();
+  // ignore files whose contents we put in the shared app.fsCache while
+  // resolving, so invalidation can drop them too
+  private _cachedIgnoreFiles: Set<string> = new Set();
   private _watcherService: WatcherService = {
     create() {
       /* do nothing  */
@@ -466,12 +497,28 @@ export default class FileService {
     this._eventEmitter.on(Event.PROGRESS_TRANSFER, listener);
   }
 
-  createTransferScheduler(concurrency): TransferScheduler {
+  createTransferScheduler(
+    concurrency,
+    retryOption: RetryOption = DEFAULT_RETRY_OPTION
+  ): TransferScheduler {
     const fileService = this;
+    const { attempts: maxRetries, delay: retryBaseDelay } = {
+      ...DEFAULT_RETRY_OPTION,
+      ...retryOption,
+    };
     const scheduler = new Scheduler({
       autoStart: false,
       concurrency,
     });
+
+    // tasks waiting out their backoff, with the failure that put them there.
+    // They are in neither the queue nor the pending set, so the scheduler can go
+    // idle while they wait -- we hold the run() promise open for them instead.
+    const retryTimers = new Map<
+      TransferTask,
+      { timer: ReturnType<typeof setTimeout>; error: Error }
+    >();
+
     scheduler.onTaskStart(task => {
       const transferTask = task as TransferTask;
       this._pendingTransferTasks.add(transferTask);
@@ -481,20 +528,80 @@ export default class FileService {
       this._eventEmitter.emit(Event.BEFORE_TRANSFER, task);
     });
     scheduler.onTaskDone((err, task) => {
-      this._pendingTransferTasks.delete(task as TransferTask);
+      const transferTask = task as TransferTask;
+      this._pendingTransferTasks.delete(transferTask);
+
+      if (
+        err &&
+        !isStopped &&
+        !transferTask.isCancelled() &&
+        transferTask.attempts < maxRetries &&
+        isRetryable(err)
+      ) {
+        transferTask.reset();
+        transferTask.attempts += 1;
+        const delay = getRetryDelay(transferTask.attempts, retryBaseDelay);
+        logger.warn(
+          `${transferTask.transferType} ${transferTask.localFsPath} failed` +
+            ` (${err.message}), retrying in ${delay}ms` +
+            ` (attempt ${transferTask.attempts} of ${maxRetries})`
+        );
+        const timer = setTimeout(() => {
+          retryTimers.delete(transferTask);
+          if (isStopped) {
+            // nothing left to run this task; let run() settle
+            finishRun();
+            return;
+          }
+          scheduler.add(transferTask);
+        }, delay);
+        retryTimers.set(transferTask, { timer, error: err });
+        return;
+      }
+
       this._eventEmitter.emit(Event.AFTER_TRANSFER, err, task);
-      (task as TransferTask).dispose();
+      transferTask.dispose();
     });
 
     let runningPromise: Promise<void> | null = null;
+    let resolveRunning: (() => void) | null = null;
     let isStopped: boolean = false;
+
+    // settle run(), but only once every task (including ones sitting in a
+    // backoff) is accounted for
+    function finishRun() {
+      if (!resolveRunning || retryTimers.size > 0) {
+        return;
+      }
+
+      const resolve = resolveRunning;
+      resolveRunning = null;
+      runningPromise = null;
+      fileService._removeScheduler(transferScheduler);
+      resolve();
+    }
+
     const transferScheduler: TransferScheduler = {
       get size() {
         return scheduler.size;
       },
       stop() {
         isStopped = true;
+        // a task mid-backoff will never run again, so cancel it and let it
+        // report as cancelled -- otherwise it would hang around forever in the
+        // Transfers view and the progress counters
+        const abandoned = Array.from(retryTimers.entries());
+        retryTimers.clear();
+        abandoned.forEach(([task, { timer, error }]) => {
+          clearTimeout(timer);
+          task.cancel();
+          fileService._eventEmitter.emit(Event.AFTER_TRANSFER, error, task);
+          task.dispose();
+        });
         scheduler.empty();
+        if (scheduler.pendingCount <= 0) {
+          finishRun();
+        }
       },
       isStopped() {
         return isStopped;
@@ -519,11 +626,8 @@ export default class FileService {
 
         if (!runningPromise) {
           runningPromise = new Promise(resolve => {
-            scheduler.onIdle(() => {
-              runningPromise = null;
-              fileService._removeScheduler(transferScheduler);
-              resolve();
-            });
+            resolveRunning = resolve;
+            scheduler.onIdle(finishRun);
             scheduler.start();
           });
         }
@@ -547,12 +651,22 @@ export default class FileService {
     let config = this._config;
     const hasProfile =
       config.profiles && Object.keys(config.profiles).length > 0;
-    if (hasProfile && useProfile) {
-      logger.info(`Using profile: ${useProfile}`);
-      const profile = config.profiles![useProfile];
+    // a profile only matters when the config defines some, so everything else
+    // shares a single cache entry
+    const activeProfile = hasProfile && useProfile ? useProfile : null;
+    const cacheKey = activeProfile === null ? NO_PROFILE_KEY : activeProfile;
+
+    const cached = this._configCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    if (activeProfile) {
+      logger.info(`Using profile: ${activeProfile}`);
+      const profile = config.profiles![activeProfile];
       if (!profile) {
         throw new Error(
-          `Unkown Profile "${useProfile}".` +
+          `Unkown Profile "${activeProfile}".` +
             ' Please check your profile setting.' +
             ' You can set a profile by running command `SFTP: Set Profile`.'
         );
@@ -568,10 +682,27 @@ export default class FileService {
       if (hasProfile && app.state.profile == null) {
         errorMsg += ' You might want to set a profile first.';
       }
+      // never cache a failure -- it has to surface on every call
       throw new Error(errorMsg);
     }
 
-    return this._resolveServiceConfig(completeConfig);
+    const serviceConfig = this._resolveServiceConfig(completeConfig);
+    if (serviceConfig.ignoreFile) {
+      this._cachedIgnoreFiles.add(serviceConfig.ignoreFile);
+    }
+    this._configCache.set(cacheKey, serviceConfig);
+
+    return serviceConfig;
+  }
+
+  // drop the memoized configs so the next getConfig() resolves from scratch.
+  // Call this whenever the config, or a file it points at, can have changed.
+  invalidateConfigCache() {
+    this._configCache.clear();
+    // ignore file contents live in the shared fs cache, so they'd otherwise
+    // survive and get re-used by the freshly resolved config
+    this._cachedIgnoreFiles.forEach(ignoreFile => app.fsCache.delete(ignoreFile));
+    this._cachedIgnoreFiles.clear();
   }
 
   getAllConfig(): Array<ServiceConfig> {
@@ -588,6 +719,7 @@ export default class FileService {
   // full reload (callers are responsible for persisting the change to disk)
   setConfigValue(key: keyof FileServiceConfig, value: any) {
     (this._config as any)[key] = value;
+    this.invalidateConfigCache();
   }
 
   dispose() {

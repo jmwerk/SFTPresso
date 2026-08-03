@@ -2,8 +2,9 @@ import { Uri, EventEmitter } from 'vscode';
 import * as path from 'path';
 import app from '../../app';
 import logger from '../../logger';
-import { simplifyPath, reportError } from '../../helper';
-import { getActiveTextEditor } from '../../host';
+import { simplifyPath } from '../../helper';
+import { getActiveTextEditor, showErrorMessage } from '../../host';
+import * as output from '../../ui/output';
 import { formatBytes } from '../../utils';
 import { UResource, FileService, TransferTask } from '../../core';
 import { validateConfig } from '../config';
@@ -59,6 +60,37 @@ function updateTransferProgress() {
 
   app.transferBarItem.showMsg(message);
   app.transferBarItem.show();
+}
+
+// A failed batch would otherwise pop one modal per file. Collect failures for a
+// short window and show a single message pointing at the output channel, where
+// every failure is logged in full.
+const FAILURE_REPORT_WINDOW = 2000;
+
+let failureCount = 0;
+let failureReportTimer: ReturnType<typeof setTimeout> | null = null;
+
+function reportTransferFailure(error: Error, context: string) {
+  logger.error(error instanceof Error ? `${error.stack}` : `${error}`, context);
+
+  failureCount += 1;
+  if (failureReportTimer) {
+    return;
+  }
+
+  failureReportTimer = setTimeout(() => {
+    const count = failureCount;
+    failureReportTimer = null;
+    failureCount = 0;
+
+    const message =
+      count === 1 ? '1 file failed to transfer' : `${count} files failed to transfer`;
+    showErrorMessage(message, 'Show Log').then(result => {
+      if (result === 'Show Log') {
+        output.show();
+      }
+    });
+  }, FAILURE_REPORT_WINDOW);
 }
 
 const serviceManager = new Trie<FileService>(
@@ -218,9 +250,7 @@ export function createFileService(config: any, workspace: string) {
       logger.info(`cancel transfer ${localFsPath}`);
       app.sftpBarItem.showMsg(`cancelled ${filename}`, filepath, 2000 * 2);
     } else if (error) {
-      // if ((error as any).reported !== true) {
-      reportError(error, `when ${transferType} ${localFsPath}`);
-      // }
+      reportTransferFailure(error, `when ${transferType} ${localFsPath}`);
       app.sftpBarItem.showMsg(`failed ${filename}`, filepath, 2000 * 2);
     } else {
       logger.info(`${transferType} ${localFsPath}`);

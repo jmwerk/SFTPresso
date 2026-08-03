@@ -147,6 +147,26 @@
         "enum": ["number", true],
         "description": "Limit the open file descriptors to the specific number in a remote server. Set to true for using default limit(222). Do not set this unless you have to.",
         "default": true
+      },
+      "retry": {
+        "type": "object",
+        "description": "Automatically retry a transfer that fails with a transient error (dropped connection, timeout, FTP 4xx). Permission and not-found failures are never retried.",
+        "properties": {
+          "attempts": {
+            "type": "number",
+            "description": "How many extra attempts a failed transfer gets. Set to 0 to disable retrying.",
+            "default": 2
+          },
+          "delay": {
+            "type": "number",
+            "description": "Base backoff in milliseconds. It doubles on every attempt, up to 15000ms.",
+            "default": 1000
+          }
+        },
+        "default": {
+          "attempts": 2,
+          "delay": 1000
+        }
       }
     }
   },
