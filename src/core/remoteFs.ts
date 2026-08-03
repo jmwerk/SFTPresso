@@ -140,7 +140,8 @@ class KeepAliveRemoteFs {
       return false;
     }
 
-    if (Date.now() - this.lastUsedAt < idleTimeout) {
+    const idleFor = Date.now() - this.lastUsedAt;
+    if (idleFor < idleTimeout) {
       return false;
     }
 
@@ -148,6 +149,12 @@ class KeepAliveRemoteFs {
       option.connectTimeout && option.connectTimeout > 0
         ? option.connectTimeout
         : DEFAULT_PROBE_TIMEOUT;
+
+    // On the happy path this check is completely invisible -- a healthy server
+    // answers in a millisecond and nothing about the operation changes -- which
+    // makes "it is working" and "it is not wired up" look identical. Trace both
+    // outcomes so the option can be confirmed active from the output channel.
+    logger.debug(`probing connection after ${idleFor}ms idle (timeout ${timeout}ms)`);
 
     let timer: NodeJS.Timeout | undefined;
     try {
@@ -166,11 +173,11 @@ class KeepAliveRemoteFs {
           );
         }),
       ]);
+      logger.debug('probe answered, reusing the connection');
       return false;
     } catch (err) {
       logger.info(
-        `reconnecting: ${(err as Error).message} ` +
-          `(idle for ${Date.now() - this.lastUsedAt}ms)`
+        `reconnecting: ${(err as Error).message} (idle for ${idleFor}ms)`
       );
       return true;
     } finally {

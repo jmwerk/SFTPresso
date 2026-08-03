@@ -662,6 +662,19 @@ Set it a little under whatever your host allows. If it drops connections after 5
 }
 ```
 
+When the check passes there is nothing to see — a healthy server answers instantly and the operation carries on unchanged — so a working `idleTimeout` looks exactly like one that isn't wired up. To confirm it's active, turn on the `sftp.debug` setting and watch the **SFTP** output channel:
+
+```
+[debug] probing connection after 301204ms idle (timeout 10000ms)
+[debug] probe answered, reusing the connection
+```
+
+A reconnect is reported at info level, so that line appears whether or not `sftp.debug` is on:
+
+```
+[info] reconnecting: idle connection did not answer in 10000ms (idle for 301204ms)
+```
+
 > ℹ️ The check happens when the connection is *reused*, not on a timer, so it can never interrupt a transfer that is still running — a long upload keeps the connection busy and healthy, and a live connection simply answers the probe. The trade-off is that the socket stays open while idle rather than being closed proactively; if your host counts concurrent connections rather than dropping idle ones, this option won't help with that.
 
 ### SFTP-only options
