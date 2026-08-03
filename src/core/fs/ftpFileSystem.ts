@@ -118,6 +118,16 @@ export default class FTPFileSystem extends RemoteFileSystem {
     return this.getClient().getFsClient();
   }
 
+  // NOOP is the protocol's own "are you still there". It goes through the same
+  // queue as everything else -- basic-ftp runs one task at a time and rejects
+  // concurrent calls with "Client is busy", so probing off-queue would fail on
+  // a perfectly healthy connection that happens to be mid-transfer.
+  probe(): Promise<void> {
+    return this.atomic(async () => {
+      await this.ftp.send('NOOP');
+    });
+  }
+
   private atomic<T>(task: () => Promise<T>): Promise<T> {
     const result = this._taskQueue.then(task, task);
     this._taskQueue = result.then(

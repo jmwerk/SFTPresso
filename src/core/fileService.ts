@@ -58,6 +58,8 @@ interface ServiceOption {
   remoteTimeOffsetInHours: number;
   limitOpenFilesOnRemote: number | true;
   retry: RetryOption;
+  // ms of inactivity after which a pooled connection is checked before reuse
+  idleTimeout: number;
 }
 
 export interface RetryOption {
@@ -183,6 +185,8 @@ function getHostInfo(config) {
     'concurrency',
     'syncOption',
     'sshConfigPath',
+    // reuse policy, not part of which remote this is -- see ConnectionPolicy
+    'idleTimeout',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -644,7 +648,9 @@ export default class FileService {
   }
 
   getRemoteFileSystem(config: ServiceConfig): Promise<FileSystem> {
-    return createRemoteIfNoneExist(getHostInfo(config));
+    return createRemoteIfNoneExist(getHostInfo(config), {
+      idleTimeout: config.idleTimeout,
+    });
   }
 
   getConfig(useProfile = app.state.profile): ServiceConfig {

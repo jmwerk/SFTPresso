@@ -64,6 +64,12 @@ export default abstract class RemoteFileSystem extends FileSystem {
     this.client.onDisconnected(cb);
   }
 
+  // A cheap round-trip that tells a live connection apart from one the server
+  // has dropped without telling us. Resolves when the remote answers, rejects
+  // when it refuses, and simply never settles on a half-open socket -- callers
+  // are expected to race it against a timeout.
+  abstract probe(): Promise<void>;
+
   end() {
     this.client.end();
   }

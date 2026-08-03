@@ -70,6 +70,10 @@ const configScheme = Joi.object({
       .min(0),
   },
 
+  idleTimeout: Joi.number()
+    .integer()
+    .min(0),
+
   syncOption: {
     delete: Joi.boolean(),
     skipCreate: Joi.boolean(),
@@ -112,6 +116,10 @@ const defaultConfig = {
     attempts: 2,
     delay: 1000,
   },
+
+  // ms of inactivity after which a pooled connection is checked before it is
+  // reused. 0 keeps the existing behaviour of reusing it unchecked.
+  idleTimeout: 0,
 
   protocol: 'sftp',
 

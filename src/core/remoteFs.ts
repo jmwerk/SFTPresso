@@ -13,6 +13,20 @@ import {
 import localFs from './localFs';
 import { connectionIdentity } from './connectionIdentity';
 
+// Fallback when the config carries no connectTimeout to size the probe from.
+const DEFAULT_PROBE_TIMEOUT = 10 * 1000;
+
+// Policy that governs how a pooled connection is reused. Deliberately kept out
+// of the connection options, and so out of connectionIdentity(): these knobs
+// describe how we treat a connection, not which remote it points at, and
+// folding them into the identity would open a second connection to the same
+// server whenever one of them changed.
+export interface ConnectionPolicy {
+  // ms of inactivity after which a pooled connection is probed before reuse.
+  // 0 (the default) disables the check and reuses the connection blindly.
+  idleTimeout?: number;
+}
+
 class KeepAliveRemoteFs {
   private isValid: boolean = false;
 
@@ -22,16 +36,26 @@ class KeepAliveRemoteFs {
 
   private fs: RemoteFileSystem;
 
+  // when this connection was last handed out, for the idle check below
+  private lastUsedAt: number = 0;
+
   constructor(private readonly id: string) {}
 
   async getFs(
     option: ConnectOption & {
       protocol: string;
       remoteTimeOffsetInHours: number;
-    }
+    },
+    policy: ConnectionPolicy = {}
   ): Promise<RemoteFileSystem> {
+    if (this.isValid && (await this.isStale(policy, option))) {
+      // drops the connection and leaves isValid false, so we reconnect below
+      this.invalid('idle');
+    }
+
     if (this.isValid) {
       this.pendingPromise = null;
+      this.lastUsedAt = Date.now();
       return Promise.resolve(this.fs);
     }
 
@@ -83,6 +107,7 @@ class KeepAliveRemoteFs {
           app.sftpBarItem.reset();
           this.isValid = true;
           this.hasConnected = true;
+          this.lastUsedAt = Date.now();
           app.connectionBarItem.setState(this.id, ConnectionState.Connected);
           return this.fs;
         },
@@ -94,6 +119,63 @@ class KeepAliveRemoteFs {
       );
 
     return this.pendingPromise;
+  }
+
+  // Whether the pooled connection has been sitting long enough that it may have
+  // been closed underneath us, verified by asking the server.
+  //
+  // Only the *reuse* path is guarded, deliberately. A background timer would
+  // have to close the connection while nothing is watching, and nothing here
+  // knows whether a transfer is still running on it -- getFs() is called once
+  // per command, not per operation, so a long upload looks identical to an idle
+  // connection from the outside. Probing on the way out instead means a live
+  // connection simply answers and is handed straight back, and only one that
+  // has actually gone away is dropped.
+  private async isStale(
+    policy: ConnectionPolicy,
+    option: ConnectOption
+  ): Promise<boolean> {
+    const idleTimeout = policy.idleTimeout || 0;
+    if (idleTimeout <= 0 || this.lastUsedAt === 0) {
+      return false;
+    }
+
+    if (Date.now() - this.lastUsedAt < idleTimeout) {
+      return false;
+    }
+
+    const timeout =
+      option.connectTimeout && option.connectTimeout > 0
+        ? option.connectTimeout
+        : DEFAULT_PROBE_TIMEOUT;
+
+    let timer: NodeJS.Timeout | undefined;
+    try {
+      const probe = this.fs.probe();
+      // A half-open socket never answers, so the probe can stay pending for
+      // good; keep its eventual rejection from surfacing as an unhandled one
+      // once the race below has already been decided against it.
+      probe.catch(() => undefined);
+
+      await Promise.race([
+        probe,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`idle connection did not answer in ${timeout}ms`)),
+            timeout
+          );
+        }),
+      ]);
+      return false;
+    } catch (err) {
+      logger.info(
+        `reconnecting: ${(err as Error).message} ` +
+          `(idle for ${Date.now() - this.lastUsedAt}ms)`
+      );
+      return true;
+    } finally {
+      clearTimeout(timer as NodeJS.Timeout);
+    }
   }
 
   invalid(reason: string, err?: Error) {
@@ -123,7 +205,10 @@ const fsTable: {
   [x: string]: KeepAliveRemoteFs;
 } = {};
 
-export function createRemoteIfNoneExist(option): Promise<FileSystem> {
+export function createRemoteIfNoneExist(
+  option,
+  policy: ConnectionPolicy = {}
+): Promise<FileSystem> {
   if (option.protocol === 'local') {
     return getLocalFs();
   }
@@ -131,12 +216,12 @@ export function createRemoteIfNoneExist(option): Promise<FileSystem> {
   const identity = connectionIdentity(option);
   const fs = fsTable[identity];
   if (fs !== undefined) {
-    return fs.getFs(option);
+    return fs.getFs(option, policy);
   }
 
   const fsInstance = new KeepAliveRemoteFs(identity);
   fsTable[identity] = fsInstance;
-  return fsInstance.getFs(option);
+  return fsInstance.getFs(option, policy);
 }
 
 export function removeRemoteFs(option) {

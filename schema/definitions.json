@@ -167,6 +167,11 @@
           "attempts": 2,
           "delay": 1000
         }
+      },
+      "idleTimeout": {
+        "type": "number",
+        "description": "Milliseconds of inactivity after which the pooled connection is checked with a cheap round-trip before it is reused, reconnecting if the server has closed it in the meantime. Useful against hosts that drop idle connections, which otherwise leave the next operation hanging. 0 (the default) reuses the connection unchecked.",
+        "default": 0
       }
     }
   },
