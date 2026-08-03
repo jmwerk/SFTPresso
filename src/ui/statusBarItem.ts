@@ -138,6 +138,14 @@ export default class StatusBarItem {
   }
 
   reset() {
+    // a pending hide-timer from showMsg() has nothing left to hide once we are
+    // back to the default text, and would otherwise re-render over whatever
+    // state replaced it
+    if (this.resetTimer) {
+      clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+
     this.text = this.name;
     this.statusBarItem.tooltip = this.tooltip;
     this.statusBarItem.command = this.command;
