@@ -1,7 +1,27 @@
 import { FileEntry, FileSystem, FileType } from '../core';
+import { createLimiter, Limiter } from '../utils';
 import { FileHandlerContext } from './createFileHandler';
 
 export type CompareStatus = 'same' | 'modified' | 'localOnly' | 'remoteOnly';
+
+// Consulted while the tree is being walked so that dismissing the progress
+// notification stops the scan. Mirrors TransferCancellationToken in
+// transfer/transfer.ts.
+export interface CompareCancellationToken {
+  isCancelled(): boolean;
+}
+
+// matches `concurrency` in the config defaults; FTP resolves to 1 upstream
+const DEFAULT_WALK_CONCURRENCY = 4;
+
+interface WalkContext {
+  localFs: FileSystem;
+  remoteFs: FileSystem;
+  // shared by the whole walk, so the fan-out below stays bounded across both
+  // filesystems
+  limiter: Limiter;
+  token?: CompareCancellationToken;
+}
 
 export interface CompareResult {
   relativePath: string;
@@ -28,16 +48,20 @@ function toHash(entries: FileEntry[]): { [name: string]: FileEntry } {
 }
 
 async function walk(
-  localFs: FileSystem,
-  remoteFs: FileSystem,
+  ctx: WalkContext,
   localDir: string,
   remoteDir: string,
   relativeDir: string,
   results: CompareResult[]
 ): Promise<void> {
+  if (ctx.token && ctx.token.isCancelled()) {
+    return;
+  }
+
+  const { localFs, remoteFs, limiter } = ctx;
   const [localEntries, remoteEntries] = await Promise.all([
-    localFs.list(localDir).catch(() => []),
-    remoteFs.list(remoteDir).catch(() => []),
+    limiter(() => localFs.list(localDir)).catch(() => []),
+    limiter(() => remoteFs.list(remoteDir)).catch(() => []),
   ]);
 
   const localTable = toHash(localEntries);
@@ -96,18 +120,42 @@ async function walk(
     }
   }
 
-  for (const dir of subDirs) {
-    await walk(localFs, remoteFs, dir.localFsPath, dir.remoteFsPath, dir.relativePath, results);
-  }
+  // Subtrees are walked concurrently; `limiter` above is what keeps the number
+  // of listings in flight bounded. Recursion itself is deliberately not
+  // limited — a parent holding a slot while it waits on its children would
+  // deadlock.
+  await Promise.all(
+    subDirs.map(dir =>
+      walk(ctx, dir.localFsPath, dir.remoteFsPath, dir.relativePath, results)
+    )
+  );
 }
 
-export async function compareFolders(ctx: FileHandlerContext): Promise<CompareResult[]> {
+export async function compareFolders(
+  ctx: FileHandlerContext,
+  token?: CompareCancellationToken
+): Promise<CompareResult[]> {
   const remoteFs = await ctx.fileService.getRemoteFileSystem(ctx.config);
   const localFs = ctx.fileService.getLocalFileSystem();
   const { localFsPath, remoteFsPath } = ctx.target;
 
   const results: CompareResult[] = [];
-  await walk(localFs, remoteFs, localFsPath, remoteFsPath, '', results);
-  results.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  const walkCtx: WalkContext = {
+    localFs,
+    remoteFs,
+    limiter: createLimiter(ctx.config.concurrency || DEFAULT_WALK_CONCURRENCY),
+    token,
+  };
+  await walk(walkCtx, localFsPath, remoteFsPath, '', results);
+  // `results` now arrives in completion order rather than depth-first order, so
+  // this sort is what makes the output deterministic. localeCompare can rank
+  // two distinct paths equal (canonically equivalent accents, ignorable
+  // characters), which a stable sort would then leave in arrival order — the
+  // path tiebreak pins those down too.
+  results.sort(
+    (a, b) =>
+      a.relativePath.localeCompare(b.relativePath) ||
+      (a.relativePath < b.relativePath ? -1 : a.relativePath > b.relativePath ? 1 : 0)
+  );
   return results;
 }

@@ -1,4 +1,4 @@
-import { Uri, window, ProgressLocation } from 'vscode';
+import { Uri, window, ProgressLocation, CancellationToken } from 'vscode';
 import { COMMAND_COMPARE_FOLDERS } from '../constants';
 import { FileType } from '../core';
 import { compareFolders, diff, uploadFile, downloadFile } from '../fileHandlers';
@@ -86,13 +86,25 @@ export default checkFileCommand({
 
   async handleFile(ctx) {
     const uri = Uri.file(ctx.target.localFsPath);
+    let cancelToken: CancellationToken | undefined;
     const results = await window.withProgress(
       {
         location: ProgressLocation.Notification,
         title: 'Comparing local and remote folders...',
+        cancellable: true,
       },
-      () => compareFolders(ctx)
+      (_progress, token) => {
+        // cancelling stops the walk itself, not just the notification
+        cancelToken = token;
+        return compareFolders(ctx, { isCancelled: () => token.isCancellationRequested });
+      }
     );
+
+    // a cancelled walk leaves a partial diff — showing it would read as a
+    // complete comparison
+    if (cancelToken && cancelToken.isCancellationRequested) {
+      return;
+    }
 
     await showResults(uri, results);
   },
