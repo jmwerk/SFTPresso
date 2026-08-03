@@ -12,7 +12,7 @@ import Ignore from './ignore';
 import { FileSystem } from './fs';
 import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
-import TransferTask from './transferTask';
+import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
 
 type Omit<T, U> = Pick<T, Exclude<keyof T, U>>;
@@ -57,6 +57,14 @@ interface ServiceOption {
   };
   remoteTimeOffsetInHours: number;
   limitOpenFilesOnRemote: number | true;
+  retry: RetryOption;
+}
+
+export interface RetryOption {
+  // how many extra attempts a failed transfer gets
+  attempts: number;
+  // base backoff in ms, doubled on every attempt
+  delay: number;
 }
 
 interface WatcherConfig {
@@ -122,6 +130,18 @@ interface TransferScheduler {
 type ConfigValidator = (x: any) => { message: string } | undefined;
 
 const DEFAULT_SSHCONFIG_FILE = '~/.ssh/config';
+
+export const DEFAULT_RETRY_OPTION: RetryOption = { attempts: 2, delay: 1000 };
+
+// however long the backoff grows to, never make the user wait longer than this
+// between attempts
+const MAX_RETRY_DELAY = 15 * 1000;
+
+// Backoff before retry number `attempt` (1 for the first retry). With the
+// default base delay that gives 2s, 4s, 8s, ... capped at 15s.
+export function getRetryDelay(attempt: number, baseDelay: number): number {
+  return Math.min(baseDelay * 2 ** attempt, MAX_RETRY_DELAY);
+}
 
 function filesIgnoredFromConfig(config: FileServiceConfig): string[] {
   const cache = app.fsCache;
@@ -466,12 +486,28 @@ export default class FileService {
     this._eventEmitter.on(Event.PROGRESS_TRANSFER, listener);
   }
 
-  createTransferScheduler(concurrency): TransferScheduler {
+  createTransferScheduler(
+    concurrency,
+    retryOption: RetryOption = DEFAULT_RETRY_OPTION
+  ): TransferScheduler {
     const fileService = this;
+    const { attempts: maxRetries, delay: retryBaseDelay } = {
+      ...DEFAULT_RETRY_OPTION,
+      ...retryOption,
+    };
     const scheduler = new Scheduler({
       autoStart: false,
       concurrency,
     });
+
+    // tasks waiting out their backoff, with the failure that put them there.
+    // They are in neither the queue nor the pending set, so the scheduler can go
+    // idle while they wait -- we hold the run() promise open for them instead.
+    const retryTimers = new Map<
+      TransferTask,
+      { timer: ReturnType<typeof setTimeout>; error: Error }
+    >();
+
     scheduler.onTaskStart(task => {
       const transferTask = task as TransferTask;
       this._pendingTransferTasks.add(transferTask);
@@ -481,20 +517,80 @@ export default class FileService {
       this._eventEmitter.emit(Event.BEFORE_TRANSFER, task);
     });
     scheduler.onTaskDone((err, task) => {
-      this._pendingTransferTasks.delete(task as TransferTask);
+      const transferTask = task as TransferTask;
+      this._pendingTransferTasks.delete(transferTask);
+
+      if (
+        err &&
+        !isStopped &&
+        !transferTask.isCancelled() &&
+        transferTask.attempts < maxRetries &&
+        isRetryable(err)
+      ) {
+        transferTask.reset();
+        transferTask.attempts += 1;
+        const delay = getRetryDelay(transferTask.attempts, retryBaseDelay);
+        logger.warn(
+          `${transferTask.transferType} ${transferTask.localFsPath} failed` +
+            ` (${err.message}), retrying in ${delay}ms` +
+            ` (attempt ${transferTask.attempts} of ${maxRetries})`
+        );
+        const timer = setTimeout(() => {
+          retryTimers.delete(transferTask);
+          if (isStopped) {
+            // nothing left to run this task; let run() settle
+            finishRun();
+            return;
+          }
+          scheduler.add(transferTask);
+        }, delay);
+        retryTimers.set(transferTask, { timer, error: err });
+        return;
+      }
+
       this._eventEmitter.emit(Event.AFTER_TRANSFER, err, task);
-      (task as TransferTask).dispose();
+      transferTask.dispose();
     });
 
     let runningPromise: Promise<void> | null = null;
+    let resolveRunning: (() => void) | null = null;
     let isStopped: boolean = false;
+
+    // settle run(), but only once every task (including ones sitting in a
+    // backoff) is accounted for
+    function finishRun() {
+      if (!resolveRunning || retryTimers.size > 0) {
+        return;
+      }
+
+      const resolve = resolveRunning;
+      resolveRunning = null;
+      runningPromise = null;
+      fileService._removeScheduler(transferScheduler);
+      resolve();
+    }
+
     const transferScheduler: TransferScheduler = {
       get size() {
         return scheduler.size;
       },
       stop() {
         isStopped = true;
+        // a task mid-backoff will never run again, so cancel it and let it
+        // report as cancelled -- otherwise it would hang around forever in the
+        // Transfers view and the progress counters
+        const abandoned = Array.from(retryTimers.entries());
+        retryTimers.clear();
+        abandoned.forEach(([task, { timer, error }]) => {
+          clearTimeout(timer);
+          task.cancel();
+          fileService._eventEmitter.emit(Event.AFTER_TRANSFER, error, task);
+          task.dispose();
+        });
         scheduler.empty();
+        if (scheduler.pendingCount <= 0) {
+          finishRun();
+        }
       },
       isStopped() {
         return isStopped;
@@ -519,11 +615,8 @@ export default class FileService {
 
         if (!runningPromise) {
           runningPromise = new Promise(resolve => {
-            scheduler.onIdle(() => {
-              runningPromise = null;
-              fileService._removeScheduler(transferScheduler);
-              resolve();
-            });
+            resolveRunning = resolve;
+            scheduler.onIdle(finishRun);
             scheduler.start();
           });
         }

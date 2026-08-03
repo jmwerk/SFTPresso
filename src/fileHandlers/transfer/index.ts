@@ -23,7 +23,10 @@ function createTransferHandle(direction: TransferDirection) {
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
-    const scheduler = this.fileService.createTransferScheduler(this.config.concurrency);
+    const scheduler = this.fileService.createTransferScheduler(
+      this.config.concurrency,
+      this.config.retry
+    );
     // cancelling stops the scan too, not just the tasks already queued
     const walkOption = {
       walkConcurrency: this.config.concurrency,
@@ -77,7 +80,10 @@ export const sync2Remote = createFileHandler<SyncOption>({
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
-    const scheduler = this.fileService.createTransferScheduler(this.config.concurrency);
+    const scheduler = this.fileService.createTransferScheduler(
+      this.config.concurrency,
+      this.config.retry
+    );
     // Attach filePerm and dirPerm to transferOption
     option.filePerm = this.config.filePerm;
     option.dirPerm = this.config.dirPerm;
@@ -127,7 +133,10 @@ export const sync2Local = createFileHandler<SyncOption>({
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
-    const scheduler = this.fileService.createTransferScheduler(this.config.concurrency);
+    const scheduler = this.fileService.createTransferScheduler(
+      this.config.concurrency,
+      this.config.retry
+    );
     await sync(
       {
         srcFsPath: remoteFsPath,

@@ -621,6 +621,29 @@ Reference a connection defined in User Settings under `remotefs.remote` instead 
 | --- | --- |
 | `remote` | string |
 
+#### retry
+Automatically re-runs a transfer that failed with a transient error — a dropped or reset connection, a timeout, a closed SSH channel, or an FTP 4xx reply. Failures that would fail the same way every time (permission denied, file not found, FTP 5xx) are never retried.
+
+Each retry waits `delay × 2ⁿ` milliseconds, capped at 15 seconds — with the defaults that's 2s, then 4s. Set `attempts` to `0` to turn retrying off.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `retry` | object | `{ "attempts": 2, "delay": 1000 }` |
+
+| Sub-option | Type | Effect |
+| --- | --- | --- |
+| `retry.attempts` | number | How many extra attempts a failed transfer gets (default `2`). |
+| `retry.delay` | number | Base backoff in ms, doubled on every attempt (default `1000`). |
+
+```json
+{
+  "retry": {
+    "attempts": 3,
+    "delay": 2000
+  }
+}
+```
+
 ### SFTP-only options
 
 #### agent

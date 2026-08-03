@@ -61,6 +61,15 @@ const configScheme = Joi.object({
   },
   concurrency: Joi.number().integer(),
 
+  retry: {
+    attempts: Joi.number()
+      .integer()
+      .min(0),
+    delay: Joi.number()
+      .integer()
+      .min(0),
+  },
+
   syncOption: {
     delete: Joi.boolean(),
     skipCreate: Joi.boolean(),
@@ -97,6 +106,12 @@ const defaultConfig = {
   // },
   concurrency: 4,
   // limitOpenFilesOnRemote: false
+
+  // automatic retry of transfers that fail with a transient error
+  retry: {
+    attempts: 2,
+    delay: 1000,
+  },
 
   protocol: 'sftp',
 

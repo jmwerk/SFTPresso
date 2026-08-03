@@ -45,6 +45,65 @@ interface ProgressSample {
   bytes: number;
 }
 
+// network/transport hiccups: the same transfer has a decent chance of working
+// on a fresh connection
+const RETRYABLE_ERROR_CODES = new Set([
+  'ECONNRESET',
+  'ETIMEDOUT',
+  'EPIPE',
+  'ENOTCONN',
+]);
+
+// the transfer would fail the same way however many times we run it
+const FATAL_ERROR_CODES = new Set(['EACCES', 'ENOENT']);
+
+// SFTP_STATUS_CODE.PERMISSION_DENIED from ssh2
+const SFTP_PERMISSION_DENIED = 3;
+
+const RETRYABLE_MESSAGES = [
+  /no response from server/i,
+  // ssh2 tears the channel down under us when the connection drops
+  /channel (?:is )?(?:closed|open failure)/i,
+];
+
+const FATAL_MESSAGES = [/permission denied/i, /no such file/i];
+
+// Whether `error` looks transient enough to be worth transferring again.
+// Unknown errors are treated as fatal so we don't hammer a server that is
+// telling us something we don't understand.
+export function isRetryable(error: any): boolean {
+  if (!error) {
+    return false;
+  }
+
+  const code = error.code;
+  if (typeof code === 'string') {
+    if (FATAL_ERROR_CODES.has(code)) {
+      return false;
+    }
+    if (RETRYABLE_ERROR_CODES.has(code)) {
+      return true;
+    }
+  } else if (typeof code === 'number') {
+    if (code === SFTP_PERMISSION_DENIED) {
+      return false;
+    }
+    // FTP reply codes: 4xx is a transient negative reply, 5xx is permanent
+    if (code >= 400 && code < 500) {
+      return true;
+    }
+    if (code >= 500 && code < 600) {
+      return false;
+    }
+  }
+
+  const message = typeof error.message === 'string' ? error.message : String(error);
+  if (FATAL_MESSAGES.some(pattern => pattern.test(message))) {
+    return false;
+  }
+  return RETRYABLE_MESSAGES.some(pattern => pattern.test(message));
+}
+
 export default class TransferTask implements Task {
   readonly id: number;
   readonly fileType: FileType;
@@ -58,6 +117,11 @@ export default class TransferTask implements Task {
   private _handle: Readable;
   private _cancelled: boolean;
   // private _fileStatus: FileStatus;
+
+  // how many times this task has been retried after a failure. Owned by the
+  // transfer scheduler, which bumps it as it re-queues the task; reset() leaves
+  // it alone so the retry budget survives a re-run.
+  attempts: number = 0;
 
   // progress state, read by the Transfers view
   transferredBytes: number = 0;

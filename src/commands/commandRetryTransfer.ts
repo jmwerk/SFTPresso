@@ -26,8 +26,10 @@ export default checkCommand({
     // clears its transient state and resetting the view status to queued
     // happens via the QUEUE_TRANSFER event fired by the scheduler.
     const config = fileService.getConfig();
-    const scheduler = fileService.createTransferScheduler(config.concurrency);
+    const scheduler = fileService.createTransferScheduler(config.concurrency, config.retry);
     task.reset();
+    // an explicit retry earns a fresh automatic-retry budget
+    task.attempts = 0;
     scheduler.add(task);
     try {
       await scheduler.run();
