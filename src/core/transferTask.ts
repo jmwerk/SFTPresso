@@ -123,6 +123,15 @@ export default class TransferTask implements Task {
   // it alone so the retry budget survives a re-run.
   attempts: number = 0;
 
+  // ms without a single byte moving before the transfer is given up on, or 0 to
+  // wait indefinitely. Set by the scheduler from config, which is why reset()
+  // leaves it alone -- it is policy, not per-run state.
+  stallTimeout: number = 0;
+
+  // armed while a transfer is running, poked by _reportProgress
+  private _stallTimer: ReturnType<typeof setTimeout> | undefined;
+  private _onStall: (() => void) | undefined;
+
   // progress state, read by the Transfers view
   transferredBytes: number = 0;
   readonly totalBytes: number | undefined;
@@ -171,6 +180,10 @@ export default class TransferTask implements Task {
 
   private _reportProgress(transferred: number) {
     this.transferredBytes = transferred;
+    // bytes are moving, so the connection is alive -- push the deadline out.
+    // Deliberately outside the throttle below: the watchdog cares that data
+    // arrived at all, not about the UI refresh rate.
+    this._armStallTimer();
     if (!this._progressListener) {
       return;
     }
@@ -230,6 +243,67 @@ export default class TransferTask implements Task {
       return;
     }
 
+    if (this.stallTimeout > 0) {
+      return this._withStallWatchdog(() => this._run());
+    }
+    return this._run();
+  }
+
+  // Fails a transfer that has stopped moving bytes, instead of waiting on it
+  // for good. A connection the server has dropped without saying so answers
+  // nothing and reports nothing, so there is no error to react to -- the only
+  // signal is the absence of progress.
+  private async _withStallWatchdog<T>(body: () => Promise<T>): Promise<T> {
+    const stalled = new Promise<never>((_, reject) => {
+      this._onStall = () => {
+        // unblock whatever is waiting on the stream so the transfer unwinds
+        // rather than sitting on a socket that will never answer
+        if (this._handle) {
+          FileSystem.abortReadableStream(this._handle);
+        }
+        reject(
+          Object.assign(
+            new Error(
+              `transfer stalled: no data for ${this.stallTimeout}ms ` +
+                `(${this.transferredBytes} bytes transferred)`
+            ),
+            // classified retryable, so the scheduler re-runs it like any other
+            // dropped connection rather than reporting a hard failure
+            { code: 'ETIMEDOUT' }
+          )
+        );
+      };
+    });
+
+    this._armStallTimer();
+    try {
+      const work = body();
+      // the watchdog aborts the stream, so `work` usually rejects too, just
+      // after the race is already decided -- keep that from going unhandled
+      work.catch(() => undefined);
+      return await Promise.race([work, stalled]);
+    } finally {
+      this._clearStallTimer();
+      this._onStall = undefined;
+    }
+  }
+
+  private _armStallTimer() {
+    if (!this._onStall || this.stallTimeout <= 0) {
+      return;
+    }
+    this._clearStallTimer();
+    this._stallTimer = setTimeout(() => this._onStall!(), this.stallTimeout);
+  }
+
+  private _clearStallTimer() {
+    if (this._stallTimer) {
+      clearTimeout(this._stallTimer);
+      this._stallTimer = undefined;
+    }
+  }
+
+  private async _run() {
     const src = this._srcFsPath;
     const target = this._targetFsPath;
     const srcFs = this._srcFs;
@@ -257,6 +331,7 @@ export default class TransferTask implements Task {
       return;
     }
     this._cancelled = true;
+    this._clearStallTimer();
     if (this._cancelTokenSource) {
       this._cancelTokenSource.cancel();
     }
