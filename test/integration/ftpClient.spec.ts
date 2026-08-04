@@ -266,3 +266,34 @@ describe('idle reconnect — vsftpd', () => {
     }
   });
 });
+
+// The liveness probe behind the `idleTimeout` option. Run against both servers
+// because NOOP is the kind of command an FTP daemon is free to answer oddly, and
+// the unit tests stub the probe out entirely.
+describe.each([VSFTPD, PUREFTPD_TLS])('probe — $name', (server: ServerConfig) => {
+  test('resolves against a live connection and leaves it usable', async () => {
+    const fs = await connectFs(server);
+    try {
+      await expect(fs.probe()).resolves.toBeUndefined();
+      await expect(fs.probe()).resolves.toBeUndefined();
+      expect(Array.isArray(await fs.list('/'))).toBe(true);
+    } finally {
+      fs.end();
+    }
+  });
+
+  test('rejects once the control connection has dropped', async () => {
+    const fs = await connectFs(server);
+    try {
+      await expect(fs.probe()).resolves.toBeUndefined();
+
+      // the closest we can get to a server hanging up mid-idle
+      controlSocket(fs).destroy();
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      await expect(fs.probe()).rejects.toBeDefined();
+    } finally {
+      fs.end();
+    }
+  });
+});

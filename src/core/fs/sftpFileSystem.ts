@@ -32,6 +32,21 @@ export default class SFTPFileSystem extends RemoteFileSystem {
     return this.getClient().getFsClient();
   }
 
+  // realpath('.') is the cheapest thing the SFTP subsystem will answer: one
+  // packet each way, no directory contents, and it works regardless of where
+  // remotePath points.
+  probe(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.sftp.realpath('.', err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
   toFileStat(stat): FileStats {
     return {
       type: FileSystem.getFileTypecharacter(stat),

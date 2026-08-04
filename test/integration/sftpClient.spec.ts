@@ -561,3 +561,42 @@ describe('limitOpenFilesOnRemote', () => {
     }
   });
 });
+
+// The liveness probe behind the `idleTimeout` option. What matters here is that
+// a real OpenSSH server actually answers it -- the unit tests stub the probe out
+// and so can't tell whether realpath('.') is a supported round-trip.
+describe('probe', () => {
+  test('resolves against a live connection', async () => {
+    const sftp = await connectSftp();
+    try {
+      await expect(sftp.probe()).resolves.toBeUndefined();
+      // repeatable: it must not consume or disturb anything
+      await expect(sftp.probe()).resolves.toBeUndefined();
+      // and the connection is still usable afterwards
+      expect(Array.isArray(await sftp.list('/'))).toBe(true);
+    } finally {
+      sftp.end();
+    }
+  });
+
+  // This is the behaviour the whole `idleTimeout` design turns on, so assert it
+  // rather than assume it: against a connection that has gone away, ssh2 does
+  // not call back at all -- no result, no error, ever. It is the same silent
+  // stall #22 reports, reproduced deliberately. isStale() therefore races the
+  // probe against connectTimeout instead of waiting for a rejection that is
+  // never coming.
+  test('never answers once the connection has been torn down', async () => {
+    const sftp = await connectSftp();
+    await expect(sftp.probe()).resolves.toBeUndefined();
+
+    sftp.end();
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    const outcome = await Promise.race([
+      sftp.probe().then(() => 'settled', () => 'settled'),
+      new Promise(resolve => setTimeout(() => resolve('hung'), 2000)),
+    ]);
+
+    expect(outcome).toBe('hung');
+  });
+});
