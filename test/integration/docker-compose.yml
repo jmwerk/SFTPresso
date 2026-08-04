@@ -17,9 +17,34 @@ services:
     image: delfer/alpine-ftp-server:latest
     environment:
       USERS: "testuser|testpass|/ftp/testuser"
-      ADDRESS: "127.0.0.1"
-      MIN_PORT: "21000"
-      MAX_PORT: "21010"
+    # The image's start_vsftpd.sh launches vsftpd with the config's
+    # `background=YES`, so it forks and returns immediately, then does:
+    #
+    #   pgrep vsftpd | tail -n 1 > /var/run/vsftpd/vsftpd.pid
+    #   exec pidproxy /var/run/vsftpd/vsftpd.pid true
+    #
+    # When the fork has not landed by the time pgrep runs, the pidfile is empty,
+    # pidproxy has no process to watch and exits 0 straight away -- the container
+    # stops before it ever goes healthy and `up --wait` fails the whole job. It
+    # is timing-dependent, so a loaded CI runner hits it and a laptop usually
+    # does not.
+    #
+    # Passing an explicit command takes the script's `exec "$@"` branch instead,
+    # which skips pgrep and pidproxy entirely; -obackground=NO then keeps vsftpd
+    # in the foreground as PID 1's child. The user setup above still runs first.
+    # The passive/address options move here because the MIN_PORT / MAX_PORT /
+    # ADDRESS env vars are only read by the branch we no longer take.
+    #
+    # The config path goes *first*: vsftpd applies settings in argument order, so
+    # with the file last its `background=YES` overrides -obackground=NO and the
+    # container exits immediately -- the very failure this is meant to remove.
+    command:
+      - vsftpd
+      - /etc/vsftpd/vsftpd.conf
+      - -obackground=NO
+      - -opasv_min_port=21000
+      - -opasv_max_port=21010
+      - -opasv_address=127.0.0.1
     ports:
       - "2121:21"
       - "21000-21010:21000-21010"
