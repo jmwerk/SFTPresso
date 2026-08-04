@@ -48,17 +48,40 @@ describe('scheduler', () => {
     expect(queue.pendingCount).toEqual(2);
   });
 
-  test('.add() - concurrency: 1', done => {
+  // Asserts serialization directly rather than through how long the run took.
+  // The wall-clock version of this (50ms <= elapsed <= 100ms for delays of
+  // 30 + 20 + 10) failed whenever the machine was busy enough to push the total
+  // past 100ms, and because the expect() threw before done() was reached the
+  // failure surfaced as a 5s timeout rather than as the bound it actually
+  // missed. Overlap and completion order say the same thing without a clock.
+  test('.add() - concurrency: 1', async () => {
     const input = [[10, 30], [20, 20], [30, 10]];
 
-    const startTime = new Date().getTime();
     const queue = new Scheduler({ concurrency: 1 });
-    input.forEach(([val, ms]) => queue.add(wrapTask(() => delay(ms).then(() => val))));
-    queue.onIdle(() => {
-      const time = new Date().getTime() - startTime;
-      expect(50 <= time && time <= 100).toBeTruthy();
-      done();
-    });
+    const finished = [];
+    let running = 0;
+    let maxRunning = 0;
+
+    input.forEach(([val, ms]) =>
+      queue.add(
+        wrapTask(async () => {
+          running += 1;
+          maxRunning = Math.max(maxRunning, running);
+          await delay(ms);
+          finished.push(val);
+          running -= 1;
+          return val;
+        })
+      )
+    );
+
+    await new Promise(resolve => queue.onIdle(resolve));
+
+    // never two at once, and each one waited for the last -- a scheduler that
+    // dispatched without awaiting would show maxRunning of 3, and one that
+    // ignored order would finish 30 first since it has the shortest delay
+    expect(maxRunning).toBe(1);
+    expect(finished).toEqual([10, 20, 30]);
   });
 
   test('.add() - concurrency: 5', done => {
