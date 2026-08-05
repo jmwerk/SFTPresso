@@ -42,7 +42,7 @@ jobs:
         run: npx @vscode/vsce package --out sftpresso-${{ steps.tag.outputs.tag }}.vsix
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: sftpresso-${{ steps.tag.outputs.tag }}.vsix
