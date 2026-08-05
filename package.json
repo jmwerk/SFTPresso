@@ -893,7 +893,7 @@
     "esbuild": "^0.28.1",
     "eslint": "^10.6.0",
     "jest": "^30.4.2",
-    "memfs": "^2.15.5",
+    "memfs": "2.17.1",
     "patch-package": "^8.0.1",
     "ts-jest": "^29.4.11",
     "typescript": "^5.9.3",
