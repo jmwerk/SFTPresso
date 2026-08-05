@@ -12,11 +12,21 @@ const randomInt = function(min, max) {
 
   return Math.floor(Math.random() * (max - min + 1) + min);
 };
+// Several tests below queue tasks and assert synchronously without ever
+// awaiting them -- `autoStart: false` and `.pause()` deliberately strand
+// delay(20000) tasks mid-flight. Those timers outlive the test and keep the
+// event loop alive, so jest force-exits the worker ("A worker process has
+// failed to exit gracefully"), which intermittently escalates to a hard
+// worker crash and a spurious CI failure. Track every timer so afterEach can
+// clear whatever a test walked away from.
+const pendingTimers = new Set();
 const delay = millisecends =>
   new Promise(resolve => {
-    setTimeout(() => {
+    const timer = setTimeout(() => {
+      pendingTimers.delete(timer);
       resolve();
     }, millisecends);
+    pendingTimers.add(timer);
   });
 const fixture = Symbol('fixture');
 
@@ -25,6 +35,13 @@ const wrapTask = fn => ({
 });
 
 describe('scheduler', () => {
+  // Tests that await their delays have already drained the set by the time
+  // this runs, so this only reaps the abandoned ones.
+  afterEach(() => {
+    pendingTimers.forEach(clearTimeout);
+    pendingTimers.clear();
+  });
+
   test('.add()', () => {
     let result;
     const queue = new Scheduler();
