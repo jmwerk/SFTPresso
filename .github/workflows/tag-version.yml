@@ -24,37 +24,39 @@ jobs:
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Create and push tag if new
+        id: create_tag
         env:
           TAG: v${{ steps.version.outputs.version }}
         run: |
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "Tag $TAG already exists, skipping."
+            echo "created=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
+          echo "created=true" >> "$GITHUB_OUTPUT"
 
       # Tags pushed with the default GITHUB_TOKEN don't trigger `on: push` /
       # `on: tags` workflows (GitHub's anti-recursion rule), so release.yml and
       # publish.yml are dispatched explicitly here instead.
+      #
+      # Both dispatches are gated on this run having actually created the tag.
+      # This workflow fires on every push to develop that touches package.json,
+      # which includes dependency bumps that leave `version` untouched — those
+      # pushes must not re-release or re-publish the current version.
       - name: Trigger release workflow
-        if: success()
+        if: steps.create_tag.outputs.created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.version.outputs.version }}
-        run: |
-          if git rev-parse "$TAG" >/dev/null 2>&1 && ! gh release view "$TAG" >/dev/null 2>&1; then
-            gh workflow run release.yml --ref "$TAG" -f tag="$TAG"
-          fi
+        run: gh workflow run release.yml --ref "$TAG" -f tag="$TAG"
 
       - name: Trigger publish workflow
-        if: success()
+        if: steps.create_tag.outputs.created == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.version.outputs.version }}
-        run: |
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            gh workflow run publish.yml --ref "$TAG" -f tag="$TAG"
-          fi
+        run: gh workflow run publish.yml --ref "$TAG" -f tag="$TAG"
