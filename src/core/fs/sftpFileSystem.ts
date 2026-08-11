@@ -32,6 +32,34 @@ export default class SFTPFileSystem extends RemoteFileSystem {
     return this.getClient().getFsClient();
   }
 
+  // Every SFTP request that is a single round trip to the server. ssh2 has no
+  // per-request timeout of its own, so without this a subsystem that stops
+  // answering leaves the request buffered and the caller waiting for good.
+  //
+  // Left out on purpose: get()/put() move bytes and are covered by
+  // stallTimeout, which measures progress rather than total duration;
+  // ensureDir() and rmdir() are composites, already covered by the primitives
+  // below; probe() is raced against a deadline by the pool's idle check.
+  protected _timedOperations(): string[] {
+    return [
+      'open',
+      'close',
+      'fstat',
+      'futimes',
+      'fchmod',
+      'chmod',
+      'lstat',
+      'list',
+      'mkdir',
+      '_rmdir',
+      'unlink',
+      'rename',
+      'renameAtomic',
+      'readlink',
+      'symlink',
+    ];
+  }
+
   // realpath('.') is the cheapest thing the SFTP subsystem will answer: one
   // packet each way, no directory contents, and it works regardless of where
   // remotePath points.
@@ -357,23 +385,32 @@ export default class SFTPFileSystem extends RemoteFileSystem {
     });
   }
 
+  // The single-request half of rmdir(), split out so it can be given its own
+  // deadline. rmdir() itself walks the tree and must not have one: a large
+  // enough directory would trip it while making perfectly good progress.
+  _rmdir(path: string): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      this.sftp.rmdir(path, err => {
+        if (err) {
+          reject(err);
+          return;
+        }
+        resolve();
+      });
+    });
+  }
+
   rmdir(path: string, recursive: boolean): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       if (!recursive) {
-        this.sftp.rmdir(path, err => {
-          if (err) {
-            reject(err);
-            return;
-          }
-          resolve();
-        });
+        this._rmdir(path).then(resolve, reject);
         return;
       }
 
       this.list(path).then(
         fileEntries => {
           if (!fileEntries.length) {
-            this.rmdir(path, false).then(resolve, e => {
+            this._rmdir(path).then(resolve, e => {
               reject(e);
             });
             return;
@@ -387,7 +424,7 @@ export default class SFTPFileSystem extends RemoteFileSystem {
           });
 
           Promise.all(rmPromises)
-            .then(() => this.rmdir(path, false))
+            .then(() => this._rmdir(path))
             .then(resolve, e => {
               // BUG just reject will occur weird bug.
               reject(e);

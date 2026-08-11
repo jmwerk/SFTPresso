@@ -177,6 +177,11 @@
         "type": "number",
         "description": "Milliseconds without a single byte moving before a transfer is treated as stalled and failed, so it can be retried instead of waiting forever on a connection that died mid-transfer. The clock resets on every chunk, so a slow but progressing transfer is never interrupted. 0 (the default) waits indefinitely.",
         "default": 0
+      },
+      "operationTimeout": {
+        "type": "number",
+        "description": "Milliseconds a single remote request (mkdir, stat, directory listing, rename, delete) may go unanswered before it is failed and the connection dropped, so the next command reconnects instead of inheriting a dead one. Applies to SFTP only; FTP is already covered by connectTimeout, which basic-ftp applies as a socket idle timeout. Does not apply to the actual file transfer, which is governed by stallTimeout. Defaults to 60000. Set to 0 to wait indefinitely.",
+        "default": 60000
       }
     }
   },

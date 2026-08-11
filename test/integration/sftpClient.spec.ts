@@ -12,6 +12,7 @@ import { transferSymlink } from '../../src/core/fileBaseOperations';
 import { transfer } from '../../src/fileHandlers/transfer/transfer';
 import {
   PRIVATE_KEY_PATH,
+  SSH_BASE_DIR,
   SSH_HOST,
   connectSftp,
   connectSftpOnce,
@@ -647,5 +648,66 @@ describe('stallTimeout', () => {
     expect(task.transferredBytes).toBe(blob.length);
 
     await sftp.rmdir(dir, true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// operationTimeout. Every spec above already runs with the guard installed
+// (see DEFAULT_OPERATION_TIMEOUT); these cover what happens when it fires.
+// ---------------------------------------------------------------------------
+describe('operationTimeout', () => {
+  test('fails the request and drops the connection when the deadline passes', async () => {
+    const sftp = await connectSftp({}, 5, 1000);
+
+    // A server whose SFTP subsystem has stopped reading its channel cannot be
+    // staged against a healthy container, so stage the silence one layer down
+    // instead: let the request go out and never invoke its callback, which is
+    // exactly what a buffered request looks like from here. Racing a real
+    // round trip against a tiny deadline would be the other option, but on
+    // loopback the request often wins, which is a flaky test rather than a
+    // meaningful one. Everything below the stub stays real -- the SSHClient,
+    // end(), and the ssh2 events the pool evicts on.
+    const client = sftp.sftp;
+    const realLstat = client.lstat;
+    client.lstat = () => undefined;
+
+    // ssh2 tears the socket down over the next few ticks, so watch for the
+    // event rather than sampling right after the rejection
+    let giveUp: ReturnType<typeof setTimeout>;
+    const disconnected = new Promise<string>((resolve, reject) => {
+      giveUp = setTimeout(() => reject(new Error('no disconnect within 5s')), 5000);
+      sftp.onDisconnected(reason => resolve(reason));
+      // an uncleared timer would outlive the test and hold the run open
+    }).finally(() => clearTimeout(giveUp));
+
+    try {
+      await expect(sftp.lstat(SSH_BASE_DIR)).rejects.toMatchObject({
+        code: 'ETIMEDOUT',
+      });
+
+      // the pool evicts on this, which is what stops every later command
+      // inheriting the same dead connection
+      await expect(disconnected).resolves.toEqual(expect.any(String));
+    } finally {
+      client.lstat = realLstat;
+      sftp.end();
+    }
+  });
+
+  test('a real operation well inside the deadline is untouched', async () => {
+    const sftp = await connectSftp({}, 5, 30 * 1000);
+    const disconnected: string[] = [];
+    sftp.onDisconnected(reason => disconnected.push(reason));
+
+    try {
+      const dir = uniqueDir();
+      await sftp.ensureDir(dir);
+      expect((await sftp.lstat(dir)).type).toBe(FileType.Directory);
+      await sftp.rmdir(dir, true);
+
+      expect(disconnected).toEqual([]);
+    } finally {
+      sftp.end();
+    }
   });
 });

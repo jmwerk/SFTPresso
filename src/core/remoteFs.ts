@@ -25,6 +25,11 @@ export interface ConnectionPolicy {
   // ms of inactivity after which a pooled connection is probed before reuse.
   // 0 (the default) disables the check and reuses the connection blindly.
   idleTimeout?: number;
+
+  // ms a single remote request may go unanswered before it is failed and the
+  // connection dropped. 0 waits indefinitely. Baked into the file system when
+  // it is constructed, so a change takes effect on the next reconnect.
+  operationTimeout?: number;
 }
 
 class KeepAliveRemoteFs {
@@ -121,6 +126,7 @@ class KeepAliveRemoteFs {
     const fs = new FsConstructor(upath, {
       clientOption: connectOption,
       remoteTimeOffsetInHours: option.remoteTimeOffsetInHours,
+      operationTimeout: policy.operationTimeout,
     });
     // Scoped to this instance rather than bound straight to invalid(). A
     // connection that has already been replaced still emits 'close' and

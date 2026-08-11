@@ -1,8 +1,11 @@
 import FileSystem, { FileOption } from './fileSystem';
 import { RemoteClient, ConnectOption, RemoteClientConfig } from '../remote-client';
+import { guardOperations } from './operationTimeout';
+import logger from '../../logger';
 
 interface RFSOptionDefaults {
   remoteTimeOffsetInHours: number;
+  operationTimeout: number;
 }
 
 type RFSOption = Partial<RFSOptionDefaults> & {
@@ -15,6 +18,7 @@ const MILLISECONDS_PER_HOUR = SECONDS_PER_HOUR * 1000;
 
 const defaultOption: RFSOptionDefaults = {
   remoteTimeOffsetInHours: 0,
+  operationTimeout: 0,
 };
 
 export default abstract class RemoteFileSystem extends FileSystem {
@@ -29,7 +33,7 @@ export default abstract class RemoteFileSystem extends FileSystem {
       ...defaultOption,
       ...option,
     };
-    const { client, clientOption, remoteTimeOffsetInHours } = _option;
+    const { client, clientOption, remoteTimeOffsetInHours, operationTimeout } = _option;
     if (client) {
       this.client = client;
     } else if (clientOption) {
@@ -39,6 +43,34 @@ export default abstract class RemoteFileSystem extends FileSystem {
     }
 
     this.setRemoteTimeOffsetInHours(remoteTimeOffsetInHours);
+
+    // _timedOperations() deliberately returns a literal, so calling an
+    // overridden method from the base constructor is safe here -- it cannot
+    // read subclass fields, which are not initialized until this returns
+    guardOperations(this, this._timedOperations(), operationTimeout, error =>
+      this._onOperationTimeout(error)
+    );
+  }
+
+  // Names of the operations that get a deadline. Only single round trips
+  // belong here: an operation built out of several of these is covered by its
+  // parts, and one that moves bytes can legitimately take as long as it takes.
+  protected _timedOperations(): string[] {
+    return [];
+  }
+
+  private _onOperationTimeout(error: Error) {
+    logger.warn(`${error.message}; dropping the connection`);
+    // A server that stopped answering one request will not answer the next
+    // one either, and the pooled connection is handed straight back to every
+    // later command. end() runs the client's disconnect notification, which
+    // is what the pool listens on to evict this instance -- without it the
+    // wedged connection survives and only reloading the window clears it.
+    try {
+      this.end();
+    } catch (endError) {
+      logger.warn(`failed to close the timed-out connection: ${endError.message}`);
+    }
   }
 
   setRemoteTimeOffsetInHours(offset: number) {

@@ -5,6 +5,7 @@ import commandCancelAllTransfer from './commandCancelAllTransfer';
 import commandCancelTransfer from './commandCancelTransfer';
 import commandClearPassword from './commandClearPassword';
 import commandConfig from './commandConfig';
+import commandDisconnect from './commandDisconnect';
 import commandListActiveFolder from './commandListActiveFolder';
 import commandMigratePassword from './commandMigratePassword';
 import commandOpenSshConnection from './commandOpenSshConnection';
@@ -57,6 +58,7 @@ export default {
   commandCancelTransfer,
   commandClearPassword,
   commandConfig,
+  commandDisconnect,
   commandListActiveFolder,
   commandMigratePassword,
   commandOpenSshConnection,

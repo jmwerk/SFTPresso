@@ -191,6 +191,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Config` | `sftp.config` | Create a new `sftp.json` for the workspace — via a guided quick-setup wizard or a starter template — or open the existing one. See [First-time setup](#first-time-setup). |
 | `SFTP: Set Profile` | `sftp.setProfile` | Switch the active [profile](#profiles-dev--prod). |
 | `SFTP: Test Connection` | `sftp.testConnection` | Connect to the active profile's remote and report success/failure. Also available as a CodeLens on `sftp.json`. |
+| `SFTP: Disconnect` | `sftp.disconnect` | Close every pooled connection and drop it, so the next command reconnects from scratch. The manual escape hatch for a connection that has stopped responding — [`operationTimeout`](#operationtimeout) should catch that on its own, but this saves you a window reload when something slips through. |
 | `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). The status bar shows a `$(cloud-upload)` indicator while it's on. |
 | Add to Ignore | `sftp.addToIgnore` | File-explorer context menu command. Appends the right-clicked file or folder's workspace-relative path to the active config's [`ignore`](#ignore) array in `sftp.json` (folders as `path/**`), preserving comments and formatting; a no-op if the entry is already listed. |
 | `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal auto-logged-in to the server. Extra CLI flags can be added via [`sshCustomParams`](#sshcustomparams). |
@@ -695,6 +696,36 @@ The clock resets on every chunk, so this measures *stalling*, not total duration
   "retry": { "attempts": 2 }
 }
 ```
+
+#### operationTimeout
+Covers the third way a connection can go quiet, and the only one of the three that is on by default.
+
+[`idleTimeout`](#idletimeout) catches a connection that died between operations and [`stallTimeout`](#stalltimeout) catches one that died mid-transfer. Neither covers the requests that surround a transfer — the `mkdir` that creates the target directory, the directory listing that drives a sync, a `stat`, a rename, a delete. A server can leave the SSH transport up, answering keepalives perfectly happily, while the SFTP subsystem behind it stops reading its channel; every request after that is queued locally and nothing is ever answered. There is no error to react to, so the command simply never finishes.
+
+With `operationTimeout` set, any single request that goes unanswered for that many milliseconds is failed with `ETIMEDOUT` and the connection is dropped, so the next command opens a fresh one instead of inheriting a dead one. The failure is classified as retryable, so [`retry`](#retry) applies.
+
+This measures one round trip, not a whole operation. Transfers are not affected — `get` and `put` can take as long as the file takes, and are governed by `stallTimeout` instead. Neither are operations built out of several requests: an `ensureDir` that has to create four directories gets four separate deadlines, not one.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `operationTimeout` | number | `60000` |
+
+```jsonc
+{
+  // a request that goes 30 seconds without an answer is treated as lost
+  "operationTimeout": 30000
+}
+```
+
+A timeout is reported at warn level, so the line appears whether or not `sftp.debug` is on:
+
+```
+[warn] remote operation "mkdir" did not answer within 60000ms; dropping the connection
+```
+
+> ℹ️ SFTP only. FTP is already covered by [`connectTimeout`](#connecttimeout), which the FTP client applies as an idle timeout on both the control and data sockets. Setting `operationTimeout` on an FTP config is accepted and ignored.
+
+> ⚠️ Unlike the two options above, this one defaults on. A request that has gone a full minute without a reply is not slow, it's lost, and the alternative is an extension that hangs until you reload the window. If you have a genuinely slow server and see spurious timeouts, raise it rather than turning it off — `0` restores the old behaviour of waiting indefinitely.
 
 ### SFTP-only options
 
