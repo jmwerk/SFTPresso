@@ -20,6 +20,8 @@
    - [Installing the extension](#installing-the-extension)
    - [First-time setup](#first-time-setup)
    - [Verifying your connection](#verifying-your-connection)
+   - [Storing passwords securely](#storing-passwords-securely)
+   - [Host key verification](#host-key-verification)
 3. [Command Reference](#3-command-reference)
    - [Configuration and connection commands](#configuration-and-connection-commands)
    - [Upload commands](#upload-commands)
@@ -178,6 +180,24 @@ Instead of writing `password` into `sftp.json` (which is plain text), you can ke
 
 Saved passwords are keyed by `protocol://username@host:port`, so each server/user pair is stored independently (configs and profiles that point at the same server share one saved password). A saved password is only used when the config provides no other authentication — configs that set `password`, `privateKeyPath`, `agent`, or `interactiveAuth` behave exactly as before. If `sftp.json` still contains a plaintext `password`, the extension logs a one-time reminder in the output channel and offers a **Migrate Password** button to fix it.
 
+### Host key verification
+
+Every SFTP connection now checks the server's SSH host key before handing over your credentials, the same way `ssh`, `scp`, and every other SSH client does. Without that check, a server that answers on the right address is trusted on its say-so — which is exactly what a man-in-the-middle needs.
+
+**Where keys come from.** Your own `~/.ssh/known_hosts` (and `known_hosts2`, plus `/etc/ssh/ssh_known_hosts` on macOS and Linux) is consulted first, so a host you have already accepted with `ssh` is trusted here too and never prompts. Hashed entries — what `HashKnownHosts yes`, the default on most distributions, writes — are matched, as are wildcards, `!` negations, `@revoked`, and `[host]:port` entries for non-default ports.
+
+Keys you accept **in SFTPresso** are written to a `known_hosts` file of the extension's own, inside its global storage directory. It is in exactly the same format, so you can read or edit it with the usual tools. Your `~/.ssh/known_hosts` is never appended to — that file belongs to your ssh client.
+
+**What happens when.** Governed by [`strictHostKeyChecking`](#stricthostkeychecking), which defaults to `"accept-new"`:
+
+- **First sight of a host.** Under the default the key is trusted and remembered silently. Set `"ask"` to be shown a modal first, with the host, port, key type, and the `SHA256:…` fingerprint in the same form `ssh-keygen -lf` prints — so you can compare it against the server character for character — and the choice of **Connect Once**, **Connect and Remember**, or cancel.
+- **A key that matches.** Connects silently.
+- **A key that changed.** The connection is **refused**, with an alarm naming both fingerprints and where the stored one came from. There is deliberately no button to proceed: a changed key is either a server rebuild or an attack, and those two should not be one click apart. Once you have confirmed the change is legitimate, run **`SFTP: Forget Host Key`** and connect again.
+
+**Commands.** **`SFTP: Show Host Key Fingerprint`** shows what is stored for a remote and which file each entry came from. **`SFTP: Forget Host Key`** removes those entries; if any live in a file maintained by your ssh client, it names the file and line and asks you to confirm before touching it.
+
+> ⚠️ **Upgrading from 1.29.0 or earlier.** Host keys were not checked at all before, so nothing you connect to today is in SFTPresso's own store. With the default `"accept-new"` every existing config keeps connecting exactly as it did — the first connection after upgrading learns the key — but from then on a *changed* key stops the connection instead of being accepted silently. If your `~/.ssh/known_hosts` already holds a **stale** entry for a server (one you have been ignoring in `ssh` too), that connection will now fail; run **`SFTP: Forget Host Key`**, or fix the entry with `ssh-keygen -R`.
+
 ---
 
 ## 3. Command Reference
@@ -198,6 +218,8 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Save Password` | `sftp.savePassword` | Store a password for a remote in VS Code's secret storage (OS keychain). See [Storing passwords securely](#storing-passwords-securely). |
 | `SFTP: Migrate Plaintext Password` | `sftp.migratePassword` | Move a plaintext `password` from `sftp.json` (top-level or in a profile) into secret storage, then remove the `password` key via a `jsonc-parser` edit (comments and formatting preserved); confirms before writing. Also offered as a **Migrate Password** button on the plaintext-password warning. See [Storing passwords securely](#storing-passwords-securely). |
 | `SFTP: Clear Password` | `sftp.clearPassword` | Remove a saved password from secret storage. |
+| `SFTP: Show Host Key Fingerprint` | `sftp.showHostKey` | Show the SSH host key(s) stored for a remote — fingerprint, key type, and which known_hosts file each came from — with a button to copy the fingerprints. See [Host key verification](#host-key-verification). |
+| `SFTP: Forget Host Key` | `sftp.forgetHostKey` | Remove the stored SSH host key(s) for a remote, so the next connection treats it as a new host. This is what unblocks a connection refused because the server's key changed. Entries in files maintained by your ssh client (`~/.ssh/known_hosts`) are only removed after a confirmation naming the file and line. |
 
 ### Upload commands
 
@@ -468,6 +490,8 @@ Show a dry-run preview before a [Sync command](#sync-commands) runs. The extensi
 | `syncConfirm` | boolean | `true` when [`syncOption.delete`](#syncoption) is enabled, otherwise `false` |
 
 The default is deliberately conservative: syncs that can delete files on the destination prompt by default, while non-destructive syncs don't. Set it explicitly to always (or never) confirm.
+
+If a directory can't be read while the preview is being built, it is listed as `! could not read:` and the summary says so up front — the plan below it is built only from what could be read, and is not the whole picture. The sync itself will fail on that directory rather than acting on the gap.
 
 ```json
 {
@@ -846,6 +870,30 @@ Connect through one or more intermediate SSH hosts. A single object for one hop,
 | --- | --- |
 | `hop` | object \| object[] |
 
+Every host in the chain has its own host key checked in its own right — a bastion is exactly as impersonatable as the server behind it. Hops inherit the config's [`strictHostKeyChecking`](#stricthostkeychecking) unless they set their own.
+
+#### strictHostKeyChecking
+Controls how the server's SSH host key is checked, mirroring OpenSSH's option of the same name. See [Host key verification](#host-key-verification) for what the values mean and how the store works.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `strictHostKeyChecking` | `true` \| `false` \| `"ask"` \| `"accept-new"` | `"accept-new"` |
+
+```json
+{ "strictHostKeyChecking": "ask" }
+```
+
+| Value | Unknown host | Changed key |
+| --- | --- | --- |
+| `"accept-new"` (default) | Trusted and remembered, no prompt | **Refused** |
+| `"ask"` | Prompted with the fingerprint | **Refused** |
+| `true` | **Refused** | **Refused** |
+| `false` | Trusted and remembered, no prompt | Allowed, with a warning in the log |
+
+A key marked `@revoked` in a known_hosts file is refused under every value, as is a certificate host key (SFTPresso cannot validate one).
+
+> ℹ️ SFTP only. Setting it on an FTP config is accepted and ignored.
+
 ### FTP(S)-only options
 
 #### secure
@@ -1160,6 +1208,8 @@ During bulk operations (folder upload/download, sync, project transfers):
 ### Comparing folders with the remote
 
 Right-click any folder (or run **`SFTP: Compare Folders with Remote`**) to get a recursive diff against its remote counterpart. Results are grouped into **new-local**, **new-remote**, and **modified** files; picking a file offers per-file actions to open a diff, upload, or download. Use it before a sync to preview exactly what would change.
+
+A directory that couldn't be listed on either side is reported as **Could not read** rather than being folded into the diff, and its subtree is left out entirely — nothing is known about what is inside it, so it offers no transfer actions. If the folder you are comparing can't be read at all, the command reports the error instead of showing an empty comparison.
 
 ---
 
