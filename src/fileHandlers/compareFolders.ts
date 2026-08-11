@@ -1,8 +1,23 @@
 import { FileEntry, FileSystem, FileType } from '../core';
+import upath from '../core/upath';
 import { createLimiter, Limiter } from '../utils';
+import logger from '../logger';
 import { FileHandlerContext } from './createFileHandler';
 
-export type CompareStatus = 'same' | 'modified' | 'localOnly' | 'remoteOnly';
+function errorMessage(error: any): string {
+  return error && error.message ? error.message : String(error);
+}
+
+// `error` marks a directory whose listing failed on at least one side. It is
+// deliberately its own status rather than an absent entry: a directory we could
+// not read is not a directory whose contents are missing, and treating the two
+// the same is what let a failed listing be presented as "delete everything".
+export type CompareStatus =
+  | 'same'
+  | 'modified'
+  | 'localOnly'
+  | 'remoteOnly'
+  | 'error';
 
 // Consulted while the tree is being walked so that dismissing the progress
 // notification stops the scan. Mirrors TransferCancellationToken in
@@ -34,6 +49,8 @@ export interface CompareResult {
   // preview to honor `syncOption.update` (only overwrite when src is newer).
   localMtime: number;
   remoteMtime: number;
+  // why the directory could not be compared; only set when status is 'error'
+  error?: string;
 }
 
 function isFileModified(a: FileEntry, b: FileEntry): boolean {
@@ -59,10 +76,47 @@ async function walk(
   }
 
   const { localFs, remoteFs, limiter } = ctx;
-  const [localEntries, remoteEntries] = await Promise.all([
-    limiter(() => localFs.list(localDir)).catch(() => []),
-    limiter(() => remoteFs.list(remoteDir)).catch(() => []),
+  // Both listings are allowed to settle before anything is decided. A failure
+  // used to become an empty listing, which is indistinguishable from a
+  // directory that really is empty -- so the compare reported every entry on
+  // the other side as one-sided, and the sync preview built on top of it
+  // presented that as a delete plan. A directory we could not read is reported
+  // as such and its subtree is left alone.
+  const [local, remote] = await Promise.allSettled([
+    limiter(() => localFs.list(localDir)),
+    limiter(() => remoteFs.list(remoteDir)),
   ]);
+
+  if (local.status === 'rejected' || remote.status === 'rejected') {
+    const failures = [
+      local.status === 'rejected' ? `list ${localDir} failed: ${errorMessage(local.reason)}` : '',
+      remote.status === 'rejected' ? `list ${remoteDir} failed: ${errorMessage(remote.reason)}` : '',
+    ].filter(Boolean);
+    const message = failures.join('; ');
+
+    // Nothing was compared at all, so there is no partial result worth
+    // returning -- fail the whole compare instead of reporting an empty one.
+    if (!relativeDir) {
+      throw new Error(message);
+    }
+
+    logger.warn(`compare skipped ${relativeDir}: ${message}`);
+    results.push({
+      relativePath: relativeDir,
+      name: upath.basename(relativeDir),
+      type: FileType.Directory,
+      status: 'error',
+      localFsPath: localDir,
+      remoteFsPath: remoteDir,
+      localMtime: 0,
+      remoteMtime: 0,
+      error: message,
+    });
+    return;
+  }
+
+  const localEntries = local.value;
+  const remoteEntries = remote.value;
 
   const localTable = toHash(localEntries);
   const remoteTable = toHash(remoteEntries);

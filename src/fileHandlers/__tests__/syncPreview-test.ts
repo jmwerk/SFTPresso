@@ -79,3 +79,45 @@ describe('computeSyncPlan', () => {
     expect(plan.delete).toEqual([]);
   });
 });
+
+/**
+ * A directory the compare could not read is the case that used to be reported
+ * as "delete everything": the failed listing became an empty one, so every
+ * entry on the other side looked extraneous. It must never be classified as
+ * anything the sync would act on.
+ */
+describe('computeSyncPlan — unreadable directories', () => {
+  const withError = [
+    result('good.txt', 'localOnly'),
+    result('unreadable', 'error'),
+    result('gone.txt', 'remoteOnly'),
+  ];
+  const clean = [result('a.txt', 'localOnly'), result('b.txt', 'same')];
+
+  it('an errored directory is not a deletion, in either direction', () => {
+    const l2r = computeSyncPlan(withError, L2R, { delete: true });
+    expect(l2r.delete).toEqual(['gone.txt']);
+    expect(l2r.unreadable).toEqual(['unreadable']);
+
+    const r2l = computeSyncPlan(withError, R2L, { delete: true });
+    expect(r2l.delete).toEqual(['good.txt']);
+    expect(r2l.unreadable).toEqual(['unreadable']);
+  });
+
+  it('an errored directory is not a create or an overwrite either', () => {
+    const plan = computeSyncPlan(withError, L2R, { delete: true });
+    expect(plan.create).toEqual(['good.txt']);
+    expect(plan.overwrite).toEqual([]);
+  });
+
+  it('both directions reports it too, and still never deletes', () => {
+    const plan = computeSyncPlan(withError, L2R, { bothDiretions: true, delete: true });
+    expect(plan.unreadable).toEqual(['unreadable']);
+    expect(plan.delete).toEqual([]);
+    expect(plan.create.sort()).toEqual(['gone.txt', 'good.txt']);
+  });
+
+  it('a clean compare reports nothing unreadable', () => {
+    expect(computeSyncPlan(clean, L2R, { delete: true }).unreadable).toEqual([]);
+  });
+});

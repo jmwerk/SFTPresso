@@ -343,6 +343,90 @@ describe('compareFolders — parallel result matches sequential', () => {
   });
 });
 
+/**
+ * A listing failure used to resolve to `[]`, which is indistinguishable from an
+ * empty directory — so a directory that could not be read was reported as one
+ * whose entries all live on the other side, and the sync preview built on those
+ * results presented that as a delete plan.
+ */
+describe('compareFolders — a failed listing is not an empty directory', () => {
+  function treesWithFailure(failing: { local?: string; remote?: string }) {
+    const meter = new Meter();
+    const localFs = new FakeFs(meter, false)
+      .addDir('/local')
+      .addDir('/local/bad')
+      .addFile('/local/bad/a.txt')
+      .addDir('/local/good')
+      .addFile('/local/good/only-local.txt');
+    const remoteFs = new FakeFs(meter, false)
+      .addDir('/remote')
+      .addDir('/remote/bad')
+      .addFile('/remote/bad/a.txt')
+      .addFile('/remote/bad/b.txt')
+      .addDir('/remote/good');
+
+    if (failing.local) {
+      jest.spyOn(localFs, 'list').mockImplementation(async (dir: string) => {
+        if (dir === failing.local) {
+          throw new Error('EACCES: permission denied');
+        }
+        return FakeFs.prototype.list.call(localFs, dir);
+      });
+    }
+    if (failing.remote) {
+      jest.spyOn(remoteFs, 'list').mockImplementation(async (dir: string) => {
+        if (dir === failing.remote) {
+          throw new Error('EMFILE: too many open files');
+        }
+        return FakeFs.prototype.list.call(remoteFs, dir);
+      });
+    }
+
+    return { localFs, remoteFs };
+  }
+
+  test('an unreadable subtree is reported as errored, not as remote-only', async () => {
+    const { localFs, remoteFs } = treesWithFailure({ local: '/local/bad' });
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4));
+
+    const bad = results.filter(r => r.relativePath.startsWith('bad'));
+    expect(bad).toHaveLength(1);
+    expect(bad[0].status).toBe('error');
+    expect(bad[0].error).toContain('list /local/bad failed: EACCES: permission denied');
+    // nothing inside it was classified at all
+    expect(results.some(r => r.relativePath === 'bad/b.txt')).toBe(false);
+  });
+
+  test('a failure on the remote side is reported the same way', async () => {
+    const { localFs, remoteFs } = treesWithFailure({ remote: '/remote/bad' });
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4));
+
+    const bad = results.find(r => r.relativePath === 'bad');
+    expect(bad!.status).toBe('error');
+    expect(bad!.error).toContain('list /remote/bad failed: EMFILE');
+  });
+
+  test('healthy siblings are still compared normally', async () => {
+    const { localFs, remoteFs } = treesWithFailure({ local: '/local/bad' });
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4));
+
+    expect(results.find(r => r.relativePath === 'good/only-local.txt')!.status).toBe(
+      'localOnly'
+    );
+  });
+
+  test('a failure at the root fails the whole compare rather than reporting nothing', async () => {
+    const { localFs, remoteFs } = treesWithFailure({ local: '/local' });
+
+    await expect(compareFolders(contextFor(localFs, remoteFs, 4))).rejects.toThrow(
+      'list /local failed: EACCES: permission denied'
+    );
+  });
+});
+
 describe('compareFolders — cancellation', () => {
   test('an already cancelled token does no work at all', async () => {
     const { localFs, remoteFs } = buildTrees(new Meter(), { width: 4, depth: 3 });

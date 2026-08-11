@@ -1,9 +1,32 @@
+import { window } from 'vscode';
+import { FileEntry } from '../../core';
+import logger from '../../logger';
 import { refreshRemoteExplorer } from '../shared';
 import createFileHandler, { FileHandlerContext } from '../createFileHandler';
 import { confirmSyncOrProceed } from '../syncPreview';
 import { diff } from '../diff';
 import { confirmUpload, updateBaselineAfterTransfer } from './conflictCheck';
 import { transfer, sync, TransferOption, SyncOption, TransferDirection } from './transfer';
+
+/**
+ * Make a sync's deletions visible after the fact.
+ *
+ * `sync()` has always returned what it removed and nobody looked at it, so a
+ * sync run with `syncConfirm` off deleted files with no trace anywhere. The
+ * paths go to the output channel and the count to a notification, so a
+ * surprising deletion is always answerable.
+ */
+function reportDeletions(label: string, deleted: FileEntry[]): void {
+  if (deleted.length === 0) {
+    return;
+  }
+
+  deleted.forEach(entry => logger.info(`${label} deleted ${entry.fspath}`));
+  window.showInformationMessage(
+    `SFTP ${label}: deleted ${deleted.length} extraneous` +
+      ` ${deleted.length === 1 ? 'entry' : 'entries'}. See the SFTP output for the full list.`
+  );
+}
 
 function createTransferHandle(direction: TransferDirection) {
   return async function handle(this: FileHandlerContext, option) {
@@ -89,7 +112,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
     // Attach filePerm and dirPerm to transferOption
     option.filePerm = this.config.filePerm;
     option.dirPerm = this.config.dirPerm;
-    await sync(
+    const deleted = await sync(
       {
         srcFsPath: localFsPath,
         srcFs: localFs,
@@ -103,6 +126,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
       t => scheduler.add(t)
     );
     await scheduler.run();
+    reportDeletions('Sync Local → Remote', deleted);
   },
   transformOption() {
     const config = this.config;
@@ -140,7 +164,7 @@ export const sync2Local = createFileHandler<SyncOption>({
       this.config.retry,
       this.config.stallTimeout
     );
-    await sync(
+    const deleted = await sync(
       {
         srcFsPath: remoteFsPath,
         srcFs: remoteFs,
@@ -154,6 +178,7 @@ export const sync2Local = createFileHandler<SyncOption>({
       t => scheduler.add(t)
     );
     await scheduler.run();
+    reportDeletions('Sync Remote → Local', deleted);
   },
   transformOption() {
     const config = this.config;
