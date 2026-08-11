@@ -6,8 +6,17 @@ import { FileSystem, RemoteFileSystem, SFTPFileSystem } from '../fs';
 import logger from '../../logger';
 import CustomError from '../customError';
 import { describeConnectError } from '../../helper/error';
+import { isKnownHost, normalizeStrictHostKeyChecking } from './hostKeyStore';
+import { verifyHostKey } from './hostKeyVerifier';
 
 let MAX_OPEN_FD_NUM = 222;
+
+// How long the handshake is given when a host key prompt is going to appear in
+// the middle of it. ssh2's readyTimeout runs from connect() to 'ready', and the
+// verifier holds the handshake open while the modal is up -- with the usual
+// ten-second budget the connection would be torn down while the user is still
+// reading the fingerprint they are being asked to check.
+const HOST_KEY_PROMPT_READY_TIMEOUT = 5 * 60 * 1000;
 
 export default class SSHClient extends RemoteClient {
   private sftp: any;
@@ -44,9 +53,18 @@ export default class SSHClient extends RemoteClient {
       (hop && Object.keys(hop).length > 0)
     ) {
       this.hoppingClients = [];
-      const connectOptions = Array.isArray(hop)
+      // Every host in the chain is verified in its own right, so each hop
+      // inherits the config's policy unless it overrides it. A bastion is
+      // exactly as impersonatable as the host behind it.
+      const inheritPolicy = (opt: ConnectOption): ConnectOption =>
+        opt.strictHostKeyChecking === undefined
+          ? { ...opt, strictHostKeyChecking: option.strictHostKeyChecking }
+          : opt;
+
+      const connectOptions = (Array.isArray(hop)
         ? [option].concat(hop)
-        : [option, hop];
+        : [option, hop]
+      ).map(inheritPolicy);
       lastOption = connectOptions.pop()!;
 
       for (let index = 0; index < connectOptions.length; index++) {
@@ -246,8 +264,38 @@ export default class SSHClient extends RemoteClient {
     const {
       interactiveAuth,
       connectTimeout,
+      strictHostKeyChecking,
       ...option
     } = remoteOption;
+
+    const policy = normalizeStrictHostKeyChecking(strictHostKeyChecking);
+    // ssh2 turns a refused key into a generic "Host denied (verification
+    // failed)". Ours says which host, which fingerprints, and what to do about
+    // it, so it is kept here and preferred over whatever the socket reports.
+    let hostKeyError: Error | undefined;
+    const hostVerifier = (key: Buffer, verify: (ok: boolean) => void) => {
+      verifyHostKey({
+        host: option.host,
+        port: option.port,
+        key,
+        policy,
+        prompt: config.hostKeyPrompt,
+      }).then(
+        () => verify(true),
+        error => {
+          hostKeyError = error;
+          verify(false);
+        }
+      );
+      // returning undefined tells ssh2 the verdict arrives via the callback
+    };
+
+    // Only 'ask' prompts, and only for a host no store has heard of. Asking the
+    // store up front costs one small file read and keeps the extended deadline
+    // off every other connection, where a stalled handshake should still give
+    // up in `connectTimeout`.
+    const willPromptForHostKey =
+      policy === 'ask' && !(await isKnownHost(option.host, option.port));
 
     // explict compare to true, cause we want to distinct between string and true
     if (option.passphrase === true) {
@@ -304,7 +352,7 @@ export default class SSHClient extends RemoteClient {
       client
         .on('ready', resolve)
         .on('error', err => {
-          reject(describeConnectError(err, option.host));
+          reject(hostKeyError || describeConnectError(err, option.host));
         })
         .on('close', () => this.end())
         .on('end', () => this.end())
@@ -315,13 +363,18 @@ export default class SSHClient extends RemoteClient {
           keepaliveCountMax: 2, // x2 original
           // keepaliveCountMax: 3, // x3
           // keepaliveCountMax: 6, // x6
-          readyTimeout: interactiveAuth
+          readyTimeout: willPromptForHostKey
+            ? Math.max(HOST_KEY_PROMPT_READY_TIMEOUT, connectTimeout || 0)
+            : interactiveAuth
             ? Math.max(60 * 1000, connectTimeout || 0) // 60 secs, original
             // ? Math.max(1800 * 1000, connectTimeout || 0) // 30 mins
             // ? Math.max(10800 * 1000, connectTimeout || 0) // 180 mins
             : connectTimeout,
           ...option,
           tryKeyboard: !!interactiveAuth,
+          // last, so nothing in the user's config can spread over it and turn
+          // verification back off
+          hostVerifier,
         });
     });
   }

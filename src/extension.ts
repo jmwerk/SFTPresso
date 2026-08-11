@@ -18,6 +18,7 @@ import RemoteExplorer from './modules/remoteExplorer';
 import TransferView from './modules/transferView';
 import TestConnectionCodeLensProvider from './modules/testConnectionCodeLensProvider';
 import { CONGIF_FILENAME } from './constants';
+import { setManagedStorePath } from './core/remote-client/hostKeyStore';
 
 async function setupWorkspaceFolder(dir) {
   const configs = await tryLoadConfigs(dir);
@@ -37,6 +38,11 @@ function setup(workspaceFolders: readonly vscode.WorkspaceFolder[]) {
 // your extension is activated the very first time the command is executed
 export async function activate(context: vscode.ExtensionContext) {
   app.vscodeContext = context;
+
+  // Host keys accepted here are written to a known_hosts file of our own rather
+  // than to the user's ~/.ssh/known_hosts, which belongs to their ssh client.
+  // Same format, so it stays readable with the usual tools.
+  setManagedStorePath(vscode.Uri.joinPath(context.globalStorageUri, 'known_hosts').fsPath);
 
   try {
     initCommands(context);

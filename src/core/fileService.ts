@@ -64,6 +64,9 @@ interface ServiceOption {
   stallTimeout: number;
   // ms a single remote request may go unanswered before it is failed
   operationTimeout: number;
+  // OpenSSH's StrictHostKeyChecking: how an unknown or changed SSH host key is
+  // treated. sftp only.
+  strictHostKeyChecking: boolean | 'ask' | 'accept-new';
 }
 
 export interface RetryOption {
@@ -195,6 +198,9 @@ function getHostInfo(config) {
     'stallTimeout',
     // request policy, likewise
     'operationTimeout',
+    // host key policy, likewise -- tightening it must not open a second
+    // connection to the same server, and it is not part of which host this is
+    'strictHostKeyChecking',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -662,6 +668,7 @@ export default class FileService {
     return createRemoteIfNoneExist(getHostInfo(config), {
       idleTimeout: config.idleTimeout,
       operationTimeout: config.operationTimeout,
+      strictHostKeyChecking: config.strictHostKeyChecking,
     });
   }
 

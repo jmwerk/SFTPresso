@@ -39,6 +39,9 @@ const configScheme = Joi.object({
   algorithms: Joi.any(),
   sshConfigPath: Joi.string(),
   sshCustomParams: Joi.string(),
+  strictHostKeyChecking: Joi.alternatives()
+    .try(Joi.boolean(), Joi.string().valid('ask', 'accept-new'))
+    .optional(),
 
   secure: Joi.any().valid(true, false, 'control', 'implicit'),
   secureOptions: nullable(Joi.object()),
@@ -155,6 +158,15 @@ export const defaultConfig = {
   // passphrase,
   interactiveAuth: false,
   // algorithms,
+
+  // How an unknown or changed SSH host key is treated, mirroring OpenSSH's
+  // StrictHostKeyChecking. "accept-new" is the default because it is the only
+  // value that both closes the hole that mattered -- a *changed* key is now
+  // refused, where before a man in the middle was accepted silently -- and
+  // leaves every existing config connecting exactly as it did on upgrade.
+  // Use "ask" to be prompted with the fingerprint on first sight, or true to
+  // refuse anything not already in a known_hosts file.
+  strictHostKeyChecking: 'accept-new',
 
   // ftp
   secure: false,

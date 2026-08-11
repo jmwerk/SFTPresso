@@ -348,6 +348,11 @@
         "type": "string",
         "description": "Extra parameters append to SSH command using by \"Open SSH in Terminal\"",
         "default": "\"cd \"${remotePath}\"; exec \\$SHELL -l\""
+      },
+      "strictHostKeyChecking": {
+        "enum": [true, false, "ask", "accept-new"],
+        "description": "How the server's SSH host key is checked, mirroring OpenSSH's StrictHostKeyChecking. Keys are looked up in your own ~/.ssh/known_hosts first, then in the store of keys accepted in SFTPresso. \"accept-new\" (the default) trusts a host the first time it is seen and remembers its key, then refuses to connect if that key ever changes. \"ask\" prompts with the fingerprint on first sight instead. true refuses any host that is not already in a known_hosts file. false also allows a changed host key through, which disables the protection against a man-in-the-middle — only use it if you understand the consequence. Bastion hosts configured with \"hop\" are verified in their own right. Applies to sftp only.",
+        "default": "accept-new"
       }
     }
   },
