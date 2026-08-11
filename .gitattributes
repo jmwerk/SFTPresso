@@ -1,0 +1,5 @@
+# Shell scripts are executed inside Linux containers by the integration suite.
+# Checked out with CRLF (the default on Windows) the kernel reads the shebang as
+# "/bin/sh\r" and the container dies with "no such file or directory", so the
+# whole stack fails to start on a Windows clone. Pin them to LF everywhere.
+*.sh text eol=lf

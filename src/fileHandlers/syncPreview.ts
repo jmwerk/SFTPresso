@@ -16,6 +16,10 @@ export interface SyncPlan {
   create: string[];
   overwrite: string[];
   delete: string[];
+  // directories the compare could not read. They are never classified as
+  // anything else -- in particular never as a deletion -- but the user is told
+  // the preview is incomplete, because the real sync will fail on them.
+  unreadable: string[];
 }
 
 const MAX_DETAIL_LINES = 40;
@@ -29,13 +33,15 @@ export function computeSyncPlan(
   direction: TransferDirection,
   option: SyncPreviewOption
 ): SyncPlan {
-  const plan: SyncPlan = { create: [], overwrite: [], delete: [] };
+  const plan: SyncPlan = { create: [], overwrite: [], delete: [], unreadable: [] };
 
   if (option.bothDiretions) {
     // Both-directions keeps the newest copy on each side and never deletes;
     // only skipCreate and ignoreExisting apply (matches the sync handler).
     for (const r of results) {
-      if (r.status === 'localOnly' || r.status === 'remoteOnly') {
+      if (r.status === 'error') {
+        plan.unreadable.push(r.relativePath);
+      } else if (r.status === 'localOnly' || r.status === 'remoteOnly') {
         if (!option.skipCreate) plan.create.push(r.relativePath);
       } else if (r.status === 'modified') {
         if (!option.ignoreExisting) plan.overwrite.push(r.relativePath);
@@ -49,7 +55,9 @@ export function computeSyncPlan(
   const destOnly = isLocalToRemote ? 'remoteOnly' : 'localOnly';
 
   for (const r of results) {
-    if (r.status === srcOnly) {
+    if (r.status === 'error') {
+      plan.unreadable.push(r.relativePath);
+    } else if (r.status === srcOnly) {
       if (!option.skipCreate) plan.create.push(r.relativePath);
     } else if (r.status === destOnly) {
       if (option.delete) plan.delete.push(r.relativePath);
@@ -72,6 +80,8 @@ function pluralize(count: number, noun: string): string {
 
 function buildDetail(plan: SyncPlan, createLabel: string): string {
   const lines: string[] = [];
+  // first, so an incomplete preview is the first thing read
+  plan.unreadable.forEach(p => lines.push(`! could not read: ${p}`));
   plan.create.forEach(p => lines.push(`+ ${createLabel}: ${p}`));
   plan.overwrite.forEach(p => lines.push(`~ overwrite: ${p}`));
   plan.delete.forEach(p => lines.push(`- delete: ${p}`));
@@ -113,7 +123,7 @@ export async function confirmSyncOrProceed(
     ? 'Local → Remote'
     : 'Remote → Local';
 
-  if (total === 0) {
+  if (total === 0 && plan.unreadable.length === 0) {
     window.showInformationMessage(
       `SFTP Sync ${dirLabel}: nothing to do — local and remote already match.`
     );
@@ -134,7 +144,16 @@ export async function confirmSyncOrProceed(
     parts.push(pluralize(plan.delete.length, 'deletion'));
   }
 
-  const summary = `Sync ${dirLabel}: ${parts.join(', ')}. Proceed?`;
+  let summary = `Sync ${dirLabel}: ${parts.join(', ')}. Proceed?`;
+  if (plan.unreadable.length > 0) {
+    // The plan below is built from what could be read, so it is not the whole
+    // picture -- say so before the user approves it. The sync itself will fail
+    // on these directories rather than acting on the gap.
+    summary =
+      `Sync ${dirLabel}: ${plan.unreadable.length}` +
+      ` ${plan.unreadable.length === 1 ? 'directory' : 'directories'} could not be read,` +
+      ` so this preview is incomplete. Of what could be read: ${parts.join(', ')}. Proceed?`;
+  }
   const detail = buildDetail(plan, createLabel);
 
   const choice = await window.showWarningMessage(

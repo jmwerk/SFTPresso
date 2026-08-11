@@ -1,5 +1,6 @@
 import upath from './upath';
 import { promptForPassword } from '../host';
+import hostKeyPrompt from '../hostKeyPrompt';
 import logger from '../logger';
 import app from '../app';
 import { ConnectionState } from '../ui/connectionStatusBar';
@@ -30,6 +31,11 @@ export interface ConnectionPolicy {
   // connection dropped. 0 waits indefinitely. Baked into the file system when
   // it is constructed, so a change takes effect on the next reconnect.
   operationTimeout?: number;
+
+  // How an unknown or changed SSH host key is treated (OpenSSH's
+  // StrictHostKeyChecking). Policy, like the two above -- a user who tightens
+  // it should not end up with a second connection to the same server.
+  strictHostKeyChecking?: boolean | string;
 }
 
 class KeepAliveRemoteFs {
@@ -102,6 +108,9 @@ class KeepAliveRemoteFs {
     const connectOption = Object.assign({}, option);
     let FsConstructor: typeof SFTPFileSystem | typeof FTPFileSystem;
     if (option.protocol === 'sftp') {
+      // Added to the copy, after the pool identity was computed from `option`,
+      // so changing the policy does not open a second connection.
+      connectOption.strictHostKeyChecking = policy.strictHostKeyChecking;
       connectOption.debug = function debug(str) {
         const log = str.match(/^DEBUG(?:\[SFTP\])?: (.*?): (.*?)$/);
 
@@ -151,6 +160,7 @@ class KeepAliveRemoteFs {
     return fs
       .connect(connectOption, {
         askForPasswd: promptForPassword,
+        hostKeyPrompt,
       })
       .then(
         () => {

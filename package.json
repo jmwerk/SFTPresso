@@ -130,6 +130,16 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.showHostKey",
+        "title": "Show Host Key Fingerprint",
+        "category": "SFTP"
+      },
+      {
+        "command": "sftp.forgetHostKey",
+        "title": "Forget Host Key",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.cancelAllTransfer",
         "title": "Cancel All Transfers",
         "category": "SFTP"
@@ -384,6 +394,14 @@
         },
         {
           "command": "sftp.migratePassword",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.showHostKey",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.forgetHostKey",
           "when": "sftp.enabled"
         },
         {

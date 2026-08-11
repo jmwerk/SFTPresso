@@ -149,6 +149,13 @@ async function collectConfig(basePath: string): Promise<object | undefined> {
       if (agent === undefined) return;
       config.agent = agent.trim();
     }
+
+    // Written explicitly rather than left to the default so a config created
+    // today gets the stricter behaviour, and so the option is visible in the
+    // file the user is about to read. "ask" rather than true: true refuses any
+    // host not already in a known_hosts file, which a config the user has just
+    // created for a host they have never connected to could never satisfy.
+    config.strictHostKeyChecking = 'ask';
   }
 
   const remotePath = await inputRemotePath();

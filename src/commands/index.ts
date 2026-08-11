@@ -6,12 +6,14 @@ import commandCancelTransfer from './commandCancelTransfer';
 import commandClearPassword from './commandClearPassword';
 import commandConfig from './commandConfig';
 import commandDisconnect from './commandDisconnect';
+import commandForgetHostKey from './commandForgetHostKey';
 import commandListActiveFolder from './commandListActiveFolder';
 import commandMigratePassword from './commandMigratePassword';
 import commandOpenSshConnection from './commandOpenSshConnection';
 import commandRetryTransfer from './commandRetryTransfer';
 import commandSavePassword from './commandSavePassword';
 import commandSetProfile from './commandSetProfile';
+import commandShowHostKey from './commandShowHostKey';
 import commandTestConnection from './commandTestConnection';
 import commandToggleOutputPanel from './commandToggleOutputPanel';
 import commandToggleUploadOnSave from './commandToggleUploadOnSave';
@@ -59,12 +61,14 @@ export default {
   commandClearPassword,
   commandConfig,
   commandDisconnect,
+  commandForgetHostKey,
   commandListActiveFolder,
   commandMigratePassword,
   commandOpenSshConnection,
   commandRetryTransfer,
   commandSavePassword,
   commandSetProfile,
+  commandShowHostKey,
   commandTestConnection,
   commandToggleOutputPanel,
   commandToggleUploadOnSave,

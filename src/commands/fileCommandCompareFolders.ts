@@ -12,6 +12,7 @@ const STATUS_LABEL: { [key in CompareStatus]: string } = {
   localOnly: '$(diff-added) Local only',
   remoteOnly: '$(diff-removed) Remote only',
   same: '$(check) Identical',
+  error: '$(warning) Could not read',
 };
 
 async function showResults(uri: Uri, results: CompareResult[]): Promise<void> {
@@ -45,6 +46,16 @@ async function showActionsForResult(
   results: CompareResult[]
 ): Promise<void> {
   const actions: Array<{ label: string; action: () => Promise<void> }> = [];
+
+  // Nothing is known about what is inside a directory we could not list, so
+  // offering to transfer it either way would be acting on a guess.
+  if (result.status === 'error') {
+    window.showWarningMessage(
+      `Compare Folders: ${result.relativePath} could not be compared — ${result.error}`
+    );
+    await showResults(uri, results);
+    return;
+  }
 
   if (result.status === 'modified' && result.type !== FileType.Directory) {
     actions.push({

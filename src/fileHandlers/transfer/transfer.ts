@@ -271,12 +271,14 @@ async function removeFile(file: string, fs: FileSystem, fileType: FileType, opti
   switch (fileType) {
     case FileType.Directory:
       await fileOperations.removeDir(file, fs, option);
-      logger.info('folder removed.');
+      // named, so a deletion is always traceable after the fact even when the
+      // sync preview was skipped
+      logger.info(`folder removed: ${file}`);
       break;
     case FileType.File:
     case FileType.SymbolicLink:
       await fileOperations.removeFile(file, fs, option);
-      logger.info('file removed.');
+      logger.info(`file removed: ${file}`);
       break;
     default:
       break;
@@ -529,9 +531,18 @@ async function _sync(
   // create dir here so we don't have to ensure it for children files.
   await limited(config, () => targetFs.ensureDir(targetFsPath));
 
+  // A failed listing used to resolve to []. With syncOption.delete that made
+  // every entry on the other side look extraneous, so one transient error was
+  // enough to wipe a directory the user never intended to touch. Deletion may
+  // only ever be driven by a listing that actually succeeded, so a failure here
+  // is fatal for this subtree.
   const files = await Promise.all([
-    limited(config, () => srcFs.list(srcFsPath)).catch(err => []),
-    limited(config, () => targetFs.list(targetFsPath)).catch(err => []),
+    limited(config, () => srcFs.list(srcFsPath)).catch(error => {
+      throw describeFailure(error, 'list', srcFsPath);
+    }),
+    limited(config, () => targetFs.list(targetFsPath)).catch(error => {
+      throw describeFailure(error, 'list', targetFsPath);
+    }),
   ]);
   await syncFiles(...files);
 }

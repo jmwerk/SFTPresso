@@ -1,6 +1,7 @@
 import logger from '../../logger';
 import { getStoredPassword, offerToRememberPassword } from '../../credentialStore';
 import CustomError from '../customError';
+import { HostKeyPrompt } from './hostKeyVerifier';
 
 export interface ConnectOption {
   // common
@@ -21,6 +22,10 @@ export interface ConnectOption {
   sock?: any;
   hop?: ConnectOption | ConnectOption[];
   limitOpenFilesOnRemote?: boolean | number;
+  // OpenSSH's StrictHostKeyChecking, as true/false/'ask'/'accept-new'. Carried
+  // on the connect option rather than in the connection identity: it is policy
+  // about how we treat a host, not part of which host this is.
+  strictHostKeyChecking?: boolean | string;
 
   // ftp-only
   secure?: any;
@@ -34,6 +39,10 @@ export enum ErrorCode {
 
 export interface Config {
   askForPasswd(msg: string): Promise<string | undefined>;
+  // How an unknown or changed host key is put to the user. Optional so the
+  // core stays usable (and testable) without a UI; without it, a policy that
+  // needs to ask refuses instead.
+  hostKeyPrompt?: HostKeyPrompt;
 }
 
 export default abstract class RemoteClient {
