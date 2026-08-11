@@ -1,4 +1,4 @@
-## Unreleased
+## 1.30.0 - 2026-08-11
 
 > ⚠️ **Behaviour change for every existing user: SSH host keys are now checked.** Before this release they were not checked at all, so there is nothing in SFTPresso's own store for anything you connect to today. With the default `strictHostKeyChecking` of `"accept-new"` every existing config keeps connecting exactly as it did — the first connection after upgrading learns the server's key — and from then on a *changed* key stops the connection instead of being accepted silently. Two cases will start failing where they used to succeed, both deliberately: a server whose key really has changed, and a server your `~/.ssh/known_hosts` holds a **stale** entry for (one `ssh` has been warning you about too). In either case, confirm the change is legitimate and then run **`SFTP: Forget Host Key`** — or fix the entry with `ssh-keygen -R` — and connect again. Set `"strictHostKeyChecking": false` to opt out entirely, at the cost of the protection this adds.
 
