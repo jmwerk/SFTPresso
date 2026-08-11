@@ -41,12 +41,48 @@ class KeepAliveRemoteFs {
 
   constructor(private readonly id: string) {}
 
-  async getFs(
+  // Hands out the pooled connection, opening or replacing it if needed.
+  //
+  // Everything is funnelled through one in-flight acquisition, because the
+  // work below is not safe to run twice at once. Uploading three files runs
+  // three commands concurrently, and each one calls this: without the gate
+  // all three would find the same connection valid, all three would probe it,
+  // all three would invalidate it, and all three would then open a connection
+  // that overwrites the last one. Only the final instance stays in `fs`; the
+  // rest are orphaned mid-handshake, and their sockets erroring out takes the
+  // surviving connection down with them. Sharing one acquisition means one
+  // probe, one reconnect, and one connection handed to all three callers.
+  getFs(
     option: ConnectOption & {
       protocol: string;
       remoteTimeOffsetInHours: number;
     },
     policy: ConnectionPolicy = {}
+  ): Promise<RemoteFileSystem> {
+    if (this.pendingPromise) {
+      return this.pendingPromise;
+    }
+
+    const acquisition = this._acquire(option, policy);
+    this.pendingPromise = acquisition;
+    // Identity-checked so a slow acquisition that has already been superseded
+    // cannot clear its successor's entry on the way out.
+    const release = () => {
+      if (this.pendingPromise === acquisition) {
+        this.pendingPromise = null;
+      }
+    };
+    acquisition.then(release, release);
+
+    return acquisition;
+  }
+
+  private async _acquire(
+    option: ConnectOption & {
+      protocol: string;
+      remoteTimeOffsetInHours: number;
+    },
+    policy: ConnectionPolicy
   ): Promise<RemoteFileSystem> {
     if (this.isValid && (await this.isStale(policy, option))) {
       // drops the connection and leaves isValid false, so we reconnect below
@@ -54,13 +90,8 @@ class KeepAliveRemoteFs {
     }
 
     if (this.isValid) {
-      this.pendingPromise = null;
       this.lastUsedAt = Date.now();
-      return Promise.resolve(this.fs);
-    }
-
-    if (this.pendingPromise) {
-      return this.pendingPromise;
+      return this.fs;
     }
 
     const connectOption = Object.assign({}, option);
@@ -87,18 +118,31 @@ class KeepAliveRemoteFs {
       throw new Error(`unsupported protocol ${option.protocol}`);
     }
 
-    this.fs = new FsConstructor(upath, {
+    const fs = new FsConstructor(upath, {
       clientOption: connectOption,
       remoteTimeOffsetInHours: option.remoteTimeOffsetInHours,
     });
-    this.fs.onDisconnected(this.invalid.bind(this));
+    // Scoped to this instance rather than bound straight to invalid(). A
+    // connection that has already been replaced still emits 'close' and
+    // 'error' as its socket unwinds, and invalid() acts on whatever `fs`
+    // currently points at -- so a dead connection's dying breath would tear
+    // down the healthy one that replaced it.
+    fs.onDisconnected((reason: string, err?: Error) => {
+      if (this.fs !== fs) {
+        logger.debug(`ignoring '${reason}' from a replaced connection`);
+        return;
+      }
+      this.invalid(reason, err);
+    });
+    this.fs = fs;
 
     app.sftpBarItem.showMsg('connecting...', connectOption.connectTimeout);
     app.connectionBarItem.setState(
       this.id,
       this.hasConnected ? ConnectionState.Reconnecting : ConnectionState.Connecting
     );
-    this.pendingPromise = this.fs
+
+    return fs
       .connect(connectOption, {
         askForPasswd: promptForPassword,
       })
@@ -109,16 +153,14 @@ class KeepAliveRemoteFs {
           this.hasConnected = true;
           this.lastUsedAt = Date.now();
           app.connectionBarItem.setState(this.id, ConnectionState.Connected);
-          return this.fs;
+          return fs;
         },
         err => {
-          this.fs.end();
+          fs.end();
           this.invalid('error');
           throw err;
         }
       );
-
-    return this.pendingPromise;
   }
 
   // Whether the pooled connection has been sitting long enough that it may have
@@ -189,8 +231,14 @@ class KeepAliveRemoteFs {
     if (err) {
       logger.error(`connection ${reason}: ${err.message}`);
     }
-    this.pendingPromise = null;
-    this.fs.end();
+    // Deliberately does not clear pendingPromise. This can fire from a socket
+    // event while an acquisition is still running, and dropping the gate then
+    // would let a second caller start a competing one -- the very race this
+    // entry exists to prevent. getFs() clears it when the acquisition it
+    // started actually settles.
+    if (this.fs) {
+      this.fs.end();
+    }
     this.isValid = false;
     app.connectionBarItem.setState(
       this.id,
@@ -199,7 +247,11 @@ class KeepAliveRemoteFs {
   }
 
   end() {
-    this.fs.end();
+    // may never have got as far as constructing one, e.g. an unsupported
+    // protocol threw out of the acquisition
+    if (this.fs) {
+      this.fs.end();
+    }
     app.connectionBarItem.clear(this.id);
   }
 }
