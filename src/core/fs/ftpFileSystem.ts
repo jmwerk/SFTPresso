@@ -128,6 +128,16 @@ export default class FTPFileSystem extends RemoteFileSystem {
     });
   }
 
+  // FTP opts out of operationTimeout, for two reasons. basic-ftp already
+  // applies `connectTimeout` as an idle timeout on both the control and data
+  // sockets, so a server that goes quiet is caught there rather than here.
+  // And because every operation is serialized through atomic(), a deadline
+  // started at call time would mostly be measuring how long the queue is: a
+  // stat waiting behind a 200MB upload would fail while nothing is wrong.
+  protected _timedOperations(): string[] {
+    return [];
+  }
+
   private atomic<T>(task: () => Promise<T>): Promise<T> {
     const result = this._taskQueue.then(task, task);
     this._taskQueue = result.then(

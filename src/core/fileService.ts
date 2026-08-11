@@ -62,6 +62,8 @@ interface ServiceOption {
   idleTimeout: number;
   // ms without progress before a transfer is treated as stalled
   stallTimeout: number;
+  // ms a single remote request may go unanswered before it is failed
+  operationTimeout: number;
 }
 
 export interface RetryOption {
@@ -191,6 +193,8 @@ function getHostInfo(config) {
     'idleTimeout',
     // transfer policy, likewise
     'stallTimeout',
+    // request policy, likewise
+    'operationTimeout',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -657,6 +661,7 @@ export default class FileService {
   getRemoteFileSystem(config: ServiceConfig): Promise<FileSystem> {
     return createRemoteIfNoneExist(getHostInfo(config), {
       idleTimeout: config.idleTimeout,
+      operationTimeout: config.operationTimeout,
     });
   }
 
@@ -733,6 +738,12 @@ export default class FileService {
   setConfigValue(key: keyof FileServiceConfig, value: any) {
     (this._config as any)[key] = value;
     this.invalidateConfigCache();
+  }
+
+  // Closes the pooled connection for the active profile and drops it, so the
+  // next command dials a fresh one. Safe to call when nothing is connected.
+  disconnect() {
+    this._disposeFileSystem();
   }
 
   dispose() {

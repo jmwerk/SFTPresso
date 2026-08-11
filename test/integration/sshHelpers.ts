@@ -33,8 +33,13 @@ export function connectOption(overrides: Partial<ConnectOption> = {}): ConnectOp
   } as ConnectOption;
 }
 
-function newFs(option: ConnectOption): SFTPFileSystem {
-  return new SFTPFileSystem(upath, { clientOption: option });
+// Generous enough that no real operation against the container comes close,
+// so the whole suite runs with the operation guard installed rather than
+// exercising a code path the product no longer uses by default.
+export const DEFAULT_OPERATION_TIMEOUT = 30 * 1000;
+
+function newFs(option: ConnectOption, operationTimeout: number): SFTPFileSystem {
+  return new SFTPFileSystem(upath, { clientOption: option, operationTimeout });
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -45,13 +50,14 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
  */
 export async function connectSftp(
   overrides: Partial<ConnectOption> = {},
-  attempts = 5
+  attempts = 5,
+  operationTimeout = DEFAULT_OPERATION_TIMEOUT
 ): Promise<SFTPFileSystem> {
   const option = connectOption(overrides);
   let lastError: unknown;
 
   for (let i = 0; i < attempts; i += 1) {
-    const fs = newFs(option);
+    const fs = newFs(option, operationTimeout);
     try {
       await fs.connect(option, { askForPasswd: async () => undefined });
       return fs;
@@ -70,7 +76,7 @@ export function connectSftpOnce(
   overrides: Partial<ConnectOption> = {}
 ): Promise<SFTPFileSystem> {
   const option = connectOption(overrides);
-  const fs = newFs(option);
+  const fs = newFs(option, DEFAULT_OPERATION_TIMEOUT);
   return fs
     .connect(option, { askForPasswd: async () => undefined })
     .then(() => fs)

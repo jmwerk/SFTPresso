@@ -105,6 +105,11 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.disconnect",
+        "title": "Disconnect",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.toggleUploadOnSave",
         "title": "Toggle Upload on Save",
         "category": "SFTP"
@@ -363,6 +368,10 @@
         },
         {
           "command": "sftp.testConnection",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.disconnect",
           "when": "sftp.enabled"
         },
         {
