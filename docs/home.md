@@ -912,7 +912,7 @@ Six directives are read:
 | `User` | [`username`](#username) | |
 | `IdentityFile` | [`privateKeyPath`](#privatekeypath) | |
 | `ConnectTimeout` | [`connectTimeout`](#connecttimeout) | Seconds in `ssh_config`, converted to ms. |
-| `ServerAliveInterval` | SSH keepalive interval | Seconds in `ssh_config`, converted to ms. Replaces the built-in 30s default. |
+| `ServerAliveInterval` | [`keepaliveInterval`](#keepaliveinterval) | Seconds in `ssh_config`, converted to ms. |
 
 Except for `HostName`, a value you set in `sftp.json` wins — the ssh config only fills in what you left out. `ConnectTimeout` and `ServerAliveInterval` are ignored, with a warning in the output channel, if their value isn't a number of seconds.
 
@@ -961,6 +961,41 @@ Controls how the server's SSH host key is checked, mirroring OpenSSH's option of
 A key marked `@revoked` in a known_hosts file is refused under every value, as is a certificate host key (SFTPresso cannot validate one).
 
 > ℹ️ SFTP only. Setting it on an FTP config is accepted and ignored.
+
+#### keepaliveInterval
+How often, in milliseconds, an SSH-level keepalive packet is sent to the server. Guards against links that silently drop an idle connection — a NAT or firewall that closes an unused mapping, or a host that reaps connections it hasn't heard from — leaving the next operation to hang against a socket nothing will ever answer on.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `keepaliveInterval` | number | `30000` |
+
+Resolved in that order: this option if you set it, otherwise `ServerAliveInterval` from your [ssh config](#sshconfigpath) (which states it in seconds), otherwise `30000`. Set to `0` to disable keepalive packets entirely.
+
+```jsonc
+{
+  // a host that reaps idle connections after 45s needs a shorter grace period
+  // than the 60s the default 30000ms / x2 gives it
+  "keepaliveInterval": 15000
+}
+```
+
+> ℹ️ SFTP only.
+
+#### keepaliveCountMax
+How many consecutive keepalive packets may go unanswered before the connection is considered dead and torn down. Paired with [`keepaliveInterval`](#keepaliveinterval), an unresponsive server is given up on after roughly `keepaliveInterval × keepaliveCountMax` milliseconds.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `keepaliveCountMax` | number | `2` |
+
+```jsonc
+{
+  // more tolerance for a link that occasionally drops a packet
+  "keepaliveCountMax": 4
+}
+```
+
+> ℹ️ SFTP only.
 
 ### FTP(S)-only options
 
