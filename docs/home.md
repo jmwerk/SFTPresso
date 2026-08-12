@@ -84,6 +84,7 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Feature | Where to find it | Details |
 | --- | --- | --- |
 | Remote Explorer | SFTP icon in the Activity Bar | Browse remote files, multi-select download/upload — see [Using the Remote Explorer](#using-the-remote-explorer) |
+| Remote Explorer filter | `SFTP: Filter Remote Explorer` / `SFTP: Clear Filter` | Live, debounced substring search across the whole remote tree — including folders you haven't expanded yet — see [Using the Remote Explorer](#using-the-remote-explorer) |
 | Transfers view | SFTP sidebar → **Transfers** | Live per-file status (queued / transferring / failed) with byte-level progress, speed, and ETA, per-file cancel, and retry for failed transfers — see [Monitoring and cancelling transfers](#monitoring-and-cancelling-transfers) |
 | Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter plus combined transfer speed; click to cancel all |
 | Diff local ↔ remote | `SFTP: Diff with Remote` | Opens VS Code's diff view against the remote copy |
@@ -281,6 +282,8 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Reveal in Remote Explorer | `sftp.revealInRemoteExplorer` | Jump from a local file to its remote counterpart in the Remote Explorer. |
 | Refresh | `sftp.remoteExplorer.refresh` | Refresh the Remote Explorer tree. |
 | Refresh Active Remote File | `sftp.remoteExplorer.refreshActiveFile` | Re-fetch the remote file open in the editor. |
+| `SFTP: Filter Remote Explorer` | `sftp.remoteExplorer.filter` | Open a live, debounced quick pick that narrows the Remote Explorer to entries whose name contains the typed substring, plus their ancestor folders — including folders not yet expanded. See [Using the Remote Explorer](#using-the-remote-explorer). |
+| `SFTP: Clear Filter` | `sftp.remoteExplorer.clearFilter` | Clear an active Remote Explorer filter and restore the full listing. |
 
 ### Transfer management commands
 
@@ -1325,6 +1328,7 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 - **Multi-select** works like the regular explorer: hold `Ctrl`/`Cmd` or `Shift` while clicking to select several files/folders, then upload or download them all at once.
 - Create, rename/move, and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)) — rename/move is a single remote operation regardless of size, see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 - Hide noise (e.g. `node_modules`) with [`remoteExplorer.filesExclude`](#remoteexplorer), and control root ordering with `remoteExplorer.order`.
+- **Filter** the tree with **`SFTP: Filter Remote Explorer`** (funnel icon in the view title) — typing live-narrows the tree to matching names and the folders leading to them, even inside folders you haven't opened yet. **`SFTP: Clear Filter`** resets it, and the view title shows the active query while it's on. Substring match only for now. VS Code's own `workbench.list.keyboardNavigation: filter` setting is a handy complement for searching within a folder you've already expanded.
 - After a **delete**, manually refresh the parent folder if the tree doesn't update on its own (known issue).
 
 ### Monitoring and cancelling transfers
