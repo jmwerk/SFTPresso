@@ -68,6 +68,12 @@ export default class RemoteTreeData
   private _roots: ExplorerRoot[] | null;
   private _rootsMap: Map<Id, ExplorerRoot> | null;
   private _map: Map<vscode.Uri['query'], ExplorerItem>;
+  private _filter: string | null = null;
+  private _filterEpoch = 0;
+  // Directory listings fetched while walking descendants for a match, keyed by
+  // fsPath. Only alive during an active filter session -- normal (unfiltered)
+  // browsing always re-lists, unchanged from before filtering existed.
+  private _searchCache: Map<string, Promise<FileEntry[]>> | null = null;
 
   private _onDidChangeFolder: vscode.EventEmitter<
     ExplorerItem | undefined | null | void
@@ -79,6 +85,10 @@ export default class RemoteTreeData
   readonly onDidChange: vscode.Event<vscode.Uri> = this._onDidChangeFile.event;
 
   async refresh(item?: ExplorerItem): Promise<any> {
+    // any explicit refresh means "get me fresh data" -- drop whatever the
+    // filter search walked past, so it doesn't paper over changes on the server
+    this._searchCache = null;
+
     // refresh root
     if (!item) {
       // clear cache
@@ -132,6 +142,29 @@ export default class RemoteTreeData
     };
   }
 
+  /**
+   * Set the active substring filter (case-insensitive). Pass `null`/empty to clear it.
+   * Returns whether the effective filter actually changed.
+   */
+  setFilter(filter: string | null | undefined): boolean {
+    const trimmed = filter && filter.trim() ? filter.trim() : null;
+    if (trimmed === this._filter) {
+      return false;
+    }
+    const wasActive = this._filter !== null;
+    this._filter = trimmed;
+    this._filterEpoch += 1;
+    if (trimmed === null && wasActive) {
+      // search session ended -- back to always-fresh unfiltered browsing
+      this._searchCache = null;
+    }
+    return true;
+  }
+
+  getFilter(): string | null {
+    return this._filter;
+  }
+
   async getChildren(item?: ExplorerItem): Promise<ExplorerItem[]> {
     if (!item) {
       return this._getRoots();
@@ -141,9 +174,45 @@ export default class RemoteTreeData
     if (!root) {
       throw new Error(`Can't find config for remote resource ${item.resource.uri}.`);
     }
+
+    const fileEntries = await this._listEntries(root, item.resource.fsPath);
+
+    const epoch = this._filterEpoch;
+    const filterAtStart = this._filter;
+    const matchedEntries = filterAtStart
+      ? await this._filterEntriesByQuery(root, fileEntries, filterAtStart.toLowerCase())
+      : fileEntries;
+
+    // The filter search above can be slow (recursive, network-bound). If the
+    // filter changed while it was in flight, don't hand back results for a
+    // query that's no longer current -- retry against whatever's current now.
+    // The search cache makes the retry cheap rather than a second full walk.
+    if (epoch !== this._filterEpoch) {
+      return this.getChildren(item);
+    }
+
+    return matchedEntries.map(file => this._toItem(item, file)).sort(dirFirstSort);
+  }
+
+  private _toItem(parent: ExplorerItem, file: FileEntry): ExplorerItem {
+    const isDirectory = file.type === FileType.Directory;
+    const newResource = UResource.updateResource(parent.resource, {
+      remotePath: file.fspath,
+    });
+    const mapItem = this._map.get(newResource.uri.query);
+    if (mapItem) {
+      return mapItem;
+    }
+
+    const newItem = { resource: newResource, isDirectory };
+    this._map.set(newItem.resource.uri.query, newItem);
+    return newItem;
+  }
+
+  private async _listEntries(root: ExplorerRoot, fsPath: string): Promise<FileEntry[]> {
     const config = root.explorerContext.config;
     const remotefs = await root.explorerContext.fileService.getRemoteFileSystem(config);
-    const fileEntries = await remotefs.list(item.resource.fsPath);
+    const fileEntries = await remotefs.list(fsPath);
 
     const filesExcludeList: string[] =
       config.remoteExplorer && config.remoteExplorer.filesExclude
@@ -151,33 +220,66 @@ export default class RemoteTreeData
         : DEFAULT_FILES_EXCLUDE;
 
     const ignore = new Ignore(filesExcludeList);
-    function filterFile(file: FileEntry) {
+    return fileEntries.filter(file => {
       const relativePath = upath.relative(config.remotePath, file.fspath);
       return !ignore.ignores(relativePath);
-    }
+    });
+  }
 
-    return fileEntries
-      .filter(filterFile)
-      .map(file => {
-        const isDirectory = file.type === FileType.Directory;
-        const newResource = UResource.updateResource(item.resource, {
-          remotePath: file.fspath,
-        });
-        const mapItem = this._map.get(newResource.uri.query);
-        if (mapItem) {
-          return mapItem;
-        } else {
-          const newItem = {
-            resource: UResource.updateResource(item.resource, {
-              remotePath: file.fspath,
-            }),
-            isDirectory,
-          };
-          this._map.set(newItem.resource.uri.query, newItem);
-          return newItem;
-        }
-      })
-      .sort(dirFirstSort);
+  // Keeps a directory if it, or any of its descendants, matches the query --
+  // otherwise a match three levels down would be unreachable once its
+  // non-matching ancestors got filtered out of the listing above them.
+  // Siblings are checked concurrently (real speedup over SFTP, which
+  // pipelines; a no-op over FTP, which already serializes everything through
+  // one connection queue) and listings are cached for the rest of this
+  // filter session so re-typing over an unchanged prefix doesn't re-walk it.
+  private async _filterEntriesByQuery(
+    root: ExplorerRoot,
+    fileEntries: FileEntry[],
+    query: string
+  ): Promise<FileEntry[]> {
+    const matches = await Promise.all(
+      fileEntries.map(file => this._matchesQuery(root, file, query))
+    );
+    return fileEntries.filter((_file, index) => matches[index]);
+  }
+
+  private async _matchesQuery(root: ExplorerRoot, file: FileEntry, query: string): Promise<boolean> {
+    const basename = upath.basename(file.fspath).toLowerCase();
+    if (basename.includes(query)) {
+      return true;
+    }
+    if (file.type !== FileType.Directory) {
+      return false;
+    }
+    return this._hasMatchingDescendant(root, file.fspath, query);
+  }
+
+  private async _hasMatchingDescendant(
+    root: ExplorerRoot,
+    fsPath: string,
+    query: string
+  ): Promise<boolean> {
+    const children = await this._listEntriesForSearch(root, fsPath);
+    const matches = await Promise.all(
+      children.map(file => this._matchesQuery(root, file, query))
+    );
+    return matches.some(Boolean);
+  }
+
+  // Same listing as _listEntries, but memoized (by promise, so concurrent
+  // lookups of the same path also collapse into one request) for the
+  // duration of the current filter session.
+  private _listEntriesForSearch(root: ExplorerRoot, fsPath: string): Promise<FileEntry[]> {
+    if (!this._searchCache) {
+      this._searchCache = new Map();
+    }
+    let cached = this._searchCache.get(fsPath);
+    if (!cached) {
+      cached = this._listEntries(root, fsPath);
+      this._searchCache.set(fsPath, cached);
+    }
+    return cached;
   }
 
   async getParent(item: ExplorerChild): Promise<ExplorerItem> {

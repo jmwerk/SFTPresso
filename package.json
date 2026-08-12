@@ -374,6 +374,18 @@
           "light": "resources/light/refresh.svg",
           "dark": "resources/dark/refresh.svg"
         }
+      },
+      {
+        "command": "sftp.remoteExplorer.filter",
+        "title": "Filter Remote Explorer",
+        "category": "SFTP",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "sftp.remoteExplorer.clearFilter",
+        "title": "Clear Filter",
+        "category": "SFTP",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
@@ -417,6 +429,14 @@
         {
           "command": "sftp.runRemoteCommand",
           "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.remoteExplorer.filter",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.remoteExplorer.clearFilter",
+          "when": "sftp.enabled && sftp.remoteExplorer.filterActive"
         },
         {
           "command": "sftp.cancelAllTransfer",
@@ -700,6 +720,16 @@
         }
       ],
       "view/title": [
+        {
+          "command": "sftp.remoteExplorer.filter",
+          "when": "view == remoteExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "sftp.remoteExplorer.clearFilter",
+          "when": "view == remoteExplorer && sftp.remoteExplorer.filterActive",
+          "group": "navigation"
+        },
         {
           "command": "sftp.remoteExplorer.refresh",
           "when": "view == remoteExplorer",

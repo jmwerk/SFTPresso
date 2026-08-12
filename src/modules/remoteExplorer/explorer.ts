@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { registerCommand } from '../../host';
+import { registerCommand, setContextValue } from '../../host';
 import {
   COMMAND_REMOTEEXPLORER_REFRESH,
   COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE,
@@ -67,6 +67,26 @@ export default class RemoteExplorer {
 
   findRoot(remoteUri: vscode.Uri) {
     return this._treeDataProvider.findRoot(remoteUri);
+  }
+
+  getFilter(): string | null {
+    return this._treeDataProvider.getFilter();
+  }
+
+  setFilter(filter: string | null | undefined): void {
+    const changed = this._treeDataProvider.setFilter(filter);
+    if (!changed) {
+      return;
+    }
+
+    const active = this._treeDataProvider.getFilter();
+    this._explorerView.description = active ? `Filter: "${active}"` : undefined;
+    setContextValue('remoteExplorer.filterActive', Boolean(active));
+    this._treeDataProvider.refresh();
+  }
+
+  clearFilter(): void {
+    this.setFilter(null);
   }
 
   private _refreshSelection() {
