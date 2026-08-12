@@ -76,7 +76,7 @@ export interface RetryOption {
   delay: number;
 }
 
-interface WatcherConfig {
+export interface WatcherConfig {
   files: false | string;
   autoUpload: boolean;
   autoDelete: boolean;
@@ -121,7 +121,11 @@ export interface ServiceConfig
 }
 
 export interface WatcherService {
-  create(watcherBase: string, watcherConfig: WatcherConfig): any;
+  create(
+    watcherBase: string,
+    watcherConfig: WatcherConfig,
+    ignore?: ServiceConfig['ignore']
+  ): any;
   dispose(watcherBase: string): void;
 }
 
@@ -419,7 +423,6 @@ let id = 0;
 export default class FileService {
   private _eventEmitter: EventEmitter = new EventEmitter();
   private _name: string;
-  private _watcherConfig: WatcherConfig;
   private _profiles: string[];
   private _pendingTransferTasks: Set<TransferTask> = new Set();
   private _transferSchedulers: TransferScheduler[] = [];
@@ -448,7 +451,6 @@ export default class FileService {
     this.id = ++id;
     this.workspace = workspace;
     this.baseDir = baseDir;
-    this._watcherConfig = config.watcher;
     this._config = config;
     if (config.profiles) {
       this._profiles = Object.keys(config.profiles);
@@ -473,6 +475,15 @@ export default class FileService {
     }
 
     this._watcherService = watcherService;
+    this._createWatcher();
+  }
+
+  // Rebuild the watcher from the currently resolved config. Call after anything
+  // that can change which config the service resolves to -- switching profile,
+  // editing a value in memory -- since the watcher is built once and would
+  // otherwise keep watching under the old rules.
+  reloadWatcher() {
+    this._disposeWatcher();
     this._createWatcher();
   }
 
@@ -745,6 +756,9 @@ export default class FileService {
   setConfigValue(key: keyof FileServiceConfig, value: any) {
     (this._config as any)[key] = value;
     this.invalidateConfigCache();
+    // the watcher holds a resolved snapshot -- its pattern and its ignore
+    // function -- so `SFTP: Add to Ignore List` and friends have to rebuild it
+    this.reloadWatcher();
   }
 
   // Closes the pooled connection for the active profile and drops it, so the
@@ -814,8 +828,27 @@ export default class FileService {
     return ignoreFunc;
   }
 
+  // Built from the profile-merged config, not the raw one. A profile that turns
+  // autoUpload off for production is one of the main reasons to use profiles at
+  // all, and reading `config.watcher` off the raw config made that setting a
+  // no-op. Resolving can throw (an invalid config, an unset profile the config
+  // requires); fall back to the raw watcher rather than leaving the service
+  // half-constructed.
   private _createWatcher() {
-    this._watcherService.create(this.baseDir, this._watcherConfig);
+    let watcherConfig: WatcherConfig;
+    let ignore: ServiceConfig['ignore'] = null;
+    try {
+      const config = this.getConfig();
+      watcherConfig = config.watcher;
+      ignore = config.ignore;
+    } catch (error) {
+      logger.debug(
+        `watcher falling back to the unresolved config: ${(error as Error).message}`
+      );
+      watcherConfig = this._config.watcher;
+    }
+
+    this._watcherService.create(this.baseDir, watcherConfig, ignore);
   }
 
   private _disposeWatcher() {

@@ -4,6 +4,9 @@
       "$ref": "definitions.json#/rootOption"
     },
     {
+      "$ref": "definitions.json#/watcherOption"
+    },
+    {
       "$ref": "definitions.json#/option"
     },
     {
@@ -43,6 +46,9 @@
               "allOf": [
                 {
                   "$ref": "definitions.json#/option"
+                },
+                {
+                  "$ref": "definitions.json#/watcherOption"
                 },
                 {
                   "$ref": "definitions.json#/host"

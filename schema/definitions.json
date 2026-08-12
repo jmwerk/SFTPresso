@@ -9,9 +9,19 @@
         "type": "string",
         "description": "Relative path relative to the workspace root folder."
       },
+      "defaultProfile": {
+        "type": "string",
+        "description": "Profile name you want to set as default."
+      }
+    },
+    "required": ["name"]
+  },
+  "watcherOption": {
+    "type": "object",
+    "properties": {
       "watcher": {
         "type": "object",
-        "description": "Watch external modification.",
+        "description": "Watch external modification. Can be set inside a profile to override the root-level watcher for that profile.",
         "properties": {
           "files": {
             "type": "string",
@@ -35,13 +45,8 @@
           "autoUpload": true,
           "autoDelete": false
         }
-      },
-      "defaultProfile": {
-        "type": "string",
-        "description": "Profile name you want to set as default."
       }
-    },
-    "required": ["name"]
+    }
   },
   "option": {
     "type": "object",
