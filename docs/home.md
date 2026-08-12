@@ -46,6 +46,7 @@
    - [Multiple contexts (array config)](#multiple-contexts-array-config)
    - [Connection hopping (SSH proxy / bastion)](#connection-hopping-ssh-proxy--bastion)
    - [Two-way automatic sync with the watcher](#two-way-automatic-sync-with-the-watcher)
+   - [Renaming and moving files on the remote](#renaming-and-moving-files-on-the-remote)
    - [Uploading a folder's contents without the folder itself](#uploading-a-folders-contents-without-the-folder-itself)
    - [Configuration in User Settings (remote-fs)](#configuration-in-user-settings-remote-fs)
    - [Using the Remote Explorer](#using-the-remote-explorer)
@@ -94,6 +95,7 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Upload on save | [`uploadOnSave`](#uploadonsave) | Mirrors every VS Code save to the server |
 | Upload conflict check | [`conflictCheck`](#conflictcheck) | Prompts before an upload overwrites a remote file someone else changed |
 | File watcher | [`watcher`](#watcher) | Reacts to changes made *outside* VS Code (build tools, git checkout, …) |
+| Server-side rename/move | Remote Explorer context menu → **Rename**, or [`watcher.autoRename`](#watcher) | Renames or moves a file/folder with a single remote `rename()` call, regardless of size — no re-upload — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote) |
 | Multiple configurations | [Array config](#multiple-contexts-array-config) | Different servers per workspace subfolder |
 | Switchable profiles | [`profiles`](#profiles) + `SFTP: Set Profile` | One config, many targets — the status bar shows the active profile; click it to switch |
 | Temp-file / atomic uploads | [`useTempFile`](#usetempfile), [`openSsh`](#openssh) | Avoid serving half-written files |
@@ -268,6 +270,7 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Command | ID | Description |
 | --- | --- | --- |
 | `SFTP: List` / `SFTP: List Active Folder` / `SFTP: List All` | `sftp.list` / `sftp.listActiveFolder` / `sftp.listAll` | List remote directory contents in a QuickPick. `List All` includes ignored files. |
+| Rename | `sftp.rename.remote` | Rename or move the selected file/folder **on the remote** (Remote Explorer context menu) — a single `rename()` call regardless of size, no re-upload. A name containing `/` moves the item. Refuses to overwrite an existing destination or move the item outside `remotePath` or into itself. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). |
 | Delete | `sftp.delete.remote` | Delete the selected file/folder **on the remote** (Remote Explorer context menu). |
 | Create Folder / Create File | `sftp.create.folder` / `sftp.create.file` | Create a remote folder or file from the Remote Explorer. |
 | Edit in Local | `sftp.remoteExplorer.editInLocal` | Download the remote file into the workspace so it can be edited (Remote Explorer opens files read-only by default). |
@@ -565,6 +568,7 @@ A [profile](#profiles) may override `watcher` to change what is watched — or t
 | `watcher.files` | string (glob) | Which files to watch (required). |
 | `watcher.autoUpload` | boolean | Upload when a watched file changes. |
 | `watcher.autoDelete` | boolean | Delete on the remote when a watched file is removed locally. |
+| `watcher.autoRename` | boolean | Server-side rename/move on the remote when a watched file or folder is renamed locally, instead of deleting and re-uploading it. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). Default `false`. |
 
 > 💡 Set [`uploadOnSave`](#uploadonsave) to `false` when watching everything (`"**/*"`) — otherwise every save triggers both mechanisms.
 
@@ -573,7 +577,8 @@ A [profile](#profiles) may override `watcher` to change what is watched — or t
   "watcher": {
     "files": "dist/*.{js,css}",
     "autoUpload": true,
-    "autoDelete": false
+    "autoDelete": false,
+    "autoRename": true
   },
   "profiles": {
     "dev": {},
@@ -1143,7 +1148,8 @@ Keep the server updated with **no manual interaction** — including changes mad
   "watcher": {
     "files": "**/*",
     "autoUpload": true,
-    "autoDelete": true
+    "autoDelete": true,
+    "autoRename": true
   },
   "syncOption": {
     "delete": true
@@ -1151,7 +1157,33 @@ Keep the server updated with **no manual interaction** — including changes mad
 }
 ```
 
-Keep `uploadOnSave` **false** here — the watcher already covers saves when watching `**/*` (see [`watcher`](#watcher)).
+Keep `uploadOnSave` **false** here — the watcher already covers saves when watching `**/*` (see [`watcher`](#watcher)). `autoRename` here means a rename or move made in VS Code's own Explorer moves the remote copy instead of deleting and re-uploading it — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote). It doesn't extend to `git checkout` or other tools that write straight to disk outside VS Code; those are still handled as a plain delete-and-create.
+
+### Renaming and moving files on the remote
+
+Renaming or moving something used to mean a full re-upload — for a large directory, of everything inside it. Renaming/moving is now a single remote `rename()` call, regardless of size, in two places:
+
+**From the Remote Explorer.** Right-click a file or folder and choose **Rename**. Type a new name — including a path with `/` to move it into a subfolder — and confirm. The move is refused (with a clear message, nothing is touched) if the destination already exists, falls outside [`remotePath`](#remotepath), or would move a folder into itself.
+
+**Automatically, for renames and moves made in VS Code's own Explorer.** Set `watcher.autoRename` to `true` and a rename VS Code reports — F2, drag-and-drop, cut-and-paste-as-move, all in VS Code's Explorer — is turned into the same single server-side rename instead of the delete-then-upload the watcher would otherwise do:
+
+```json
+{
+  "watcher": {
+    "files": "**/*",
+    "autoUpload": true,
+    "autoDelete": true,
+    "autoRename": true
+  }
+}
+```
+
+A few things worth knowing:
+
+- It only fires for renames VS Code itself reports (its Explorer, or any tool that goes through VS Code's file-rename API). A rename made by an external tool that writes straight to disk still looks like a delete-and-create to the watcher, the same as before.
+- A move that crosses into a **different** configured root (a workspace with more than one `sftp.json` context) can't be a single remote rename — there's nowhere on that remote for the old path's `rename()` to reach. It falls back to a normal upload of the file at its new local path, followed by deleting the old remote path, so the two sides never disagree about the file's existence.
+- Any other rename failure — a source the watcher never got around to uploading in the first place, a permissions error, a dropped connection — falls back the same way: upload the new path, *then* delete the old one, never the other order. Whatever else happens, the only remote copy is never removed before its replacement exists.
+- The default is `false`. Turning it on doesn't change what `autoUpload`/`autoDelete` do for anything other than renames.
 
 ### Uploading a folder's contents without the folder itself
 
@@ -1216,7 +1248,7 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 
 - Browsing opens files in a **read-only** view by default. Run **`SFTP: Edit in Local`** (context menu) to download a file into the workspace for editing — or flip the [`sftp.downloadWhenOpenInRemoteExplorer`](#vs-code-extension-settings) setting to make downloading the default.
 - **Multi-select** works like the regular explorer: hold `Ctrl`/`Cmd` or `Shift` while clicking to select several files/folders, then upload or download them all at once.
-- Create and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)).
+- Create, rename/move, and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)) — rename/move is a single remote operation regardless of size, see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 - Hide noise (e.g. `node_modules`) with [`remoteExplorer.filesExclude`](#remoteexplorer), and control root ordering with `remoteExplorer.order`.
 - After a **delete**, manually refresh the parent folder if the tree doesn't update on its own (known issue).
 
@@ -1403,6 +1435,9 @@ Sync is timestamp-based; correct clock/timezone differences with [`remoteTimeOff
 
 **Q: Transfers randomly fail on my shared host.**
 Lower [`concurrency`](#concurrency) (some servers cap simultaneous operations) and/or set [`limitOpenFilesOnRemote`](#limitopenfilesonremote) if the server runs out of file descriptors.
+
+**Q: Why was my rename/move refused?**
+Renaming refuses rather than clobbering or guessing: the destination already exists (delete it first, or pick a different name), the new path falls outside [`remotePath`](#remotepath), or it would move a folder into its own subfolder. Nothing is touched when it's refused. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 
 ---
 
