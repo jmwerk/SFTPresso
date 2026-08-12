@@ -81,7 +81,12 @@ export default abstract class FileSystem {
   abstract mkdir(dir: string): Promise<void>;
   abstract ensureDir(dir: string): Promise<void>;
   abstract chmod(path: string, mode: number): Promise<void>;
-  abstract list(dir: string, option?): Promise<FileEntry[]>;
+  /**
+   * Every entry in `dir`, dotfiles included, on every protocol. Filtering what
+   * the Remote Explorer shows is `remoteExplorer.filesExclude`'s job, and what
+   * a transfer skips is `ignore`'s -- neither belongs this far down.
+   */
+  abstract list(dir: string): Promise<FileEntry[]>;
   abstract lstat(path: string): Promise<FileStats>;
   abstract readlink(path: string): Promise<string>;
   abstract symlink(targetPath: string, path: string): Promise<void>;
