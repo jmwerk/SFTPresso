@@ -197,6 +197,20 @@ describe('filesystem operations', () => {
     await sftp.rmdir(dir, true);
   });
 
+  // Dotfiles must be listed, identically to FTP. Filtering is filesExclude's
+  // job (Remote Explorer) and ignore's (transfers), not the file system's.
+  test('list includes dotfiles, and excludes . and ..', async () => {
+    const dir = uniqueDir();
+    await sftp.ensureDir(dir);
+    await upload(sftp, Buffer.from('secret'), upath.join(dir, '.hidden'));
+    await upload(sftp, Buffer.from('plain'), upath.join(dir, 'visible.txt'));
+
+    const names = (await sftp.list(dir)).map(e => e.name).sort();
+    expect(names).toEqual(['.hidden', 'visible.txt']);
+
+    await sftp.rmdir(dir, true);
+  });
+
   test('renameAtomic (OpenSSH posix-rename extension) overwrites the target', async () => {
     const dir = uniqueDir();
     await sftp.ensureDir(dir);

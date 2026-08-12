@@ -368,12 +368,13 @@ export default class FTPFileSystem extends RemoteFileSystem {
     }
   }
 
-  async list(
-    dir: string,
-    { showHiddenFiles = false } = {}
-  ): Promise<FileEntry[]> {
+  async list(dir: string): Promise<FileEntry[]> {
     const stats = await this.atomicList(dir);
 
+    // '.' and '..' are the listing's own scaffolding, not entries; every other
+    // name the server reports -- dotfiles included, matching SFTP -- is passed
+    // through. Whether a dotfile is reported at all is the server's call: MLSD
+    // lists them, a plain LIST (which is not sent with -a) does not.
     return stats
       .filter(item => item.name && item.name !== '.' && item.name !== '..')
       .map(item =>

@@ -71,7 +71,12 @@ export async function activate(context: vscode.ExtensionContext) {
     if (state.profile !== lastProfile) {
       lastProfile = state.profile;
       // the active profile decides which config a service resolves to
-      getAllFileService().forEach(service => service.invalidateConfigCache());
+      getAllFileService().forEach(service => {
+        service.invalidateConfigCache();
+        // ...including its watcher settings, which are otherwise resolved once
+        // at creation and never revisited
+        service.reloadWatcher();
+      });
     }
 
     const currentText = app.sftpBarItem.getText();

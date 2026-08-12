@@ -131,6 +131,30 @@ describe.each([VSFTPD, PUREFTPD_TLS])(
       await fs.rmdir(dir, true);
     });
 
+    // list() filters nothing of its own beyond '.' and '..' -- there is no
+    // hidden-file policy at this layer, on either protocol. What reaches us is
+    // the server's business: MLSD reports dotfiles, and a plain LIST (no -a)
+    // does not, which is why the assertion below is split on `mlsd` rather than
+    // fixed. The SFTP suite has the matching test.
+    test('list reports what the server lists, minus . and ..', async () => {
+      const dir = uniqueDir(server);
+      await fs.ensureDir(dir);
+      await upload(fs, Buffer.from('secret'), upath.join(dir, '.hidden'));
+      await upload(fs, Buffer.from('plain'), upath.join(dir, 'visible.txt'));
+
+      const names = (await fs.list(dir)).map(e => e.name).sort();
+      expect(names).toEqual(server.mlsd ? ['.hidden', 'visible.txt'] : ['visible.txt']);
+      expect(names).not.toContain('.');
+      expect(names).not.toContain('..');
+
+      // Unlinked by name rather than left to the recursive rmdir: that walk is
+      // driven by list(), so on a LIST-only server it cannot see the dotfile
+      // and RMD then fails on a directory it believes to be empty.
+      await fs.unlink(upath.join(dir, '.hidden'));
+      await fs.unlink(upath.join(dir, 'visible.txt'));
+      await fs.rmdir(dir, true);
+    });
+
     test('delete file + recursive delete directory', async () => {
       const dir = uniqueDir(server);
       const sub = upath.join(dir, 'sub');

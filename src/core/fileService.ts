@@ -76,7 +76,7 @@ export interface RetryOption {
   delay: number;
 }
 
-interface WatcherConfig {
+export interface WatcherConfig {
   files: false | string;
   autoUpload: boolean;
   autoDelete: boolean;
@@ -121,7 +121,11 @@ export interface ServiceConfig
 }
 
 export interface WatcherService {
-  create(watcherBase: string, watcherConfig: WatcherConfig): any;
+  create(
+    watcherBase: string,
+    watcherConfig: WatcherConfig,
+    ignore?: ServiceConfig['ignore']
+  ): any;
   dispose(watcherBase: string): void;
 }
 
@@ -139,6 +143,10 @@ interface TransferScheduler {
 type ConfigValidator = (x: any) => { message: string } | undefined;
 
 const DEFAULT_SSHCONFIG_FILE = '~/.ssh/config';
+
+// Last word on how long a connect attempt may take, when neither sftp.json nor
+// ~/.ssh/config says.
+export const DEFAULT_CONNECT_TIMEOUT = 10 * 1000;
 
 export const DEFAULT_RETRY_OPTION: RetryOption = { attempts: 2, delay: 1000 };
 
@@ -225,6 +233,22 @@ function setConfigValue(config, key, value) {
   }
 }
 
+// A whole number of milliseconds from an ssh config duration, or undefined if
+// the value isn't one. Deliberately strict: Number('') and Number(' ') are both
+// 0, and a directive with no value should be reported, not read as "disabled".
+function secondsToMilliseconds(value: unknown): number | undefined {
+  if (typeof value !== 'string' || value.trim() === '') {
+    return undefined;
+  }
+
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    return undefined;
+  }
+
+  return Math.round(seconds * 1000);
+}
+
 function mergeConfigWithExternalRefer(
   config: FileServiceConfig
 ): FileServiceConfig {
@@ -287,14 +311,24 @@ function mergeConfigWithExternalRefer(
     return copyed;
   }
 
+  // `serveraliveinterval` and `connecttimeout` used to map to `keepalive` and
+  // `connTimeout`. ssh2 has never read either name -- it wants
+  // `keepaliveInterval` and takes the connect deadline from our own
+  // `connectTimeout` -- so both directives were dropped on the floor rather
+  // than merely mis-scaled.
   const mapping = new Map([
     ['hostname', 'host'],
     ['port', 'port'],
     ['user', 'username'],
     ['identityfile', 'privateKeyPath'],
-    ['serveraliveinterval', 'keepalive'],
-    ['connecttimeout', 'connTimeout'],
+    ['serveraliveinterval', 'keepaliveInterval'],
+    ['connecttimeout', 'connectTimeout'],
   ]);
+
+  // ~/.ssh/config states both of these in seconds; the options they feed are in
+  // milliseconds. ssh2 also type-checks them (`typeof === 'number'`), so the
+  // raw string the parser hands us is discarded even under the right key.
+  const durationInSeconds = new Set(['keepaliveInterval', 'connectTimeout']);
 
   section.config.forEach(line => {
     if (!line.param) {
@@ -302,14 +336,34 @@ function mergeConfigWithExternalRefer(
     }
 
     const key = mapping.get(line.param.toLowerCase());
-
-    if (key !== undefined) {
-      if (key === 'host') {
-        copyed[key] = line.value;
-      } else {
-        setConfigValue(copyed, key, line.value);
-      }
+    if (key === undefined) {
+      return;
     }
+
+    if (key === 'host') {
+      copyed[key] = line.value;
+      return;
+    }
+
+    if (durationInSeconds.has(key)) {
+      const milliseconds = secondsToMilliseconds(line.value);
+      if (milliseconds === undefined) {
+        logger.warn(
+          `Ignoring "${line.param} ${line.value}" from ${sshConfigPath}:` +
+            ' expected a number of seconds.'
+        );
+        return;
+      }
+
+      setConfigValue(copyed, key, milliseconds);
+      logger.debug(
+        `${line.param} ${line.value} from ${sshConfigPath}` +
+          ` -> ${key} ${copyed[key]}ms`
+      );
+      return;
+    }
+
+    setConfigValue(copyed, key, line.value);
   });
 
   // Bug introduced in pull request #69 : Fix ssh config resolution
@@ -350,6 +404,13 @@ function getCompleteConfig(
   workspace: string
 ): FileServiceConfig {
   const mergedConfig = mergeConfigWithExternalRefer(config);
+
+  // Applied here rather than in the config defaults, so ConnectTimeout from
+  // ~/.ssh/config gets a chance first. Only an explicit sftp.json value outranks
+  // it -- and an explicit value is the one thing a default can never impersonate.
+  if (mergedConfig.connectTimeout === undefined) {
+    mergedConfig.connectTimeout = DEFAULT_CONNECT_TIMEOUT;
+  }
 
   if (mergedConfig.agent && mergedConfig.privateKeyPath) {
     logger.warn(
@@ -419,7 +480,6 @@ let id = 0;
 export default class FileService {
   private _eventEmitter: EventEmitter = new EventEmitter();
   private _name: string;
-  private _watcherConfig: WatcherConfig;
   private _profiles: string[];
   private _pendingTransferTasks: Set<TransferTask> = new Set();
   private _transferSchedulers: TransferScheduler[] = [];
@@ -448,7 +508,6 @@ export default class FileService {
     this.id = ++id;
     this.workspace = workspace;
     this.baseDir = baseDir;
-    this._watcherConfig = config.watcher;
     this._config = config;
     if (config.profiles) {
       this._profiles = Object.keys(config.profiles);
@@ -473,6 +532,15 @@ export default class FileService {
     }
 
     this._watcherService = watcherService;
+    this._createWatcher();
+  }
+
+  // Rebuild the watcher from the currently resolved config. Call after anything
+  // that can change which config the service resolves to -- switching profile,
+  // editing a value in memory -- since the watcher is built once and would
+  // otherwise keep watching under the old rules.
+  reloadWatcher() {
+    this._disposeWatcher();
     this._createWatcher();
   }
 
@@ -745,12 +813,17 @@ export default class FileService {
   setConfigValue(key: keyof FileServiceConfig, value: any) {
     (this._config as any)[key] = value;
     this.invalidateConfigCache();
+    // the watcher holds a resolved snapshot -- its pattern and its ignore
+    // function -- so `SFTP: Add to Ignore List` and friends have to rebuild it
+    this.reloadWatcher();
   }
 
-  // Closes the pooled connection for the active profile and drops it, so the
-  // next command dials a fresh one. Safe to call when nothing is connected.
-  disconnect() {
-    this._disposeFileSystem();
+  // Closes every pooled connection this service can own -- one per profile,
+  // plus the profile-less one -- and drops them, so the next command dials
+  // fresh. Safe to call when nothing is connected. Returns how many were
+  // actually open, so the caller can report a number that is true.
+  disconnect(): number {
+    return this._disposeFileSystem();
   }
 
   dispose() {
@@ -814,16 +887,71 @@ export default class FileService {
     return ignoreFunc;
   }
 
+  // Built from the profile-merged config, not the raw one. A profile that turns
+  // autoUpload off for production is one of the main reasons to use profiles at
+  // all, and reading `config.watcher` off the raw config made that setting a
+  // no-op. Resolving can throw (an invalid config, an unset profile the config
+  // requires); fall back to the raw watcher rather than leaving the service
+  // half-constructed.
   private _createWatcher() {
-    this._watcherService.create(this.baseDir, this._watcherConfig);
+    let watcherConfig: WatcherConfig;
+    let ignore: ServiceConfig['ignore'] = null;
+    try {
+      const config = this.getConfig();
+      watcherConfig = config.watcher;
+      ignore = config.ignore;
+    } catch (error) {
+      logger.debug(
+        `watcher falling back to the unresolved config: ${(error as Error).message}`
+      );
+      watcherConfig = this._config.watcher;
+    }
+
+    this._watcherService.create(this.baseDir, watcherConfig, ignore);
   }
 
   private _disposeWatcher() {
     this._watcherService.dispose(this.baseDir);
   }
 
-  // fixme: remote all profiles
-  private _disposeFileSystem() {
-    return removeRemoteFs(getHostInfo(this.getConfig()));
+  // Every config this service can resolve to: the profile-less one, plus one
+  // per defined profile. Each is guarded on its own -- a profile that no longer
+  // validates must not stop the rest from being visited.
+  private _eachResolvableConfig(fn: (config: ServiceConfig) => void) {
+    const profileKeys: Array<string | null> = [null, ...(this._profiles || [])];
+
+    profileKeys.forEach(profile => {
+      let config: ServiceConfig;
+      try {
+        config = this.getConfig(profile);
+      } catch (error) {
+        logger.debug(
+          `skipping profile "${profile === null ? '<none>' : profile}":` +
+            ` ${(error as Error).message}`
+        );
+        return;
+      }
+
+      // two profiles can resolve to the same remote; that is harmless here,
+      // since removing an already-removed connection is a no-op that reports
+      // itself as such
+      fn(config);
+    });
+  }
+
+  // Closes the pooled connection of *every* profile, not just the active one.
+  // A user with dev/staging/prod who has used two of them, then switched
+  // profile and hit SFTP: Disconnect, would otherwise be left with the other
+  // connection open -- quite possibly the wedged one they ran the command to
+  // clear. Same leak applied on config reload and on deactivate.
+  private _disposeFileSystem(): number {
+    let closed = 0;
+    this._eachResolvableConfig(config => {
+      if (removeRemoteFs(getHostInfo(config))) {
+        closed += 1;
+      }
+    });
+
+    return closed;
   }
 }

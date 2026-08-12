@@ -356,7 +356,7 @@ export default class SFTPFileSystem extends RemoteFileSystem {
     }
   }
 
-  list(dir: string, { showHiddenFiles = true } = {}): Promise<FileEntry[]> {
+  list(dir: string): Promise<FileEntry[]> {
     return new Promise((resolve, reject) => {
       this.sftp.readdir(dir, (err, result) => {
         if (err) {
