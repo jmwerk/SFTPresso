@@ -24,6 +24,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 - **Test Connection** from a command or a CodeLens on `sftp.json`, plus a **connection-status indicator** in the status bar
 - **Secure password storage** backed by the OS keychain (`SFTP: Save Password` / `Clear Password`), plus one-click `SFTP: Migrate Plaintext Password` to move a password out of `sftp.json`
 - **SSH host key verification** (`strictHostKeyChecking`) — reads your own `~/.ssh/known_hosts` so trusted hosts never prompt, and refuses to connect if a server's key ever changes
+- **`SFTP: Run Remote Command`** — run a shell command on the server over the existing SSH connection, no re-authentication; save common ones (`remoteCommands`) as a quick pick
 - **Multiple configurations**, switchable **profiles**, SSH **connection hopping**, and temp-file/atomic uploads
 
 See the [command reference](https://github.com/jmwerk/SFTPresso/wiki#3-command-reference) for the full list.

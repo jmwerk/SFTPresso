@@ -101,6 +101,7 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Temp-file / atomic uploads | [`useTempFile`](#usetempfile), [`openSsh`](#openssh) | Avoid serving half-written files |
 | Connection hopping | [`hop`](#connection-hopping-ssh-proxy--bastion) | Reach a target server through one or more SSH bastions |
 | Upload to all profiles | `SFTP: Upload … To All Profiles` | Push one file/folder/project to every profile at once |
+| Run Remote Command | `SFTP: Run Remote Command` | Run a shell command on the server over the existing SSH connection — no re-authentication. Pick a saved command from [`remoteCommands`](#remotecommands) or type one; output streams to the SFTP output channel and the exit code is reported. SFTP only. |
 
 ---
 
@@ -222,6 +223,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Clear Password` | `sftp.clearPassword` | Remove a saved password from secret storage. |
 | `SFTP: Show Host Key Fingerprint` | `sftp.showHostKey` | Show the SSH host key(s) stored for a remote — fingerprint, key type, and which known_hosts file each came from — with a button to copy the fingerprints. See [Host key verification](#host-key-verification). |
 | `SFTP: Forget Host Key` | `sftp.forgetHostKey` | Remove the stored SSH host key(s) for a remote, so the next connection treats it as a new host. This is what unblocks a connection refused because the server's key changed. Entries in files maintained by your ssh client (`~/.ssh/known_hosts`) are only removed after a confirmation naming the file and line. |
+| `SFTP: Run Remote Command` | `sftp.runRemoteCommand` | Run a command on the remote over the existing SSH connection — no re-authentication. Offers [`remoteCommands`](#remotecommands) as a quick pick, or prompts for a command to type. Always confirms the resolved command and host before running it, since this executes on whatever server the active config points at. Output streams into the SFTP output channel and the exit code is reported when it finishes; a command that runs past [`remoteCommandTimeout`](#remotecommandtimeout) is killed and reported as timed out. FTP configs get an error instead of attempting the command. |
 
 ### Upload commands
 
@@ -765,6 +767,42 @@ A timeout is reported at warn level, so the line appears whether or not `sftp.de
 > ℹ️ SFTP only. FTP is already covered by [`connectTimeout`](#connecttimeout), which the FTP client applies as an idle timeout on both the control and data sockets. Setting `operationTimeout` on an FTP config is accepted and ignored.
 
 > ⚠️ Unlike the two options above, this one defaults on. A request that has gone a full minute without a reply is not slow, it's lost, and the alternative is an extension that hangs until you reload the window. If you have a genuinely slow server and see spurious timeouts, raise it rather than turning it off — `0` restores the old behaviour of waiting indefinitely.
+
+#### remoteCommands
+Labeled shell commands offered by [`SFTP: Run Remote Command`](#configuration-and-connection-commands) as a quick pick, instead of a blank prompt every time. Each command runs over the existing pooled SSH connection.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `remoteCommands` | object (label → command string) | *(none)* |
+
+```jsonc
+{
+  "remoteCommands": {
+    "Restart PHP": "sudo systemctl reload php8.3-fpm",
+    "Clear cache": "php artisan cache:clear"
+  }
+}
+```
+
+Editing this doesn't invalidate the pooled connection — it's read fresh on every run, not baked into the connection identity.
+
+> ℹ️ SFTP only. Running a command against an FTP config fails with a clear error rather than attempting it — FTP has no remote shell to run one on.
+
+#### remoteCommandTimeout
+How long, in milliseconds, a command started by [`SFTP: Run Remote Command`](#configuration-and-connection-commands) may run before it is killed and reported as timed out.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `remoteCommandTimeout` | number | `60000` |
+
+```jsonc
+{
+  // give a long migration more room before it's killed
+  "remoteCommandTimeout": 300000
+}
+```
+
+> ℹ️ OpenSSH's server does not act on the kill request for a plain (non-pty) exec session, so a command that times out may keep running on the server after SFTPresso reports it as timed out — the SSH channel is closed on this end, but the remote process is not guaranteed to be. SFTP only.
 
 ### SFTP-only options
 
