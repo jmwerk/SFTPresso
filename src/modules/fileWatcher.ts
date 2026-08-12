@@ -1,12 +1,17 @@
 import * as vscode from 'vscode';
 import debounce from 'lodash.debounce';
 import logger from '../logger';
-import { isValidFile, fileDepth } from '../helper';
-import { upload, removeRemote } from '../fileHandlers';
+import { isValidFile, fileDepth, toRemotePath } from '../helper';
+import { upload, removeRemote, renameRemote } from '../fileHandlers';
 import { WatcherService, WatcherConfig, TransferDirection } from '../core';
 import app from '../app';
 import StatusBarItem from '../ui/statusBarItem';
-import { getRunningTransformTasks } from './serviceManager';
+import { getFileService, getRunningTransformTasks } from './serviceManager';
+import {
+  suppressWatcherFor,
+  releaseWatcherSuppression,
+  isWatcherSuppressed,
+} from './watcherSuppression';
 
 const watchers: {
   [x: string]: vscode.FileSystemWatcher;
@@ -78,6 +83,11 @@ type IgnoreFn = ((fsPath: string) => boolean) | null | undefined;
 // write burst would push hundreds of doomed entries through the debounce.
 function shouldSkip(uri: vscode.Uri, ignore: IgnoreFn): boolean {
   if (!isValidFile(uri)) {
+    return true;
+  }
+
+  if (isWatcherSuppressed(uri.fsPath)) {
+    logger.debug(`[watcher/suppressed] ${uri.fsPath}`);
     return true;
   }
 
@@ -164,6 +174,104 @@ function createWatcher(
     watcher.onDidDelete(createDeleteHandler(ignore));
   }
 }
+
+function getAutoRenameConfig(uri: vscode.Uri) {
+  const fileService = getFileService(uri);
+  if (!fileService) {
+    return undefined;
+  }
+
+  try {
+    return { fileService, config: fileService.getConfig() };
+  } catch (error) {
+    logger.debug(`[watcher/rename] config not resolvable for ${uri.fsPath}: ${(error as Error).message}`);
+    return undefined;
+  }
+}
+
+// A rename that server-side rename can't (or shouldn't) handle still needs
+// the remote to end up matching the new local state. Doing it as
+// upload-then-delete -- never the other order -- means the only remote copy
+// is never removed before its replacement exists.
+async function fallbackToUpload(oldUri: vscode.Uri, newUri: vscode.Uri) {
+  try {
+    await upload(newUri);
+    await removeRemote(oldUri);
+  } catch (error) {
+    logger.error(error, `rename fallback for ${oldUri.fsPath}`);
+    app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
+  }
+}
+
+async function handleRenamedFile(oldUri: vscode.Uri, newUri: vscode.Uri) {
+  if (!isValidFile(oldUri)) {
+    return;
+  }
+
+  const resolved = getAutoRenameConfig(oldUri);
+  if (!resolved || !resolved.config.watcher || !resolved.config.watcher.autoRename) {
+    releaseWatcherSuppression(oldUri.fsPath);
+    releaseWatcherSuppression(newUri.fsPath);
+    return;
+  }
+
+  const { fileService, config } = resolved;
+
+  const destResolved = getAutoRenameConfig(newUri);
+  if (!destResolved || destResolved.fileService !== fileService) {
+    logger.info(`[watcher/rename] crosses config boundary, falling back to upload: ${oldUri.fsPath}`);
+    releaseWatcherSuppression(oldUri.fsPath);
+    releaseWatcherSuppression(newUri.fsPath);
+    await fallbackToUpload(oldUri, newUri);
+    return;
+  }
+
+  // Re-extend suppression to cover the SFTP round trip -- a large directory
+  // rename can take a while, and the OS keeps firing delete/create events for
+  // the subtree's contents in the meantime.
+  suppressWatcherFor(oldUri.fsPath);
+  suppressWatcherFor(newUri.fsPath);
+
+  try {
+    const newRemotePath = toRemotePath(newUri.fsPath, fileService.baseDir, config.remotePath);
+    logger.info(`[watcher/rename] ${oldUri.fsPath} -> ${newUri.fsPath}`);
+    await renameRemote(oldUri, { newRemotePath });
+  } catch (error) {
+    logger.warn(
+      `[watcher/rename] server-side rename failed, falling back to upload: ${(error as Error).message}`
+    );
+    await fallbackToUpload(oldUri, newUri);
+  } finally {
+    releaseWatcherSuppression(oldUri.fsPath);
+    releaseWatcherSuppression(newUri.fsPath);
+  }
+}
+
+// Registered once at module load, not per watcher root: renames are a
+// workspace-global VSCode event, unlike the per-root FileSystemWatcher above.
+vscode.workspace.onWillRenameFiles(e => {
+  for (const { oldUri, newUri } of e.files) {
+    if (!isValidFile(oldUri)) {
+      continue;
+    }
+
+    const resolved = getAutoRenameConfig(oldUri);
+    if (resolved && resolved.config.watcher && resolved.config.watcher.autoRename) {
+      // Suppress before the rename touches disk, so the delete+create events
+      // it fires are already being dropped by the time they arrive.
+      suppressWatcherFor(oldUri.fsPath);
+      suppressWatcherFor(newUri.fsPath);
+    }
+  }
+});
+
+vscode.workspace.onDidRenameFiles(e => {
+  e.files.forEach(({ oldUri, newUri }) => {
+    handleRenamedFile(oldUri, newUri).catch(error => {
+      logger.error(error, `handle rename ${oldUri.fsPath}`);
+    });
+  });
+});
 
 const watcherService: WatcherService = {
   create: createWatcher,

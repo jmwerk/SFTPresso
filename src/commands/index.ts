@@ -10,6 +10,7 @@ import commandForgetHostKey from './commandForgetHostKey';
 import commandListActiveFolder from './commandListActiveFolder';
 import commandMigratePassword from './commandMigratePassword';
 import commandOpenSshConnection from './commandOpenSshConnection';
+import commandRenameRemote from './commandRenameRemote';
 import commandRetryTransfer from './commandRetryTransfer';
 import commandSavePassword from './commandSavePassword';
 import commandSetProfile from './commandSetProfile';
@@ -65,6 +66,7 @@ export default {
   commandListActiveFolder,
   commandMigratePassword,
   commandOpenSshConnection,
+  commandRenameRemote,
   commandRetryTransfer,
   commandSavePassword,
   commandSetProfile,

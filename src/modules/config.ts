@@ -61,6 +61,7 @@ const configScheme = Joi.object({
     files: Joi.string().allow(false, null),
     autoUpload: Joi.boolean(),
     autoDelete: Joi.boolean(),
+    autoRename: Joi.boolean(),
   },
   concurrency: Joi.number().integer(),
 

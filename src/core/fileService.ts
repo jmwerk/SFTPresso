@@ -80,6 +80,7 @@ export interface WatcherConfig {
   files: false | string;
   autoUpload: boolean;
   autoDelete: boolean;
+  autoRename: boolean;
 }
 
 interface SftpOption {

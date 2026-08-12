@@ -298,6 +298,121 @@ describe('filesystem operations', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Server-side rename/move: proves the mechanism behind
+// src/fileHandlers/renameRemote.ts against a real server. The handler itself
+// pulls in the whole vscode-backed app singleton (createFileHandler -> app),
+// which this environment's vscode stub can't support (see
+// test/integration/jest.config.js), so this exercises the exact sequence the
+// handler runs -- refuse an existing destination, ensureDir only when the
+// parent changes, one rename() call -- directly against SFTPFileSystem.
+describe('renameRemote (server-side rename/move)', () => {
+  let sftp: SFTPFileSystem;
+
+  beforeAll(async () => {
+    sftp = await connectSftp();
+  });
+
+  afterAll(() => {
+    if (sftp) sftp.end();
+  });
+
+  async function renameOnServer(src: string, dest: string): Promise<void> {
+    let destExists = true;
+    try {
+      await sftp.lstat(dest);
+    } catch {
+      destExists = false;
+    }
+    if (destExists) {
+      throw new Error(`Can't rename to '${dest}' because it already exists.`);
+    }
+
+    const srcParent = upath.dirname(src);
+    const destParent = upath.dirname(dest);
+    if (destParent !== srcParent) {
+      await sftp.ensureDir(destParent);
+    }
+
+    await sftp.rename(src, dest);
+  }
+
+  test('renaming a single file leaves its contents untouched', async () => {
+    const dir = uniqueDir();
+    await sftp.ensureDir(dir);
+    const src = upath.join(dir, 'a.txt');
+    const dest = upath.join(dir, 'b.txt');
+    const content = 'rename-preserves-content';
+    await upload(sftp, Buffer.from(content), src);
+
+    await renameOnServer(src, dest);
+
+    expect((await sftp.list(dir)).map(e => e.name)).toEqual(['b.txt']);
+    expect((await download(sftp, dest)).toString()).toBe(content);
+
+    await sftp.rmdir(dir, true);
+  });
+
+  test('moving a populated directory is a single rename -- contents are byte-for-byte unchanged', async () => {
+    const dir = uniqueDir();
+    const src = upath.join(dir, 'src-dir');
+    const dest = upath.join(dir, 'dest-dir');
+    await sftp.ensureDir(upath.join(src, 'nested'));
+
+    const files: Array<[string, Buffer]> = [
+      [upath.join(src, 'a.txt'), Buffer.from('alpha')],
+      [upath.join(src, 'nested', 'b.bin'), randomBytes(64 * 1024)],
+      [upath.join(src, 'nested', 'c.txt'), Buffer.from('charlie')],
+    ];
+    for (const [path, content] of files) {
+      await upload(sftp, content, path);
+    }
+
+    await renameOnServer(src, dest);
+
+    // the old path is gone, the new one holds everything, byte-for-byte --
+    // proving this was a rename, not a delete-and-re-upload
+    await expect(sftp.lstat(src)).rejects.toBeDefined();
+    for (const [path, content] of files) {
+      const movedPath = dest + path.slice(src.length);
+      const got = await download(sftp, movedPath);
+      expect(Buffer.compare(got, content)).toBe(0);
+    }
+
+    await sftp.rmdir(dir, true);
+  });
+
+  test('refuses to rename onto an existing destination, leaving both sides untouched', async () => {
+    const dir = uniqueDir();
+    await sftp.ensureDir(dir);
+    const src = upath.join(dir, 'src.txt');
+    const dest = upath.join(dir, 'dest.txt');
+    await upload(sftp, Buffer.from('original source'), src);
+    await upload(sftp, Buffer.from('existing destination'), dest);
+
+    await expect(renameOnServer(src, dest)).rejects.toThrow(/already exists/);
+
+    expect((await download(sftp, src)).toString()).toBe('original source');
+    expect((await download(sftp, dest)).toString()).toBe('existing destination');
+
+    await sftp.rmdir(dir, true);
+  });
+
+  test('creates the destination parent for a move into a new subdirectory', async () => {
+    const dir = uniqueDir();
+    await sftp.ensureDir(dir);
+    const src = upath.join(dir, 'a.txt');
+    const dest = upath.join(dir, 'new', 'nested', 'a.txt');
+    await upload(sftp, Buffer.from('content'), src);
+
+    await renameOnServer(src, dest);
+
+    expect((await download(sftp, dest)).toString()).toBe('content');
+
+    await sftp.rmdir(dir, true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // TransferTask: the mode cascade, mtime preservation, and the temp-file paths.
 // This is the logic sync and conflictCheck depend on and where a refactor is
 // most likely to regress silently.

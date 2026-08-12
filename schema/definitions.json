@@ -37,13 +37,19 @@
             "type": "boolean",
             "description": "delete when file changed.",
             "default": false
+          },
+          "autoRename": {
+            "type": "boolean",
+            "description": "Server-side rename/move when a file or folder is renamed locally, instead of deleting and re-uploading it.",
+            "default": false
           }
         },
         "required": ["files"],
         "default": {
           "files": "**/*",
           "autoUpload": true,
-          "autoDelete": false
+          "autoDelete": false,
+          "autoRename": false
         }
       }
     }

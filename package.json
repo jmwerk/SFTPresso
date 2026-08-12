@@ -314,6 +314,11 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.rename.remote",
+        "title": "Rename",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.create.folder",
         "title": "Create Folder",
         "category": "SFTP"
@@ -530,6 +535,10 @@
         },
         {
           "command": "sftp.delete.remote",
+          "when": "false"
+        },
+        {
+          "command": "sftp.rename.remote",
           "when": "false"
         },
         {
@@ -756,6 +765,11 @@
           "command": "sftp.download.file",
           "group": "3_trans@2",
           "when": "view == remoteExplorer && viewItem != root && viewItem == file"
+        },
+        {
+          "command": "sftp.rename.remote",
+          "group": "7_modification",
+          "when": "view == remoteExplorer && viewItem != root"
         },
         {
           "command": "sftp.delete.remote",
