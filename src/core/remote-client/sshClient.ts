@@ -18,6 +18,19 @@ let MAX_OPEN_FD_NUM = 222;
 // reading the fingerprint they are being asked to check.
 const HOST_KEY_PROMPT_READY_TIMEOUT = 5 * 60 * 1000;
 
+export const DEFAULT_KEEPALIVE_INTERVAL = 30 * 1000;
+export const DEFAULT_KEEPALIVE_COUNT_MAX = 2;
+
+// undefined (unset in sftp.json and not derived from ~/.ssh/config) falls
+// back to the default; an explicit value, including 0 to disable, wins.
+export function resolveKeepaliveInterval(value: number | undefined): number {
+  return value === undefined ? DEFAULT_KEEPALIVE_INTERVAL : value;
+}
+
+export function resolveKeepaliveCountMax(value: number | undefined): number {
+  return value === undefined ? DEFAULT_KEEPALIVE_COUNT_MAX : value;
+}
+
 export default class SSHClient extends RemoteClient {
   private sftp: any;
   private hoppingClients: SSHClient[];
@@ -265,6 +278,8 @@ export default class SSHClient extends RemoteClient {
       interactiveAuth,
       connectTimeout,
       strictHostKeyChecking,
+      keepaliveInterval,
+      keepaliveCountMax,
       ...option
     } = remoteOption;
 
@@ -357,12 +372,8 @@ export default class SSHClient extends RemoteClient {
         .on('close', () => this.end())
         .on('end', () => this.end())
         .connect({
-          keepaliveInterval: 1000 * 30, // 30 secs, original
-          // keepaliveInterval: 1000 * 600, // 10 mins
-          // keepaliveInterval: 1000 * 1800, // 30 mins
-          keepaliveCountMax: 2, // x2 original
-          // keepaliveCountMax: 3, // x3
-          // keepaliveCountMax: 6, // x6
+          keepaliveInterval: resolveKeepaliveInterval(keepaliveInterval),
+          keepaliveCountMax: resolveKeepaliveCountMax(keepaliveCountMax),
           readyTimeout: willPromptForHostKey
             ? Math.max(HOST_KEY_PROMPT_READY_TIMEOUT, connectTimeout || 0)
             : interactiveAuth

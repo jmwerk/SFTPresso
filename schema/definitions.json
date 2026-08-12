@@ -380,6 +380,16 @@
         "enum": [true, false, "ask", "accept-new"],
         "description": "How the server's SSH host key is checked, mirroring OpenSSH's StrictHostKeyChecking. Keys are looked up in your own ~/.ssh/known_hosts first, then in the store of keys accepted in SFTPresso. \"accept-new\" (the default) trusts a host the first time it is seen and remembers its key, then refuses to connect if that key ever changes. \"ask\" prompts with the fingerprint on first sight instead. true refuses any host that is not already in a known_hosts file. false also allows a changed host key through, which disables the protection against a man-in-the-middle — only use it if you understand the consequence. Bastion hosts configured with \"hop\" are verified in their own right. Applies to sftp only.",
         "default": "accept-new"
+      },
+      "keepaliveInterval": {
+        "type": "number",
+        "description": "Milliseconds between SSH-level keepalive packets sent to the server, so a dead or silently dropped connection (common on high-latency or heavily NATed links) is detected instead of leaving an operation to hang. Also settable as ServerAliveInterval in ~/.ssh/config (there, in seconds); an explicit value here takes precedence. Set to 0 to disable. Applies to sftp only.",
+        "default": 30000
+      },
+      "keepaliveCountMax": {
+        "type": "number",
+        "description": "How many consecutive keepalive packets may go unanswered before the connection is considered dead and torn down. Applies to sftp only.",
+        "default": 2
       }
     }
   },
