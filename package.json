@@ -140,6 +140,11 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.runRemoteCommand",
+        "title": "Run Remote Command",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.cancelAllTransfer",
         "title": "Cancel All Transfers",
         "category": "SFTP"
@@ -407,6 +412,10 @@
         },
         {
           "command": "sftp.forgetHostKey",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.runRemoteCommand",
           "when": "sftp.enabled"
         },
         {

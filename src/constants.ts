@@ -28,6 +28,7 @@ export const COMMAND_CLEAR_PASSWORD = 'sftp.clearPassword';
 export const COMMAND_MIGRATE_PASSWORD = 'sftp.migratePassword';
 export const COMMAND_FORGET_HOST_KEY = 'sftp.forgetHostKey';
 export const COMMAND_SHOW_HOST_KEY = 'sftp.showHostKey';
+export const COMMAND_RUN_REMOTE_COMMAND = 'sftp.runRemoteCommand';
 
 export const COMMAND_FORCE_UPLOAD = 'sftp.forceUpload';
 export const COMMAND_UPLOAD = 'sftp.upload';

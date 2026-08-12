@@ -12,6 +12,7 @@ import commandMigratePassword from './commandMigratePassword';
 import commandOpenSshConnection from './commandOpenSshConnection';
 import commandRenameRemote from './commandRenameRemote';
 import commandRetryTransfer from './commandRetryTransfer';
+import commandRunRemoteCommand from './commandRunRemoteCommand';
 import commandSavePassword from './commandSavePassword';
 import commandSetProfile from './commandSetProfile';
 import commandShowHostKey from './commandShowHostKey';
@@ -68,6 +69,7 @@ export default {
   commandOpenSshConnection,
   commandRenameRemote,
   commandRetryTransfer,
+  commandRunRemoteCommand,
   commandSavePassword,
   commandSetProfile,
   commandShowHostKey,

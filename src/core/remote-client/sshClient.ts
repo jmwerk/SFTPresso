@@ -424,4 +424,10 @@ export default class SSHClient extends RemoteClient {
   getFsClient() {
     return this.sftp;
   }
+
+  // The raw ssh2 client, for callers that need something the SFTP subsystem
+  // does not expose -- currently `exec()` for SFTP: Run Remote Command.
+  getRawClient(): Client {
+    return this._client;
+  }
 }

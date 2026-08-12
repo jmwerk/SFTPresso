@@ -67,6 +67,12 @@ interface ServiceOption {
   // OpenSSH's StrictHostKeyChecking: how an unknown or changed SSH host key is
   // treated. sftp only.
   strictHostKeyChecking: boolean | 'ask' | 'accept-new';
+  // Labeled commands offered by `SFTP: Run Remote Command`, label -> shell
+  // command. sftp only.
+  remoteCommands?: Record<string, string>;
+  // ms a remote command may run before it is killed and reported as timed
+  // out.
+  remoteCommandTimeout: number;
 }
 
 export interface RetryOption {
@@ -210,6 +216,10 @@ function getHostInfo(config) {
     // host key policy, likewise -- tightening it must not open a second
     // connection to the same server, and it is not part of which host this is
     'strictHostKeyChecking',
+    // SFTP: Run Remote Command config, likewise -- editing a saved command
+    // must not open a second connection to the same server
+    'remoteCommands',
+    'remoteCommandTimeout',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
