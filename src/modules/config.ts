@@ -150,7 +150,11 @@ export const defaultConfig = {
   // port,
   // username,
   // password,
-  connectTimeout: 10 * 1000,
+  // connectTimeout is deliberately *not* defaulted here. A default set at read
+  // time is indistinguishable from a value the user typed, and would sit in
+  // front of ConnectTimeout from ~/.ssh/config forever. FileService applies
+  // DEFAULT_CONNECT_TIMEOUT after the ssh config has had its say instead, so
+  // precedence reads sftp.json > ~/.ssh/config > built-in.
 
   // sftp
   // agent,
