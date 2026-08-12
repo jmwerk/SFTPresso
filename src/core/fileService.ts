@@ -761,10 +761,12 @@ export default class FileService {
     this.reloadWatcher();
   }
 
-  // Closes the pooled connection for the active profile and drops it, so the
-  // next command dials a fresh one. Safe to call when nothing is connected.
-  disconnect() {
-    this._disposeFileSystem();
+  // Closes every pooled connection this service can own -- one per profile,
+  // plus the profile-less one -- and drops them, so the next command dials
+  // fresh. Safe to call when nothing is connected. Returns how many were
+  // actually open, so the caller can report a number that is true.
+  disconnect(): number {
+    return this._disposeFileSystem();
   }
 
   dispose() {
@@ -855,8 +857,44 @@ export default class FileService {
     this._watcherService.dispose(this.baseDir);
   }
 
-  // fixme: remote all profiles
-  private _disposeFileSystem() {
-    return removeRemoteFs(getHostInfo(this.getConfig()));
+  // Every config this service can resolve to: the profile-less one, plus one
+  // per defined profile. Each is guarded on its own -- a profile that no longer
+  // validates must not stop the rest from being visited.
+  private _eachResolvableConfig(fn: (config: ServiceConfig) => void) {
+    const profileKeys: Array<string | null> = [null, ...(this._profiles || [])];
+
+    profileKeys.forEach(profile => {
+      let config: ServiceConfig;
+      try {
+        config = this.getConfig(profile);
+      } catch (error) {
+        logger.debug(
+          `skipping profile "${profile === null ? '<none>' : profile}":` +
+            ` ${(error as Error).message}`
+        );
+        return;
+      }
+
+      // two profiles can resolve to the same remote; that is harmless here,
+      // since removing an already-removed connection is a no-op that reports
+      // itself as such
+      fn(config);
+    });
+  }
+
+  // Closes the pooled connection of *every* profile, not just the active one.
+  // A user with dev/staging/prod who has used two of them, then switched
+  // profile and hit SFTP: Disconnect, would otherwise be left with the other
+  // connection open -- quite possibly the wedged one they ran the command to
+  // clear. Same leak applied on config reload and on deactivate.
+  private _disposeFileSystem(): number {
+    let closed = 0;
+    this._eachResolvableConfig(config => {
+      if (removeRemoteFs(getHostInfo(config))) {
+        closed += 1;
+      }
+    });
+
+    return closed;
   }
 }

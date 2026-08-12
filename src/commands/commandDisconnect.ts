@@ -1,6 +1,7 @@
 import { COMMAND_DISCONNECT } from '../constants';
 import { showInformationMessage } from '../host';
 import logger from '../logger';
+import { removeAllRemoteFs } from '../core/remoteFs';
 import { getAllFileService } from '../modules/serviceManager';
 import { checkCommand } from './abstract/createCommand';
 
@@ -17,22 +18,33 @@ export default checkCommand({
       return;
     }
 
-    let disconnected = 0;
+    let closed = 0;
     for (const service of services) {
       try {
-        service.disconnect();
-        disconnected += 1;
+        closed += service.disconnect();
       } catch (error) {
         // one bad config shouldn't stop the others from being cleaned up
         logger.error(error, 'disconnect');
       }
     }
 
-    logger.info(`disconnected ${disconnected} of ${services.length} configs`);
+    // Backstop for anything the loop above couldn't reach: a connection opened
+    // under a config that has since been edited is still in the pool, but no
+    // config resolves to its identity any more. Leaving it open would defeat
+    // the whole point of the command.
+    const orphaned = removeAllRemoteFs();
+    if (orphaned > 0) {
+      logger.info(`closed ${orphaned} connection(s) no config still resolves to`);
+    }
+    closed += orphaned;
+
+    logger.info(`disconnected ${closed} connections across ${services.length} configs`);
     showInformationMessage(
-      disconnected === 1
+      closed === 0
+        ? 'Nothing was connected.'
+        : closed === 1
         ? 'Disconnected. The next command will reconnect.'
-        : `Disconnected ${disconnected} connections. The next command will reconnect.`
+        : `Disconnected ${closed} connections. The next command will reconnect.`
     );
   },
 });

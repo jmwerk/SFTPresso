@@ -299,11 +299,31 @@ export function createRemoteIfNoneExist(
   return fsInstance.getFs(option, policy);
 }
 
-export function removeRemoteFs(option) {
+// Closes the pooled connection for `option` and drops it from the pool.
+// Returns whether there was one to close, so callers can report an honest
+// count rather than one connection per config they tried.
+export function removeRemoteFs(option): boolean {
   const identity = connectionIdentity(option);
   const fs = fsTable[identity];
-  if (fs !== undefined) {
-    fs.end();
-    delete fsTable[identity];
+  if (fs === undefined) {
+    return false;
   }
+
+  fs.end();
+  delete fsTable[identity];
+  return true;
+}
+
+// Closes every pooled connection. The last-resort escape hatch: a connection
+// whose config can no longer be resolved -- an sftp.json edited while it was
+// open -- is unreachable through removeRemoteFs(), because the option object
+// that produced its identity is gone.
+export function removeAllRemoteFs(): number {
+  const identities = Object.keys(fsTable);
+  identities.forEach(identity => {
+    fsTable[identity].end();
+    delete fsTable[identity];
+  });
+
+  return identities.length;
 }
