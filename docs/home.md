@@ -897,7 +897,7 @@ Default:
 ```
 
 #### sshConfigPath
-Path to your OpenSSH client config file; the first `Host` entry matching this config's [`host`](#host) contributes settings to the connection.
+Path to your OpenSSH client config file; settings for this config's [`host`](#host) are resolved the way `ssh` itself does — literal `Host` entries, wildcard `Host` patterns (`Host *.example.com`), and `Match` blocks are all considered, in file order, per `ssh_config(5)` precedence.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -910,13 +910,15 @@ Six directives are read:
 | `HostName` | [`host`](#host) | Always applied — this is the point of an alias. |
 | `Port` | [`port`](#port) | |
 | `User` | [`username`](#username) | |
-| `IdentityFile` | [`privateKeyPath`](#privatekeypath) | |
+| `IdentityFile` | [`privateKeyPath`](#privatekeypath) | The first line found wins if it's set more than once. |
 | `ConnectTimeout` | [`connectTimeout`](#connecttimeout) | Seconds in `ssh_config`, converted to ms. |
 | `ServerAliveInterval` | [`keepaliveInterval`](#keepaliveinterval) | Seconds in `ssh_config`, converted to ms. |
 
 Except for `HostName`, a value you set in `sftp.json` wins — the ssh config only fills in what you left out. `ConnectTimeout` and `ServerAliveInterval` are ignored, with a warning in the output channel, if their value isn't a number of seconds.
 
 > ℹ️ **Fixed in 1.30.1.** `ServerAliveInterval` and `ConnectTimeout` were read from your ssh config and then dropped: they were mapped onto option names the SSH client does not have, so neither had any effect. If you rely on either, they start working with this release — a `ServerAliveInterval` far below the previous 30-second default means noticeably more keepalive traffic.
+
+> ℹ️ **Fixed.** Resolution used to be a literal string match against `Host` — a config using a wildcard `Host *.example.com` pattern or a `Match` block, both ordinary `ssh_config(5)` syntax, contributed nothing at all, silently. Both are now resolved correctly.
 
 #### sshCustomParams
 Extra parameters appended to the `ssh` command used by `SFTP: Open SSH in Terminal`.

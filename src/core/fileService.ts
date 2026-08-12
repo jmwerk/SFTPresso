@@ -314,13 +314,11 @@ function mergeConfigWithExternalRefer(
   }
 
   const parsedSSHConfig = sshConfig.parse(sshConfigContent);
-  const section = parsedSSHConfig.find({
-    Host: copyed.host,
-  });
-
-  if (section === null) {
-    return copyed;
-  }
+  // `compute` (unlike `find`) resolves wildcard Host patterns, Match blocks,
+  // and "first obtained value wins" directive precedence the way ssh(1) does.
+  // `ignoreCase` normalizes directive names to lowercase so the mapping below
+  // doesn't need to. It returns `{}`, never null, when nothing matches.
+  const computed = parsedSSHConfig.compute(copyed.host, { ignoreCase: true });
 
   // `serveraliveinterval` and `connecttimeout` used to map to `keepalive` and
   // `connTimeout`. ssh2 has never read either name -- it wants
@@ -341,26 +339,29 @@ function mergeConfigWithExternalRefer(
   // raw string the parser hands us is discarded even under the right key.
   const durationInSeconds = new Set(['keepaliveInterval', 'connectTimeout']);
 
-  section.config.forEach(line => {
-    if (!line.param) {
-      return;
-    }
-
-    const key = mapping.get(line.param.toLowerCase());
+  Object.entries(computed).forEach(([param, rawValue]) => {
+    const key = mapping.get(param.toLowerCase());
     if (key === undefined) {
       return;
     }
 
+    // Only IdentityFile ever comes back as an array; every other mapped
+    // directive is single-valued. ssh_config(5) has the first IdentityFile
+    // win, matching the scalar privateKeyPath this feeds.
+    const value: string = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+
     if (key === 'host') {
-      copyed[key] = line.value;
+      // already resolved per Host/Match precedence, so it always wins over
+      // whatever copyed.host held going in.
+      copyed[key] = value;
       return;
     }
 
     if (durationInSeconds.has(key)) {
-      const milliseconds = secondsToMilliseconds(line.value);
+      const milliseconds = secondsToMilliseconds(value);
       if (milliseconds === undefined) {
         logger.warn(
-          `Ignoring "${line.param} ${line.value}" from ${sshConfigPath}:` +
+          `Ignoring "${param} ${value}" from ${sshConfigPath}:` +
             ' expected a number of seconds.'
         );
         return;
@@ -368,44 +369,13 @@ function mergeConfigWithExternalRefer(
 
       setConfigValue(copyed, key, milliseconds);
       logger.debug(
-        `${line.param} ${line.value} from ${sshConfigPath}` +
-          ` -> ${key} ${copyed[key]}ms`
+        `${param} ${value} from ${sshConfigPath}` + ` -> ${key} ${copyed[key]}ms`
       );
       return;
     }
 
-    setConfigValue(copyed, key, line.value);
+    setConfigValue(copyed, key, value);
   });
-
-  // Bug introduced in pull request #69 : Fix ssh config resolution
-  /* const parsedSSHConfig = sshConfig.parse(sshConfigContent);
-  const computed = parsedSSHConfig.compute(copyed.host);
-
-  const mapping = new Map([
-    ['hostname', 'host'],
-    ['port', 'port'],
-    ['user', 'username'],
-    ['serveraliveinterval', 'keepalive'],
-    ['connecttimeout', 'connTimeout'],
-  ]);
-
-  Object.entries<any>(computed).forEach(([param, value]) => {
-    if (param.toLowerCase() === 'identityfile') {
-      setConfigValue(copyed, 'privateKeyPath', value[0]);
-      return;
-    }
-
-    const key = mapping.get(param.toLowerCase());
-
-    if (key !== undefined) {
-      // don't need consider config priority, always set to the resolve host.
-      if (key === 'host') {
-        copyed[key] = value;
-      } else {
-        setConfigValue(copyed, key, value);
-      }
-    }
-  }); */
 
   return copyed;
 }
