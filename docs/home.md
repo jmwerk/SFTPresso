@@ -211,7 +211,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Config` | `sftp.config` | Create a new `sftp.json` for the workspace — via a guided quick-setup wizard or a starter template — or open the existing one. See [First-time setup](#first-time-setup). |
 | `SFTP: Set Profile` | `sftp.setProfile` | Switch the active [profile](#profiles-dev--prod). |
 | `SFTP: Test Connection` | `sftp.testConnection` | Connect to the active profile's remote and report success/failure. Also available as a CodeLens on `sftp.json`. |
-| `SFTP: Disconnect` | `sftp.disconnect` | Close every pooled connection and drop it, so the next command reconnects from scratch. The manual escape hatch for a connection that has stopped responding — [`operationTimeout`](#operationtimeout) should catch that on its own, but this saves you a window reload when something slips through. |
+| `SFTP: Disconnect` | `sftp.disconnect` | Close every pooled connection and drop it, so the next command reconnects from scratch. Every config and every [profile](#profiles), not just the active one, and it reports how many were actually open. The manual escape hatch for a connection that has stopped responding — [`operationTimeout`](#operationtimeout) should catch that on its own, but this saves you a window reload when something slips through. |
 | `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). The status bar shows a `$(cloud-upload)` indicator while it's on. |
 | Add to Ignore | `sftp.addToIgnore` | File-explorer context menu command. Appends the right-clicked file or folder's workspace-relative path to the active config's [`ignore`](#ignore) array in `sftp.json` (folders as `path/**`), preserving comments and formatting; a no-op if the entry is already listed. |
 | `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal auto-logged-in to the server. Extra CLI flags can be added via [`sshCustomParams`](#sshcustomparams). |
@@ -552,7 +552,9 @@ Path to an ignore file (e.g. `.gitignore`-style list) — absolute, or relative 
 ```
 
 #### watcher
-Watches for file changes made **outside** the VS Code editor (build output, `git checkout`, external tools) and reacts automatically. Only available at the root level of a config (not inside profiles). See [Two-way automatic sync](#two-way-automatic-sync-with-the-watcher).
+Watches for file changes made **outside** the VS Code editor (build output, `git checkout`, external tools) and reacts automatically. See [Two-way automatic sync](#two-way-automatic-sync-with-the-watcher).
+
+A [profile](#profiles) may override `watcher` to change what is watched — or to switch watching off entirely with `"files": false` — for that profile alone. The watcher is rebuilt when you switch profile, and the profile's [`ignore`](#ignore) rules apply to it, so an ignored path is dropped at the watcher rather than further down the transfer path.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -572,6 +574,12 @@ Watches for file changes made **outside** the VS Code editor (build output, `git
     "files": "dist/*.{js,css}",
     "autoUpload": true,
     "autoDelete": false
+  },
+  "profiles": {
+    "dev": {},
+    "prod": {
+      "watcher": { "files": false }
+    }
   }
 }
 ```
@@ -619,6 +627,8 @@ Maximum time (ms) to wait when establishing a connection.
 | Key | Type | Default |
 | --- | --- | --- |
 | `connectTimeout` | number | `10000` |
+
+Resolved in that order: this option if you set it, otherwise `ConnectTimeout` from your [ssh config](#sshconfigpath) (which states it in seconds), otherwise `10000`.
 
 #### limitOpenFilesOnRemote
 Cap the number of file descriptors opened on the remote server. Set `true` for the default limit (222), or a number for a custom limit (values below 127 are raised to 127). Use it if transfers fail with the generic [`Error: Failure`](#error-failure) because the server runs out of descriptors.
@@ -844,11 +854,26 @@ Default:
 ```
 
 #### sshConfigPath
-Path to your OpenSSH client config file; matching `Host` entries contribute settings to the connection.
+Path to your OpenSSH client config file; the first `Host` entry matching this config's [`host`](#host) contributes settings to the connection.
 
 | Key | Type | Default |
 | --- | --- | --- |
 | `sshConfigPath` | string | `~/.ssh/config` |
+
+Six directives are read:
+
+| Directive | Fills in | Notes |
+| --- | --- | --- |
+| `HostName` | [`host`](#host) | Always applied — this is the point of an alias. |
+| `Port` | [`port`](#port) | |
+| `User` | [`username`](#username) | |
+| `IdentityFile` | [`privateKeyPath`](#privatekeypath) | |
+| `ConnectTimeout` | [`connectTimeout`](#connecttimeout) | Seconds in `ssh_config`, converted to ms. |
+| `ServerAliveInterval` | SSH keepalive interval | Seconds in `ssh_config`, converted to ms. Replaces the built-in 30s default. |
+
+Except for `HostName`, a value you set in `sftp.json` wins — the ssh config only fills in what you left out. `ConnectTimeout` and `ServerAliveInterval` are ignored, with a warning in the output channel, if their value isn't a number of seconds.
+
+> ℹ️ **Fixed in 1.30.1.** `ServerAliveInterval` and `ConnectTimeout` were read from your ssh config and then dropped: they were mapped onto option names the SSH client does not have, so neither had any effect. If you rely on either, they start working with this release — a `ServerAliveInterval` far below the previous 30-second default means noticeably more keepalive traffic.
 
 #### sshCustomParams
 Extra parameters appended to the `ssh` command used by `SFTP: Open SSH in Terminal`.
@@ -1022,7 +1047,7 @@ When a config defines profiles, the status bar item shows the active profile (e.
 }
 ```
 
-> `context` and `watcher` are only available at the root level, not inside a profile.
+> `context` is only available at the root level, not inside a profile. [`watcher`](#watcher) may be set at either — a profile's watcher replaces the root one while that profile is active, which is how you turn auto-upload off for production.
 
 To deploy to every environment at once, use the **`… To All Profiles`** [upload commands](#upload-commands).
 
