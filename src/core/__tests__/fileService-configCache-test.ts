@@ -1,8 +1,18 @@
 jest.mock('fs');
 
+import * as path from 'path';
 import { vol } from 'memfs';
 import app from '../../app';
 import FileService, { FileServiceConfig } from '../fileService';
+
+// baseDir as the product actually sees it -- vscode hands over OS-native paths,
+// and the ignore function decides local-vs-remote by comparing a normalized
+// path against it. Hard-coding '/ws' made that comparison fail on Windows, so
+// every local path took the remote branch and nothing matched.
+const BASE = path.normalize('/ws');
+const local = (...parts: string[]) => path.join(BASE, ...parts);
+// where the config's `ignoreFile` resolves to, which is also its fsCache key
+const IGNORE_FILE = path.resolve('/ws', '.sftpignore');
 
 const baseConfig = {
   name: 'test',
@@ -16,7 +26,7 @@ const baseConfig = {
 } as any as FileServiceConfig;
 
 function createService(config: Partial<FileServiceConfig> = {}): FileService {
-  return new FileService('/ws', '/ws', { ...baseConfig, ...config } as FileServiceConfig);
+  return new FileService(BASE, '/ws', { ...baseConfig, ...config } as FileServiceConfig);
 }
 
 beforeEach(() => {
@@ -79,17 +89,17 @@ describe('FileService config cache', () => {
     const service = createService({ ignoreFile: '.sftpignore' } as Partial<FileServiceConfig>);
 
     const ignore = service.getConfig().ignore!;
-    expect(ignore('/ws/foo')).toBe(true);
-    expect(ignore('/ws/bar')).toBe(false);
+    expect(ignore(local('foo'))).toBe(true);
+    expect(ignore(local('bar'))).toBe(false);
 
-    expect(app.fsCache.has('/ws/.sftpignore')).toBe(true);
+    expect(app.fsCache.has(IGNORE_FILE)).toBe(true);
 
     vol.fromJSON({ '/ws/.sftpignore': 'bar' });
     service.invalidateConfigCache();
-    expect(app.fsCache.has('/ws/.sftpignore')).toBe(false);
+    expect(app.fsCache.has(IGNORE_FILE)).toBe(false);
 
     const reloaded = service.getConfig().ignore!;
-    expect(reloaded('/ws/foo')).toBe(false);
-    expect(reloaded('/ws/bar')).toBe(true);
+    expect(reloaded(local('foo'))).toBe(false);
+    expect(reloaded(local('bar'))).toBe(true);
   });
 });
