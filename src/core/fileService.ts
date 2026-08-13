@@ -15,6 +15,7 @@ import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
 import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
 import mergeProfile from './mergeProfile';
+import TransferSchedulerGroup, { GateTicket } from './transferSchedulerGroup';
 
 type Omit<T, U> = Pick<T, Exclude<keyof T, U>>;
 
@@ -446,6 +447,7 @@ export default class FileService {
   private _profiles: string[];
   private _pendingTransferTasks: Set<TransferTask> = new Set();
   private _transferSchedulers: TransferScheduler[] = [];
+  private _schedulerGroup: TransferSchedulerGroup;
   private _config: FileServiceConfig;
   private _configValidator: ConfigValidator;
   // resolved configs by profile name. getConfig() is on hot paths (every file
@@ -472,6 +474,7 @@ export default class FileService {
     this.workspace = workspace;
     this.baseDir = baseDir;
     this._config = config;
+    this._schedulerGroup = new TransferSchedulerGroup(config.concurrency || 4);
     if (config.profiles) {
       this._profiles = Object.keys(config.profiles);
     }
@@ -552,6 +555,9 @@ export default class FileService {
     stallTimeout: number = 0
   ): TransferScheduler {
     const fileService = this;
+    // Profile changes are reflected by future batches without creating a
+    // second gate. In-flight work remains inside this same bounded queue.
+    this._schedulerGroup.setConcurrency(concurrency);
     const { attempts: maxRetries, delay: retryBaseDelay } = {
       ...DEFAULT_RETRY_OPTION,
       ...retryOption,
@@ -568,19 +574,32 @@ export default class FileService {
       TransferTask,
       { timer: ReturnType<typeof setTimeout>; error: Error }
     >();
+    const gateTickets = new Map<TransferTask, GateTicket>();
+
+    const unwrapTask = (task: any): TransferTask => task.transferTask || task;
+    const queueTask = (transferTask: TransferTask) => {
+      scheduler.add({
+        transferTask,
+        run: () => {
+          const ticket = this._schedulerGroup.schedule(transferTask, () => transferTask.run());
+          gateTickets.set(transferTask, ticket);
+          return ticket.promise.finally(() => gateTickets.delete(transferTask));
+        },
+      } as any);
+    };
 
     scheduler.onTaskStart(task => {
-      const transferTask = task as TransferTask;
+      const transferTask = unwrapTask(task);
       // emitted synchronously before run(), so the task is armed in time
       transferTask.stallTimeout = stallTimeout;
       this._pendingTransferTasks.add(transferTask);
       transferTask.setProgressListener(() =>
         this._eventEmitter.emit(Event.PROGRESS_TRANSFER, transferTask)
       );
-      this._eventEmitter.emit(Event.BEFORE_TRANSFER, task);
+      this._eventEmitter.emit(Event.BEFORE_TRANSFER, transferTask);
     });
     scheduler.onTaskDone((err, task) => {
-      const transferTask = task as TransferTask;
+      const transferTask = unwrapTask(task);
       this._pendingTransferTasks.delete(transferTask);
 
       if (
@@ -605,13 +624,13 @@ export default class FileService {
             finishRun();
             return;
           }
-          scheduler.add(transferTask);
+          queueTask(transferTask);
         }, delay);
         retryTimers.set(transferTask, { timer, error: err });
         return;
       }
 
-      this._eventEmitter.emit(Event.AFTER_TRANSFER, err, task);
+      this._eventEmitter.emit(Event.AFTER_TRANSFER, err, transferTask);
       transferTask.dispose();
     });
 
@@ -644,6 +663,7 @@ export default class FileService {
         // Transfers view and the progress counters
         const abandoned = Array.from(retryTimers.entries());
         retryTimers.clear();
+        gateTickets.forEach(ticket => ticket.cancel());
         abandoned.forEach(([task, { timer, error }]) => {
           clearTimeout(timer);
           task.cancel();
@@ -664,7 +684,7 @@ export default class FileService {
         }
 
         fileService._eventEmitter.emit(Event.QUEUE_TRANSFER, task);
-        scheduler.add(task);
+        queueTask(task);
       },
       run() {
         if (isStopped) {
