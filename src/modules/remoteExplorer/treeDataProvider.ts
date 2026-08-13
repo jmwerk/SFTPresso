@@ -21,7 +21,7 @@ type Id = number;
 
 const previewDocumentPathPrefix = '/~ ';
 
-const DEFAULT_FILES_EXCLUDE = ['.git', '.svn', '.hg', 'CVS', '.DS_Store'];
+const DEFAULT_FILES_EXCLUDE = ['.git', '.svn', '.hg', 'CVS', '.DS_Store', '.ssh'];
 /**
  * covert the url path for a customed docuemnt title
  *

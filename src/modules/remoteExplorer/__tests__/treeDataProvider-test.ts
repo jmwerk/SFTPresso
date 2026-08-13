@@ -60,9 +60,9 @@ const ROOT = '/srv/www';
 // - readme.txt / notes.md / docs/guide.md have no relation to each other
 // - src/nested/deep.ts is three levels down, to prove ancestor directories
 //   surface even when the match itself is nested deep
-// - .git is always excluded via the same DEFAULT_FILES_EXCLUDE the provider
-//   already applies, and must stay excluded even when a filter would
-//   otherwise match its contents
+// - .git and .ssh are always excluded via the same DEFAULT_FILES_EXCLUDE the
+//   provider already applies, and must stay excluded even when a filter
+//   would otherwise match their contents
 type Node = { type: 'file' } | { type: 'dir'; children: Record<string, Node> };
 
 const tree: Node = {
@@ -71,6 +71,7 @@ const tree: Node = {
     'readme.txt': { type: 'file' },
     'notes.md': { type: 'file' },
     '.git': { type: 'dir', children: { config: { type: 'file' } } },
+    '.ssh': { type: 'dir', children: { authorized_keys: { type: 'file' } } },
     src: {
       type: 'dir',
       children: {
@@ -195,6 +196,16 @@ describe('RemoteTreeData filtering', () => {
     const children = await provider.getChildren(root);
 
     // '.git/config' would match, but '.git' itself is always excluded
+    expect(basenames(children)).toEqual([]);
+  });
+
+  test('.ssh is excluded by default, so authorized_keys never surfaces', async () => {
+    const { provider, root } = await makeProviderWithRoot();
+
+    provider.setFilter('authorized');
+    const children = await provider.getChildren(root);
+
+    // '.ssh/authorized_keys' would match, but '.ssh' itself is always excluded
     expect(basenames(children)).toEqual([]);
   });
 
