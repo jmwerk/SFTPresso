@@ -14,6 +14,7 @@ import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
 import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
+import mergeProfile from './mergeProfile';
 
 type Omit<T, U> = Pick<T, Exclude<keyof T, U>>;
 
@@ -424,25 +425,6 @@ function getCompleteConfig(
   }
 
   return mergedConfig;
-}
-
-function mergeProfile(
-  target: FileServiceConfig,
-  source: FileServiceConfig
-): FileServiceConfig {
-  const res = Object.assign({}, target);
-  delete res.profiles;
-
-  const keys = Object.keys(source);
-  for (const key of keys) {
-    if (key === 'ignore') {
-      res.ignore = res.ignore.concat(source.ignore);
-    } else {
-      res[key] = source[key];
-    }
-  }
-
-  return res;
 }
 
 // cache key standing in for "no profile applies", so it can't collide with a
