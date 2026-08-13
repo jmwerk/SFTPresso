@@ -87,23 +87,23 @@
         "properties": {
           "delete": {
             "type": "boolean",
-            "description": "Delete extraneous files from dest dirs.",
-            "default": true
+            "description": "Delete files in the destination that do not exist in the source (mirror the source). Off unless set.",
+            "default": false
           },
           "skipCreate": {
             "type": "boolean",
-            "description": "Skip creating new files on dest.",
-            "default": true
+            "description": "Skip creating files in the destination that exist only in the source. Off unless set.",
+            "default": false
           },
           "ignoreExisting": {
             "type": "boolean",
-            "description": "Skip updating files that exist on dest.",
-            "default": true
+            "description": "Skip files that already exist in the destination. Off unless set.",
+            "default": false
           },
           "update": {
             "type": "boolean",
-            "description": "Update the dest only if a newer version is on the src filesystem.",
-            "default": true
+            "description": "Update the destination only when the source is newer. Off unless set.",
+            "default": false
           }
         }
       },
