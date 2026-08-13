@@ -1,4 +1,5 @@
 import {
+  claimWatcherSuppression,
   suppressWatcherFor,
   releaseWatcherSuppression,
   isWatcherSuppressed,
@@ -74,5 +75,17 @@ describe('watcherSuppression', () => {
     expect(isWatcherSuppressed('/ws/a.txt')).toBe(true);
 
     now.mockRestore();
+  });
+
+  test('renews a claim until it is explicitly released', () => {
+    jest.useFakeTimers();
+    const release = claimWatcherSuppression('/ws/download');
+
+    jest.advanceTimersByTime(10_001);
+    expect(isWatcherSuppressed('/ws/download/file.txt')).toBe(true);
+
+    release();
+    expect(isWatcherSuppressed('/ws/download/file.txt')).toBe(false);
+    jest.useRealTimers();
   });
 });

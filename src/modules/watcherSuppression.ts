@@ -29,6 +29,18 @@ export function releaseWatcherSuppression(fsPath: string) {
   suppressed.delete(fsPath);
 }
 
+// Keep a claim alive while an extension-initiated local write is in flight.
+// A transfer can outlast the TTL, so renewal makes the timeout a crash
+// backstop rather than a deadline that lets a long download echo via autoUpload.
+export function claimWatcherSuppression(fsPath: string): () => void {
+  suppressWatcherFor(fsPath);
+  const renewal = setInterval(() => suppressWatcherFor(fsPath), SUPPRESSION_TTL / 2);
+  return () => {
+    clearInterval(renewal);
+    releaseWatcherSuppression(fsPath);
+  };
+}
+
 export function isWatcherSuppressed(fsPath: string): boolean {
   sweep();
   for (const root of suppressed.keys()) {

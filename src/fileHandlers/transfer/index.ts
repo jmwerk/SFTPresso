@@ -7,6 +7,7 @@ import { confirmSyncOrProceed } from '../syncPreview';
 import { diff } from '../diff';
 import { confirmUpload, updateBaselineAfterTransfer } from './conflictCheck';
 import { transfer, sync, TransferOption, SyncOption, TransferDirection } from './transfer';
+import { claimWatcherSuppression } from '../../modules/watcherSuppression';
 
 /**
  * Make a sync's deletions visible after the fact.
@@ -46,6 +47,12 @@ function createTransferHandle(direction: TransferDirection) {
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
+    // Claim before any local write begins. This common path covers Download,
+    // Edit in Local, download-on-open, and folder downloads.
+    const releaseWatcherClaim =
+      direction === TransferDirection.REMOTE_TO_LOCAL
+        ? claimWatcherSuppression(localFsPath)
+        : undefined;
     const scheduler = this.fileService.createTransferScheduler(
       this.config.concurrency,
       this.config.retry,
@@ -81,8 +88,12 @@ function createTransferHandle(direction: TransferDirection) {
         transferDirection: TransferDirection.LOCAL_TO_REMOTE,
       };
     }
-    await transfer(transferConfig, t => scheduler.add(t));
-    await scheduler.run();
+    try {
+      await transfer(transferConfig, t => scheduler.add(t));
+      await scheduler.run();
+    } finally {
+      releaseWatcherClaim?.();
+    }
 
     // Both directions leave us with a known-good remote to compare against next
     // time — a download is what establishes the baseline for later uploads.
