@@ -470,12 +470,14 @@ Tunes the [Sync commands](#sync-commands).
 | --- | --- | --- |
 | `syncOption` | object | `{}` |
 
-| Sub-option | Type | Effect |
-| --- | --- | --- |
-| `syncOption.delete` | boolean | Delete extraneous files from the destination. |
-| `syncOption.skipCreate` | boolean | Don't create files that are new to the destination. |
-| `syncOption.ignoreExisting` | boolean | Don't update files that already exist on the destination. |
-| `syncOption.update` | boolean | Only overwrite the destination if the source copy is newer. |
+| Sub-option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `syncOption.delete` | boolean | `false` | Delete extraneous files from the destination. |
+| `syncOption.skipCreate` | boolean | `false` | Don't create files that are new to the destination. |
+| `syncOption.ignoreExisting` | boolean | `false` | Don't update files that already exist on the destination. |
+| `syncOption.update` | boolean | `false` | Only overwrite the destination if the source copy is newer. |
+
+All four are off unless set explicitly — an omitted key has never done anything at runtime, though the JSON schema incorrectly advertised `true` as the default before this was corrected.
 
 ```json
 {
@@ -1130,7 +1132,7 @@ When a config defines profiles, the status bar item shows the active profile (e.
 }
 ```
 
-> `context` is only available at the root level, not inside a profile. [`watcher`](#watcher) may be set at either — a profile's watcher replaces the root one while that profile is active, which is how you turn auto-upload off for production.
+> `context` is only available at the root level, not inside a profile. [`watcher`](#watcher) may be set at either — a profile's watcher is merged one level over the root one while that profile is active, so `{ "autoUpload": false }` turns uploads off for production without losing the root's other watcher settings (`files`, `autoDelete`, etc.). `syncOption` and `remoteExplorer` merge the same way when set inside a profile.
 
 To deploy to every environment at once, use the **`… To All Profiles`** [upload commands](#upload-commands).
 
