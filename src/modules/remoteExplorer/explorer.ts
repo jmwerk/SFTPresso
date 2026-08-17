@@ -10,6 +10,7 @@ import { toRemotePath } from '../../helper';
 import { REMOTE_SCHEME } from '../../constants';
 import { getFileService } from '../serviceManager';
 import RemoteTreeDataProvider, { ExplorerItem } from './treeDataProvider';
+import { RemoteExplorerDragAndDropController } from './dragAndDrop';
 
 export default class RemoteExplorer {
   private _explorerView: vscode.TreeView<ExplorerItem>;
@@ -25,6 +26,10 @@ export default class RemoteExplorer {
       showCollapseAll: true,
       treeDataProvider: this._treeDataProvider,
       canSelectMany: true,
+      dragAndDropController: new RemoteExplorerDragAndDropController(
+        uri => this._treeDataProvider.findRoot(uri),
+        item => this._treeDataProvider.refresh(item)
+      ),
     });
 
     registerCommand(context, COMMAND_REMOTEEXPLORER_REFRESH, () => this._refreshSelection());

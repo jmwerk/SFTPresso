@@ -96,7 +96,7 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Upload on save | [`uploadOnSave`](#uploadonsave) | Mirrors every VS Code save to the server |
 | Upload conflict check | [`conflictCheck`](#conflictcheck) | Prompts before an upload overwrites a remote file someone else changed |
 | File watcher | [`watcher`](#watcher) | Reacts to changes made *outside* VS Code (build tools, git checkout, …) |
-| Server-side rename/move | Remote Explorer context menu → **Rename**, or [`watcher.autoRename`](#watcher) | Renames or moves a file/folder with a single remote `rename()` call, regardless of size — no re-upload — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote) |
+| Server-side rename/move | Remote Explorer context menu → **Rename**, drag-and-drop ([`remoteExplorer.enableDragAndDrop`](#remoteexplorer)), or [`watcher.autoRename`](#watcher) | Renames or moves a file/folder with a single remote `rename()` call, regardless of size — no re-upload — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote) |
 | Multiple configurations | [Array config](#multiple-contexts-array-config) | Different servers per workspace subfolder |
 | Switchable profiles | [`profiles`](#profiles) + `SFTP: Set Profile` | One config, many targets — the status bar shows the active profile; click it to switch |
 | Temp-file / atomic uploads | [`useTempFile`](#usetempfile), [`openSsh`](#openssh) | Avoid serving half-written files |
@@ -616,12 +616,14 @@ Tunes the [Remote Explorer](#using-the-remote-explorer) view.
 | --- | --- | --- |
 | `remoteExplorer.filesExclude` | string[] | Patterns for files/folders to hide in the Remote Explorer. |
 | `remoteExplorer.order` | number | Sort position of this config among Remote Explorer roots (default `0`). |
+| `remoteExplorer.enableDragAndDrop` | boolean | Allow dragging an item onto a folder in the Remote Explorer to move it there with a single server-side rename. Default `false`. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). |
 
 ```json
 {
   "remoteExplorer": {
     "filesExclude": ["**/node_modules"],
-    "order": 1
+    "order": 1,
+    "enableDragAndDrop": true
   }
 }
 ```
@@ -1245,6 +1247,8 @@ Renaming or moving something used to mean a full re-upload — for a large direc
 
 **From the Remote Explorer.** Right-click a file or folder and choose **Rename**. Type a new name — including a path with `/` to move it into a subfolder — and confirm. The move is refused (with a clear message, nothing is touched) if the destination already exists, falls outside [`remotePath`](#remotepath), or would move a folder into itself.
 
+**By dragging within the Remote Explorer.** Set [`remoteExplorer.enableDragAndDrop`](#remoteexplorer) to `true`, then drag a file or folder onto another folder in the tree to move it there — the same single `rename()` call as the **Rename** command, just started with a drag instead of a right-click. Off by default. Dragging more than one selected item asks for one confirmation covering the whole batch; a single item moves immediately. Refused, with a message, in the same cases the Rename command refuses (existing destination, moving a folder into itself or a descendant), plus a drag between two different configured roots and dragging a connection's root item itself.
+
 **Automatically, for renames and moves made in VS Code's own Explorer.** Set `watcher.autoRename` to `true` and a rename VS Code reports — F2, drag-and-drop, cut-and-paste-as-move, all in VS Code's Explorer — is turned into the same single server-side rename instead of the delete-then-upload the watcher would otherwise do:
 
 ```json
@@ -1329,6 +1333,7 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 - Browsing opens files in a **read-only** view by default. Run **`SFTP: Edit in Local`** (context menu) to download a file into the workspace for editing — or flip the [`sftp.downloadWhenOpenInRemoteExplorer`](#vs-code-extension-settings) setting to make downloading the default.
 - **Multi-select** works like the regular explorer: hold `Ctrl`/`Cmd` or `Shift` while clicking to select several files/folders, then upload or download them all at once.
 - Create, rename/move, and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)) — rename/move is a single remote operation regardless of size, see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
+- **Drag a file or folder onto another folder** in the tree to move it there, once [`remoteExplorer.enableDragAndDrop`](#remoteexplorer) is turned on (off by default) — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 - Hide noise (e.g. `node_modules`) with [`remoteExplorer.filesExclude`](#remoteexplorer), and control root ordering with `remoteExplorer.order`.
 - **Filter** the tree with **`SFTP: Filter Remote Explorer`** (funnel icon in the view title) — typing live-narrows the tree to matching names and the folders leading to them, even inside folders you haven't opened yet. **`SFTP: Clear Filter`** resets it, and the view title shows the active query while it's on. Substring match only for now. VS Code's own `workbench.list.keyboardNavigation: filter` setting is a handy complement for searching within a folder you've already expanded.
 - After a **delete**, manually refresh the parent folder if the tree doesn't update on its own (known issue).

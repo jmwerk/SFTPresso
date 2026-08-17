@@ -56,6 +56,7 @@ interface ServiceOption {
   remoteExplorer: {
     filesExclude?: string[];
     order: number;
+    enableDragAndDrop?: boolean;
   };
   remoteTimeOffsetInHours: number;
   limitOpenFilesOnRemote: number | true;

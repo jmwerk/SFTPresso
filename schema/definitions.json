@@ -147,6 +147,11 @@
             "type": "number",
             "description": "Remote Explorer will ascending sorting by this value. If the values are the same, sort by name.",
             "default": 0
+          },
+          "enableDragAndDrop": {
+            "type": "boolean",
+            "description": "Allow dragging a file or folder onto another folder in the Remote Explorer to move it there with a single server-side rename. Refuses to overwrite an existing item at the destination, and refuses drags between different configurations. Off unless set.",
+            "default": false
           }
         }
       },

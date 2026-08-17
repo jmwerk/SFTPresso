@@ -109,6 +109,7 @@ const configScheme = Joi.object({
       .min(0)
       .items(Joi.string()),
     order: Joi.number(),
+    enableDragAndDrop: Joi.boolean(),
   },
 });
 
