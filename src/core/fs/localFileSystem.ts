@@ -100,8 +100,11 @@ export default class LocalFileSystem extends FileSystem {
       if (option && option.onProgress) {
         const onProgress = option.onProgress;
         let transferred = 0;
-        input.on('data', (chunk: Buffer) => {
-          transferred += chunk.length;
+        input.on('data', (chunk: string | Buffer) => {
+          // always a Buffer in practice -- this is a plain file read stream,
+          // never put into string/encoding mode -- but 'data' is typed for
+          // both, so the length has to be measured either way
+          transferred += typeof chunk === 'string' ? Buffer.byteLength(chunk) : chunk.length;
           onProgress(transferred);
         });
       }
