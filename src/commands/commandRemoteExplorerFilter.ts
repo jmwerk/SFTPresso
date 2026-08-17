@@ -1,4 +1,5 @@
 import { window } from 'vscode';
+import debounce from 'lodash.debounce';
 import app from '../app';
 import { COMMAND_REMOTEEXPLORER_FILTER } from '../constants';
 import { checkCommand } from './abstract/createCommand';
@@ -13,21 +14,15 @@ export default checkCommand({
     quickPick.placeholder = 'Filter Remote Explorer by name (substring match)';
     quickPick.value = app.remoteExplorer.getFilter() || '';
 
-    let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-    quickPick.onDidChangeValue(value => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
-      debounceTimer = setTimeout(() => {
-        app.remoteExplorer.setFilter(value);
-      }, FILTER_DEBOUNCE_MS);
-    });
+    const debouncedSetFilter = debounce(
+      (value: string) => app.remoteExplorer.setFilter(value),
+      FILTER_DEBOUNCE_MS
+    );
+    quickPick.onDidChangeValue(debouncedSetFilter);
 
     quickPick.onDidAccept(() => quickPick.hide());
     quickPick.onDidHide(() => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
+      debouncedSetFilter.cancel();
       quickPick.dispose();
     });
 

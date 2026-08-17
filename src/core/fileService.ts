@@ -167,6 +167,17 @@ export const DEFAULT_RETRY_OPTION: RetryOption = { attempts: 2, delay: 1000 };
 // between attempts
 const MAX_RETRY_DELAY = 15 * 1000;
 
+// Same fallback the `concurrency` option has always had when omitted. A
+// configured value below 1 -- most commonly `0`, which some users write
+// meaning "unlimited" -- passes Joi validation (no `.min()`) but would
+// otherwise crash the underlying Scheduler, which requires a number >= 1.
+const DEFAULT_CONCURRENCY = 4;
+function resolveConcurrency(concurrency: number | undefined): number {
+  return typeof concurrency === 'number' && concurrency >= 1
+    ? concurrency
+    : DEFAULT_CONCURRENCY;
+}
+
 // Backoff before retry number `attempt` (1 for the first retry). With the
 // default base delay that gives 2s, 4s, 8s, ... capped at 15s.
 export function getRetryDelay(attempt: number, baseDelay: number): number {
@@ -480,7 +491,7 @@ export default class FileService {
     this.workspace = workspace;
     this.baseDir = baseDir;
     this._config = config;
-    this._schedulerGroup = new TransferSchedulerGroup(config.concurrency || 4);
+    this._schedulerGroup = new TransferSchedulerGroup(resolveConcurrency(config.concurrency));
     if (config.profiles) {
       this._profiles = Object.keys(config.profiles);
     }
@@ -561,16 +572,20 @@ export default class FileService {
     stallTimeout: number = 0
   ): TransferScheduler {
     const fileService = this;
-    // Profile changes are reflected by future batches without creating a
-    // second gate. In-flight work remains inside this same bounded queue.
-    this._schedulerGroup.setConcurrency(concurrency);
+    const resolvedConcurrency = resolveConcurrency(concurrency);
+    // Applied immediately if the gate is idle; held and applied once every
+    // other in-flight batch finishes otherwise, so this batch's setting can
+    // never throttle work an unrelated, still-running batch already has
+    // queued or admitted through the same gate.
+    this._schedulerGroup.setConcurrency(resolvedConcurrency);
+    const endBatch = this._schedulerGroup.beginBatch();
     const { attempts: maxRetries, delay: retryBaseDelay } = {
       ...DEFAULT_RETRY_OPTION,
       ...retryOption,
     };
     const scheduler = new Scheduler({
       autoStart: false,
-      concurrency,
+      concurrency: resolvedConcurrency,
     });
 
     // tasks waiting out their backoff, with the failure that put them there.
@@ -582,12 +597,24 @@ export default class FileService {
     >();
     const gateTickets = new Map<TransferTask, GateTicket>();
 
-    const unwrapTask = (task: any): TransferTask => task.transferTask || task;
+    const unwrapTask = (task: any): TransferTask => task.transferTask;
     const queueTask = (transferTask: TransferTask) => {
       scheduler.add({
         transferTask,
         run: () => {
-          const ticket = this._schedulerGroup.schedule(transferTask, () => transferTask.run());
+          const ticket = this._schedulerGroup.schedule(transferTask, () => {
+            // Deferred to here, rather than this local scheduler's own
+            // onTaskStart, so BEFORE_TRANSFER (and the Transfers view / status
+            // bar it drives) reflects the shared gate actually admitting the
+            // task, not just this batch's local queue dequeuing it -- with two
+            // batches contending for the gate, a task sitting behind another
+            // batch's work must not show as "Transferring" while still idle.
+            transferTask.setProgressListener(() =>
+              this._eventEmitter.emit(Event.PROGRESS_TRANSFER, transferTask)
+            );
+            this._eventEmitter.emit(Event.BEFORE_TRANSFER, transferTask);
+            return transferTask.run();
+          });
           gateTickets.set(transferTask, ticket);
           return ticket.promise.finally(() => gateTickets.delete(transferTask));
         },
@@ -599,10 +626,6 @@ export default class FileService {
       // emitted synchronously before run(), so the task is armed in time
       transferTask.stallTimeout = stallTimeout;
       this._pendingTransferTasks.add(transferTask);
-      transferTask.setProgressListener(() =>
-        this._eventEmitter.emit(Event.PROGRESS_TRANSFER, transferTask)
-      );
-      this._eventEmitter.emit(Event.BEFORE_TRANSFER, transferTask);
     });
     scheduler.onTaskDone((err, task) => {
       const transferTask = unwrapTask(task);
@@ -655,6 +678,7 @@ export default class FileService {
       resolveRunning = null;
       runningPromise = null;
       fileService._removeScheduler(transferScheduler);
+      endBatch();
       resolve();
     }
 
@@ -699,6 +723,7 @@ export default class FileService {
 
         if (scheduler.size <= 0) {
           fileService._removeScheduler(transferScheduler);
+          endBatch();
           return Promise.resolve();
         }
 

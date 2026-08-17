@@ -11,13 +11,43 @@ export interface GateTicket {
 // concurrency a ceiling across those batches rather than a per-command limit.
 export default class TransferSchedulerGroup {
   private _gate: Scheduler;
+  private _activeBatches = 0;
+  private _pendingConcurrency: number | undefined;
 
   constructor(concurrency: number) {
     this._gate = new Scheduler({ concurrency });
   }
 
+  // Applied immediately when no batch currently has work in this gate. While
+  // one or more batches are active, an unrelated batch calling this must not
+  // change the ceiling out from under work another batch already has queued
+  // or admitted -- the new value is held and applied once the gate goes idle.
   setConcurrency(concurrency: number): void {
-    this._gate.setConcurrency(concurrency);
+    if (this._activeBatches === 0) {
+      this._gate.setConcurrency(concurrency);
+    } else {
+      this._pendingConcurrency = concurrency;
+    }
+  }
+
+  // Call once per batch before it starts scheduling work through this gate.
+  // The returned function must be called exactly once, when that batch (all
+  // of it, including anything parked in retry backoff) is completely done --
+  // it is safe to call more than once, only the first call has any effect.
+  beginBatch(): () => void {
+    this._activeBatches += 1;
+    let ended = false;
+    return () => {
+      if (ended) {
+        return;
+      }
+      ended = true;
+      this._activeBatches = Math.max(0, this._activeBatches - 1);
+      if (this._activeBatches === 0 && this._pendingConcurrency !== undefined) {
+        this._gate.setConcurrency(this._pendingConcurrency);
+        this._pendingConcurrency = undefined;
+      }
+    };
   }
 
   schedule(task: TransferTask, run: () => Promise<void>): GateTicket {

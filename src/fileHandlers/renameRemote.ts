@@ -13,6 +13,15 @@ export const renameRemote = createFileHandler<{ newRemotePath: string }>({
       throw new Error(`Can't rename outside of '${this.config.remotePath}'.`);
     }
 
+    // The Rename command and drag-and-drop both already refuse this before
+    // ever calling in here, for earlier/better UX -- but this handler has two
+    // other callers (git-detected renames, watcher.autoRename) that derive
+    // newRemotePath from a move already performed on disk and never checked
+    // it, so the guard belongs here too as the actual safety net.
+    if (isRemotePathAtOrUnder(remoteFsPath, newRemotePath)) {
+      throw new Error(`Can't rename '${remoteFsPath}' into itself.`);
+    }
+
     let destExists = true;
     try {
       await remoteFs.lstat(newRemotePath);

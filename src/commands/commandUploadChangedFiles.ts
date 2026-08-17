@@ -95,9 +95,9 @@ async function handleCommand(hint: any) {
     }
   }
 
-  await Promise.all(creates.concat(uploads).map(change => {
+  await Promise.all(creates.concat(uploads).map(async change => {
     try {
-      uploadFile(change.uri)
+      await uploadFile(change.uri);
     } catch (e) {
       logger.error('Upload failed.', e);
     }
@@ -121,9 +121,9 @@ async function handleCommand(hint: any) {
       }
     })
   );
-  await Promise.all(deletes.map(change => {
+  await Promise.all(deletes.map(async change => {
     try {
-      removeRemote(change.uri)
+      await removeRemote(change.uri);
     } catch (e) {
       logger.error('Deletion failed.', e);
     }

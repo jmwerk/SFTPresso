@@ -206,14 +206,17 @@
       },
       "remoteCommands": {
         "type": "object",
-        "description": "Labeled shell commands offered by SFTP: Run Remote Command as a quick pick, label -> command. Runs over the existing SSH connection; no re-authentication. Applies to SFTP only -- FTP configs get an error when the command is run.",
+        "description": "Labeled shell commands offered by SFTP: Run Remote Command as a quick pick, label -> command. Runs over the existing SSH connection; no re-authentication. Applies to SFTP only -- FTP configs get an error when the command is run. None unless set.",
         "additionalProperties": {
           "type": "string"
         },
-        "default": {
-          "Restart PHP": "sudo systemctl reload php8.3-fpm",
-          "Clear cache": "php artisan cache:clear"
-        }
+        "default": {},
+        "examples": [
+          {
+            "Restart PHP": "sudo systemctl reload php8.3-fpm",
+            "Clear cache": "php artisan cache:clear"
+          }
+        ]
       },
       "remoteCommandTimeout": {
         "type": "number",

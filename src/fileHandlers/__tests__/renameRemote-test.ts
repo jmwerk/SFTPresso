@@ -105,6 +105,29 @@ describe('renameRemote', () => {
     expect(remoteFs.renameCalls).toHaveLength(0);
   });
 
+  test('refuses moving a folder into its own descendant, without calling rename', async () => {
+    // this guard has to live in the handler itself, not just its UI-facing
+    // callers -- git-detected renames and watcher.autoRename both derive
+    // newRemotePath from a move already performed on disk and never check it
+    const { ctx, remoteFs } = contextFor('/srv/www/sub', '/srv/www');
+
+    await expect(
+      renameRemote(ctx as any, { newRemotePath: '/srv/www/sub/deeper' })
+    ).rejects.toThrow(/into itself/);
+
+    expect(remoteFs.renameCalls).toHaveLength(0);
+  });
+
+  test('refuses renaming a path onto itself, without calling rename', async () => {
+    const { ctx, remoteFs } = contextFor('/srv/www/a.txt', '/srv/www');
+
+    await expect(
+      renameRemote(ctx as any, { newRemotePath: '/srv/www/a.txt' })
+    ).rejects.toThrow(/into itself/);
+
+    expect(remoteFs.renameCalls).toHaveLength(0);
+  });
+
   test('creates the destination parent only when it differs from the source parent', async () => {
     const { ctx, remoteFs } = contextFor('/srv/www/a.txt', '/srv/www');
     // fileOperations.rename ultimately calls fs.rename; give the fake one a

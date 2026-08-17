@@ -176,19 +176,28 @@ export default class RemoteTreeData
     }
 
     const fileEntries = await this._listEntries(root, item.resource.fsPath);
+    return this._applyFilter(root, item, fileEntries);
+  }
 
+  // Applies whatever filter is current when called. The filter search below
+  // can be slow (recursive, network-bound); if the filter changes again while
+  // it's in flight, retrying re-matches the same already-fetched `fileEntries`
+  // against the new query rather than re-listing this directory from the
+  // server a second time -- the listing itself doesn't depend on the filter,
+  // only which of its entries make it through.
+  private async _applyFilter(
+    root: ExplorerRoot,
+    item: ExplorerItem,
+    fileEntries: FileEntry[]
+  ): Promise<ExplorerItem[]> {
     const epoch = this._filterEpoch;
     const filterAtStart = this._filter;
     const matchedEntries = filterAtStart
       ? await this._filterEntriesByQuery(root, fileEntries, filterAtStart.toLowerCase())
       : fileEntries;
 
-    // The filter search above can be slow (recursive, network-bound). If the
-    // filter changed while it was in flight, don't hand back results for a
-    // query that's no longer current -- retry against whatever's current now.
-    // The search cache makes the retry cheap rather than a second full walk.
     if (epoch !== this._filterEpoch) {
-      return this.getChildren(item);
+      return this._applyFilter(root, item, fileEntries);
     }
 
     return matchedEntries.map(file => this._toItem(item, file)).sort(dirFirstSort);
@@ -238,10 +247,12 @@ export default class RemoteTreeData
     fileEntries: FileEntry[],
     query: string
   ): Promise<FileEntry[]> {
-    const matches = await Promise.all(
-      fileEntries.map(file => this._matchesQuery(root, file, query))
-    );
+    const matches = await this._matchAll(root, fileEntries, query);
     return fileEntries.filter((_file, index) => matches[index]);
+  }
+
+  private _matchAll(root: ExplorerRoot, entries: FileEntry[], query: string): Promise<boolean[]> {
+    return Promise.all(entries.map(file => this._matchesQuery(root, file, query)));
   }
 
   private async _matchesQuery(root: ExplorerRoot, file: FileEntry, query: string): Promise<boolean> {
@@ -261,9 +272,7 @@ export default class RemoteTreeData
     query: string
   ): Promise<boolean> {
     const children = await this._listEntriesForSearch(root, fsPath);
-    const matches = await Promise.all(
-      children.map(file => this._matchesQuery(root, file, query))
-    );
+    const matches = await this._matchAll(root, children, query);
     return matches.some(Boolean);
   }
 
@@ -274,10 +283,18 @@ export default class RemoteTreeData
     if (!this._searchCache) {
       this._searchCache = new Map();
     }
-    let cached = this._searchCache.get(fsPath);
+    const cache = this._searchCache;
+    let cached = cache.get(fsPath);
     if (!cached) {
-      cached = this._listEntries(root, fsPath);
-      this._searchCache.set(fsPath, cached);
+      cached = this._listEntries(root, fsPath).catch(error => {
+        // A rejected listing (a transient network blip, say) must not poison
+        // the rest of the filter session -- the next keystroke that walks
+        // into this same subtree should retry the server, not keep replaying
+        // this same stale failure until the filter is cleared.
+        cache.delete(fsPath);
+        throw error;
+      });
+      cache.set(fsPath, cached);
     }
     return cached;
   }

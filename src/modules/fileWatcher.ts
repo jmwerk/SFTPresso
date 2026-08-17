@@ -8,7 +8,7 @@ import app from '../app';
 import StatusBarItem from '../ui/statusBarItem';
 import { getFileService, getRunningTransformTasks } from './serviceManager';
 import {
-  suppressWatcherFor,
+  claimWatcherSuppression,
   releaseWatcherSuppression,
   isWatcherSuppressed,
 } from './watcherSuppression';
@@ -86,13 +86,18 @@ function shouldSkip(uri: vscode.Uri, ignore: IgnoreFn): boolean {
     return true;
   }
 
-  if (isWatcherSuppressed(uri.fsPath)) {
-    logger.debug(`[watcher/suppressed] ${uri.fsPath}`);
+  // Cheapest check first: a plain ignore-list lookup, ahead of the
+  // suppression scan, which walks every currently-claimed path. A
+  // node_modules-scale write burst is exactly the case both exist to filter
+  // out cheaply, so the ignore list -- unaffected by how many renames or
+  // downloads happen to be in flight -- should get first refusal.
+  if (ignore && ignore(uri.fsPath)) {
+    logger.debug(`[watcher/ignored] ${uri.fsPath}`);
     return true;
   }
 
-  if (ignore && ignore(uri.fsPath)) {
-    logger.debug(`[watcher/ignored] ${uri.fsPath}`);
+  if (isWatcherSuppressed(uri.fsPath)) {
+    logger.debug(`[watcher/suppressed] ${uri.fsPath}`);
     return true;
   }
 
@@ -203,47 +208,64 @@ async function fallbackToUpload(oldUri: vscode.Uri, newUri: vscode.Uri) {
   }
 }
 
+// Claims armed by onWillRenameFiles, for onDidRenameFiles to pick up and
+// release once the rename settles. Keyed by both paths so a claim can only
+// ever be picked up by the rename it was armed for.
+const pendingRenameClaims = new Map<string, () => void>();
+
+function renameClaimKey(oldUri: vscode.Uri, newUri: vscode.Uri): string {
+  return `${oldUri.fsPath}\u0000${newUri.fsPath}`;
+}
+
 async function handleRenamedFile(oldUri: vscode.Uri, newUri: vscode.Uri) {
-  if (!isValidFile(oldUri)) {
-    return;
-  }
-
-  const resolved = getAutoRenameConfig(oldUri);
-  if (!resolved || !resolved.config.watcher || !resolved.config.watcher.autoRename) {
-    releaseWatcherSuppression(oldUri.fsPath);
-    releaseWatcherSuppression(newUri.fsPath);
-    return;
-  }
-
-  const { fileService, config } = resolved;
-
-  const destResolved = getAutoRenameConfig(newUri);
-  if (!destResolved || destResolved.fileService !== fileService) {
-    logger.info(`[watcher/rename] crosses config boundary, falling back to upload: ${oldUri.fsPath}`);
-    releaseWatcherSuppression(oldUri.fsPath);
-    releaseWatcherSuppression(newUri.fsPath);
-    await fallbackToUpload(oldUri, newUri);
-    return;
-  }
-
-  // Re-extend suppression to cover the SFTP round trip -- a large directory
-  // rename can take a while, and the OS keeps firing delete/create events for
-  // the subtree's contents in the meantime.
-  suppressWatcherFor(oldUri.fsPath);
-  suppressWatcherFor(newUri.fsPath);
+  const claimKey = renameClaimKey(oldUri, newUri);
+  const armedRelease = pendingRenameClaims.get(claimKey);
+  pendingRenameClaims.delete(claimKey);
+  // Falls back to a plain (idempotent, no-op-if-absent) release for a rename
+  // onWillRenameFiles never armed a claim for -- autoRename could have been
+  // turned on between the two events, in theory.
+  const release = () =>
+    armedRelease
+      ? armedRelease()
+      : (releaseWatcherSuppression(oldUri.fsPath), releaseWatcherSuppression(newUri.fsPath));
 
   try {
-    const newRemotePath = toRemotePath(newUri.fsPath, fileService.baseDir, config.remotePath);
-    logger.info(`[watcher/rename] ${oldUri.fsPath} -> ${newUri.fsPath}`);
-    await renameRemote(oldUri, { newRemotePath });
-  } catch (error) {
-    logger.warn(
-      `[watcher/rename] server-side rename failed, falling back to upload: ${(error as Error).message}`
-    );
-    await fallbackToUpload(oldUri, newUri);
+    if (!isValidFile(oldUri)) {
+      return;
+    }
+
+    const resolved = getAutoRenameConfig(oldUri);
+    if (!resolved || !resolved.config.watcher || !resolved.config.watcher.autoRename) {
+      return;
+    }
+
+    const { fileService, config } = resolved;
+
+    const destResolved = getAutoRenameConfig(newUri);
+    if (!destResolved || destResolved.fileService !== fileService) {
+      logger.info(`[watcher/rename] crosses config boundary, falling back to upload: ${oldUri.fsPath}`);
+      await fallbackToUpload(oldUri, newUri);
+      return;
+    }
+
+    try {
+      const newRemotePath = toRemotePath(newUri.fsPath, fileService.baseDir, config.remotePath);
+      logger.info(`[watcher/rename] ${oldUri.fsPath} -> ${newUri.fsPath}`);
+      await renameRemote(oldUri, { newRemotePath });
+    } catch (error) {
+      logger.warn(
+        `[watcher/rename] server-side rename failed, falling back to upload: ${(error as Error).message}`
+      );
+      await fallbackToUpload(oldUri, newUri);
+    }
   } finally {
-    releaseWatcherSuppression(oldUri.fsPath);
-    releaseWatcherSuppression(newUri.fsPath);
+    // Covers the whole SFTP round trip, however long it takes -- a large
+    // directory rename can take a while, and the OS keeps firing delete/create
+    // events for the subtree's contents in the meantime. A claim renews itself
+    // every few seconds until released, unlike a fixed-TTL suppression, which
+    // would lapse mid-rename on a slow link and let those tail-end events
+    // leak through to race the in-flight rename.
+    release();
   }
 }
 
@@ -257,10 +279,14 @@ vscode.workspace.onWillRenameFiles(e => {
 
     const resolved = getAutoRenameConfig(oldUri);
     if (resolved && resolved.config.watcher && resolved.config.watcher.autoRename) {
-      // Suppress before the rename touches disk, so the delete+create events
+      // Claimed before the rename touches disk, so the delete+create events
       // it fires are already being dropped by the time they arrive.
-      suppressWatcherFor(oldUri.fsPath);
-      suppressWatcherFor(newUri.fsPath);
+      const releaseOld = claimWatcherSuppression(oldUri.fsPath);
+      const releaseNew = claimWatcherSuppression(newUri.fsPath);
+      pendingRenameClaims.set(renameClaimKey(oldUri, newUri), () => {
+        releaseOld();
+        releaseNew();
+      });
     }
   }
 });

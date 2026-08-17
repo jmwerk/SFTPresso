@@ -137,4 +137,20 @@ describe('planDrop', () => {
       { item: foreign, reason: "can't move to a different configuration" },
     ]);
   });
+
+  test('a selected folder and something inside it: only the folder is planned as a move', () => {
+    const root = makeRoot(1, '/srv/www');
+    const folder = makeItem(1, '/srv/www/foo', true);
+    const child = makeItem(1, '/srv/www/foo/bar.txt');
+    const grandchild = makeItem(1, '/srv/www/foo/nested/deep.txt');
+    const destDir = makeItem(1, '/srv/www/dest', true);
+
+    const plan = planDrop([folder, child, grandchild], destDir, findRootFactory([root]));
+
+    // the child and grandchild move for free as part of the folder's rename --
+    // planning them separately would either double-move them or, worse, fail
+    // once the folder's own rename has already invalidated their source paths
+    expect(plan!.moves).toEqual([{ item: folder, newRemotePath: '/srv/www/dest/foo' }]);
+    expect(plan!.skipped).toEqual([]);
+  });
 });

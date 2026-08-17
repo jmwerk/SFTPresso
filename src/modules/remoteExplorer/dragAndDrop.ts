@@ -51,9 +51,26 @@ export function planDrop(
   const moves: PlannedMove[] = [];
   const skipped: SkippedMove[] = [];
 
+  // A folder's rename carries everything under it along in one call -- an
+  // item that is itself a descendant of another selected item is already
+  // moving as part of that ancestor's rename and must not also be planned as
+  // its own move. Besides being redundant, moving the ancestor first would
+  // invalidate the descendant's own (pre-move) source path before its turn
+  // came up in a sequential execution, surfacing as a spurious per-item error.
+  const selectedPaths = sources.filter(item => !isRoot(item)).map(item => item.resource.fsPath);
+  const movesWithAnotherSelectedAncestor = (srcPath: string) =>
+    selectedPaths.some(
+      other => other !== srcPath && isRemotePathAtOrUnder(other, srcPath)
+    );
+
   sources.forEach(item => {
     if (isRoot(item)) {
       skipped.push({ item, reason: "a connection root can't be moved" });
+      return;
+    }
+
+    if (movesWithAnotherSelectedAncestor(item.resource.fsPath)) {
+      // moving along with its selected ancestor -- not worth reporting
       return;
     }
 
@@ -150,13 +167,19 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
       }
     }
 
-    for (const { item, newRemotePath } of plan.moves) {
-      try {
-        await renameRemote(handleCtxFromUri(item.resource.uri), { newRemotePath });
-      } catch (err) {
-        reportError(err instanceof Error ? err : new Error(String(err)), `when moving '${describe(item)}'`);
-      }
-    }
+    // Every remaining planned move is independent of every other -- a
+    // selected item nested under another selected item was already filtered
+    // out of `plan.moves` above -- so these can safely run concurrently
+    // rather than paying for N sequential round trips.
+    await Promise.all(
+      plan.moves.map(async ({ item, newRemotePath }) => {
+        try {
+          await renameRemote(handleCtxFromUri(item.resource.uri), { newRemotePath });
+        } catch (err) {
+          reportError(err instanceof Error ? err : new Error(String(err)), `when moving '${describe(item)}'`);
+        }
+      })
+    );
 
     this._refresh(target!);
   }

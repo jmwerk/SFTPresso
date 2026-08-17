@@ -439,4 +439,38 @@ describe('watcher rename (autoRename)', () => {
 
     expect(uploadedPaths()).toEqual(['/ws/b.txt']);
   });
+
+  test('suppression survives a rename slower than the old fixed 10s window, so tail-end watcher events during it are still dropped', async () => {
+    const fs = fakeFileService('/remote', '/ws');
+    getFileServiceMock.mockImplementation(() => fs);
+
+    watcherService.create('/ws', watcherConfig);
+    const watcher = lastWatcher();
+
+    let resolveRename!: () => void;
+    renameRemoteMock.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveRename = resolve;
+        })
+    );
+
+    fireWillRename([{ oldUri: uri('/ws/a'), newUri: uri('/ws/b') }]);
+    fireDidRename([{ oldUri: uri('/ws/a'), newUri: uri('/ws/b') }]);
+    await flushMicrotasks();
+
+    // the rename is still in flight well past what used to be a fixed 10s
+    // suppression window -- the OS is still delivering delete/create events
+    // for the renamed subtree's contents in the meantime
+    jest.advanceTimersByTime(12_000);
+    fireDelete(watcher, '/ws/a/nested.txt');
+    fireChange(watcher, '/ws/b/nested.txt');
+    jest.runOnlyPendingTimers();
+
+    expect(uploadedPaths()).toEqual([]);
+    expect(removeRemoteMock).not.toHaveBeenCalled();
+
+    resolveRename();
+    await flushMicrotasks();
+  });
 });

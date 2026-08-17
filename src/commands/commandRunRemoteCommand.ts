@@ -98,7 +98,13 @@ export default checkCommand({
 
     const client = fs.getClient();
     if (!(client instanceof SSHClient)) {
-      showErrorMessage('SFTP: Run Remote Command is not supported over FTP.');
+      // Unreachable given the protocol check above -- getRemoteFileSystem()
+      // for an 'sftp' config always constructs an SSHClient-backed
+      // filesystem, so this can't be the "you tried this over FTP" case
+      // (that's the check above). Kept only because RemoteClient itself
+      // carries no protocol discriminant, so getRawClient() below still
+      // needs an instanceof to narrow the type.
+      showErrorMessage(`Internal error: expected an SSH client for ${config.host}.`);
       return;
     }
 

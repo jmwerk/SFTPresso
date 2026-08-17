@@ -219,27 +219,37 @@ export const sync2Local = createFileHandler<SyncOption>({
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
+    // Claim before any local write begins, same as a plain download -- this
+    // writes an arbitrary number of local files exactly like a folder
+    // download does, and is just as able to echo back through the watcher as
+    // a spurious upload/delete without it.
+    const releaseWatcherClaim = claimWatcherSuppression(localFsPath);
     const scheduler = this.fileService.createTransferScheduler(
       this.config.concurrency,
       this.config.retry,
       this.config.stallTimeout
     );
     const skipped: SkippedEntry[] = [];
-    const deleted = await sync(
-      {
-        srcFsPath: remoteFsPath,
-        srcFs: remoteFs,
-        targetFsPath: localFsPath,
-        targetFs: localFs,
-        transferOption: option,
-        transferDirection: TransferDirection.REMOTE_TO_LOCAL,
-        walkConcurrency: this.config.concurrency,
-        token: { isCancelled: () => scheduler.isStopped() },
-        skipped,
-      },
-      t => scheduler.add(t)
-    );
-    await scheduler.run();
+    let deleted: FileEntry[];
+    try {
+      deleted = await sync(
+        {
+          srcFsPath: remoteFsPath,
+          srcFs: remoteFs,
+          targetFsPath: localFsPath,
+          targetFs: localFs,
+          transferOption: option,
+          transferDirection: TransferDirection.REMOTE_TO_LOCAL,
+          walkConcurrency: this.config.concurrency,
+          token: { isCancelled: () => scheduler.isStopped() },
+          skipped,
+        },
+        t => scheduler.add(t)
+      );
+      await scheduler.run();
+    } finally {
+      releaseWatcherClaim();
+    }
     reportDeletions('Sync Remote → Local', deleted);
     reportSkipped('Sync Remote → Local', skipped);
   },

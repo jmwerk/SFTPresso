@@ -299,4 +299,40 @@ describe('RemoteTreeData filtering', () => {
     // resolve as-is, this would come back as ['src'] instead of []
     expect(basenames(await pending)).toEqual([]);
   });
+
+  test('a transient listing failure during a filter search does not poison later queries into the same subtree', async () => {
+    const srcPath = upath.join(ROOT, 'src');
+    let srcCallCount = 0;
+    const listSpy = jest.fn(async (fsPath: string) => {
+      if (fsPath === srcPath) {
+        srcCallCount += 1;
+        if (srcCallCount === 1) {
+          throw new Error('ECONNRESET');
+        }
+      }
+      return list(fsPath);
+    });
+    const config = fakeConfig();
+    getAllFileServiceMock.mockReturnValue([
+      {
+        id: 1,
+        name: 'test-server',
+        getConfig: () => config,
+        getRemoteFileSystem: async () => ({ list: listSpy }),
+      },
+    ]);
+    const provider = new RemoteTreeData();
+    const [root] = (await provider.getChildren()) as ExplorerRoot[];
+
+    provider.setFilter('deep');
+    // walking into src/ (looking for the nested 'deep' match) hits the
+    // simulated transient failure once
+    await expect(provider.getChildren(root)).rejects.toThrow('ECONNRESET');
+
+    // same query, same subtree -- must retry the server rather than caching
+    // and replaying that one failure for the rest of the filter session
+    const retried = await provider.getChildren(root);
+    expect(basenames(retried)).toEqual(['src']);
+    expect(srcCallCount).toBe(2);
+  });
 });

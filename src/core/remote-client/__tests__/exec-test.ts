@@ -105,4 +105,27 @@ describe('execCommand', () => {
     expect(result.timedOut).toBe(true);
     expect(result.code).toBeNull();
   });
+
+  it("rejects when the channel emits 'error' mid-command (e.g. a dropped connection)", async () => {
+    const channel = new FakeChannel();
+    const resultPromise = execCommand(fakeClient(channel), 'php artisan queue:work');
+
+    // without a listener, EventEmitter throws synchronously on an unhandled
+    // 'error' event -- this must not crash the extension host either
+    const error = new Error('read ECONNRESET');
+    expect(() => channel.emit('error', error)).not.toThrow();
+
+    await expect(resultPromise).rejects.toBe(error);
+  });
+
+  it("ignores a late channel 'error' after the timeout has already settled the promise", async () => {
+    const channel = new FakeChannel();
+    const resultPromise = execCommand(fakeClient(channel), 'sleep 999', { timeout: 20 });
+
+    const result = await resultPromise;
+    // arrives after settle(); must not reject or throw
+    expect(() => channel.emit('error', new Error('read ECONNRESET'))).not.toThrow();
+
+    expect(result.timedOut).toBe(true);
+  });
 });

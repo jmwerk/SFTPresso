@@ -47,7 +47,10 @@ export function execCommand(
       let settled = false;
       let timer: NodeJS.Timeout | undefined;
 
-      const settle = (code: number | null, signal: string | null) => {
+      // Shared by every way this can finish (close, timeout, channel error),
+      // so each one only has to say what it wants to do once, not repeat the
+      // idempotency guard and timer cleanup.
+      const finish = (fn: () => void) => {
         if (settled) {
           return;
         }
@@ -55,14 +58,19 @@ export function execCommand(
         if (timer) {
           clearTimeout(timer);
         }
-        resolve({
-          code,
-          signal,
-          stdout: Buffer.concat(stdoutChunks).toString('utf8'),
-          stderr: Buffer.concat(stderrChunks).toString('utf8'),
-          timedOut,
-        });
+        fn();
       };
+
+      const settle = (code: number | null, signal: string | null) =>
+        finish(() =>
+          resolve({
+            code,
+            signal,
+            stdout: Buffer.concat(stdoutChunks).toString('utf8'),
+            stderr: Buffer.concat(stderrChunks).toString('utf8'),
+            timedOut,
+          })
+        );
 
       if (options.timeout && options.timeout > 0) {
         timer = setTimeout(() => {
@@ -83,6 +91,13 @@ export function execCommand(
       stream
         .on('close', (code: number | null, signal: string | null) => {
           settle(code, signal ?? null);
+        })
+        // A mid-command connection drop can surface as a channel-level
+        // 'error' instead of 'close' -- without this, that case would leave
+        // the promise unsettled (and the caller waiting) forever, since
+        // neither 'close' nor the timeout would ever fire.
+        .on('error', (error: Error) => {
+          finish(() => reject(error));
         })
         .on('data', (chunk: Buffer) => {
           stdoutChunks.push(chunk);
