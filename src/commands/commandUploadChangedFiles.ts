@@ -6,7 +6,7 @@ import { uploadFile, renameRemote, removeRemote } from '../fileHandlers';
 import { getGitService, GitAPI, Repository, Status, Change } from '../modules/git';
 import { checkCommand } from './abstract/createCommand';
 import logger from '../logger';
-import { simplifyPath } from '../helper';
+import { simplifyPath, toRemotePath } from '../helper';
 
 export default checkCommand({
   id: COMMAND_UPLOAD_CHANGEDFILES,
@@ -95,25 +95,35 @@ async function handleCommand(hint: any) {
     }
   }
 
-  await Promise.all(creates.concat(uploads).map(change => {
+  await Promise.all(creates.concat(uploads).map(async change => {
     try {
-      uploadFile(change.uri)
+      await uploadFile(change.uri);
     } catch (e) {
       logger.error('Upload failed.', e);
     }
   }));
   await Promise.all(
-    renames.map(change => {
+    renames.map(async change => {
       try {
-        renameRemote(change.originalUri, { originPath: change.renameUri!.fsPath });
+        const fileService = getFileService(change.originalUri);
+        if (!fileService) {
+          return;
+        }
+        const config = fileService.getConfig();
+        const newRemotePath = toRemotePath(
+          change.renameUri!.fsPath,
+          fileService.baseDir,
+          config.remotePath
+        );
+        await renameRemote(change.originalUri, { newRemotePath });
       } catch (e) {
         logger.error('Rename failed.', e);
       }
     })
   );
-  await Promise.all(deletes.map(change => {
+  await Promise.all(deletes.map(async change => {
     try {
-      removeRemote(change.uri)
+      await removeRemote(change.uri);
     } catch (e) {
       logger.error('Deletion failed.', e);
     }

@@ -14,6 +14,8 @@ import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
 import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
+import mergeProfile from './mergeProfile';
+import TransferSchedulerGroup, { GateTicket } from './transferSchedulerGroup';
 
 type Omit<T, U> = Pick<T, Exclude<keyof T, U>>;
 
@@ -51,9 +53,13 @@ interface ServiceOption {
   };
   ignore: string[];
   ignoreFile: string;
+  // megabytes; files over this are skipped during a batch walk (folder
+  // transfer/sync). 0 or undefined disables.
+  maxFileSize?: number;
   remoteExplorer: {
     filesExclude?: string[];
     order: number;
+    enableDragAndDrop?: boolean;
   };
   remoteTimeOffsetInHours: number;
   limitOpenFilesOnRemote: number | true;
@@ -67,6 +73,12 @@ interface ServiceOption {
   // OpenSSH's StrictHostKeyChecking: how an unknown or changed SSH host key is
   // treated. sftp only.
   strictHostKeyChecking: boolean | 'ask' | 'accept-new';
+  // Labeled commands offered by `SFTP: Run Remote Command`, label -> shell
+  // command. sftp only.
+  remoteCommands?: Record<string, string>;
+  // ms a remote command may run before it is killed and reported as timed
+  // out.
+  remoteCommandTimeout: number;
 }
 
 export interface RetryOption {
@@ -80,6 +92,7 @@ export interface WatcherConfig {
   files: false | string;
   autoUpload: boolean;
   autoDelete: boolean;
+  autoRename: boolean;
 }
 
 interface SftpOption {
@@ -154,6 +167,17 @@ export const DEFAULT_RETRY_OPTION: RetryOption = { attempts: 2, delay: 1000 };
 // between attempts
 const MAX_RETRY_DELAY = 15 * 1000;
 
+// Same fallback the `concurrency` option has always had when omitted. A
+// configured value below 1 -- most commonly `0`, which some users write
+// meaning "unlimited" -- passes Joi validation (no `.min()`) but would
+// otherwise crash the underlying Scheduler, which requires a number >= 1.
+const DEFAULT_CONCURRENCY = 4;
+function resolveConcurrency(concurrency: number | undefined): number {
+  return typeof concurrency === 'number' && concurrency >= 1
+    ? concurrency
+    : DEFAULT_CONCURRENCY;
+}
+
 // Backoff before retry number `attempt` (1 for the first retry). With the
 // default base delay that gives 2s, 4s, 8s, ... capped at 15s.
 export function getRetryDelay(attempt: number, baseDelay: number): number {
@@ -204,11 +228,17 @@ function getHostInfo(config) {
     'idleTimeout',
     // transfer policy, likewise
     'stallTimeout',
+    // transfer policy, likewise
+    'maxFileSize',
     // request policy, likewise
     'operationTimeout',
     // host key policy, likewise -- tightening it must not open a second
     // connection to the same server, and it is not part of which host this is
     'strictHostKeyChecking',
+    // SFTP: Run Remote Command config, likewise -- editing a saved command
+    // must not open a second connection to the same server
+    'remoteCommands',
+    'remoteCommandTimeout',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -303,13 +333,11 @@ function mergeConfigWithExternalRefer(
   }
 
   const parsedSSHConfig = sshConfig.parse(sshConfigContent);
-  const section = parsedSSHConfig.find({
-    Host: copyed.host,
-  });
-
-  if (section === null) {
-    return copyed;
-  }
+  // `compute` (unlike `find`) resolves wildcard Host patterns, Match blocks,
+  // and "first obtained value wins" directive precedence the way ssh(1) does.
+  // `ignoreCase` normalizes directive names to lowercase so the mapping below
+  // doesn't need to. It returns `{}`, never null, when nothing matches.
+  const computed = parsedSSHConfig.compute(copyed.host, { ignoreCase: true });
 
   // `serveraliveinterval` and `connecttimeout` used to map to `keepalive` and
   // `connTimeout`. ssh2 has never read either name -- it wants
@@ -330,26 +358,29 @@ function mergeConfigWithExternalRefer(
   // raw string the parser hands us is discarded even under the right key.
   const durationInSeconds = new Set(['keepaliveInterval', 'connectTimeout']);
 
-  section.config.forEach(line => {
-    if (!line.param) {
-      return;
-    }
-
-    const key = mapping.get(line.param.toLowerCase());
+  Object.entries(computed).forEach(([param, rawValue]) => {
+    const key = mapping.get(param.toLowerCase());
     if (key === undefined) {
       return;
     }
 
+    // Only IdentityFile ever comes back as an array; every other mapped
+    // directive is single-valued. ssh_config(5) has the first IdentityFile
+    // win, matching the scalar privateKeyPath this feeds.
+    const value: string = Array.isArray(rawValue) ? rawValue[0] : rawValue;
+
     if (key === 'host') {
-      copyed[key] = line.value;
+      // already resolved per Host/Match precedence, so it always wins over
+      // whatever copyed.host held going in.
+      copyed[key] = value;
       return;
     }
 
     if (durationInSeconds.has(key)) {
-      const milliseconds = secondsToMilliseconds(line.value);
+      const milliseconds = secondsToMilliseconds(value);
       if (milliseconds === undefined) {
         logger.warn(
-          `Ignoring "${line.param} ${line.value}" from ${sshConfigPath}:` +
+          `Ignoring "${param} ${value}" from ${sshConfigPath}:` +
             ' expected a number of seconds.'
         );
         return;
@@ -357,44 +388,13 @@ function mergeConfigWithExternalRefer(
 
       setConfigValue(copyed, key, milliseconds);
       logger.debug(
-        `${line.param} ${line.value} from ${sshConfigPath}` +
-          ` -> ${key} ${copyed[key]}ms`
+        `${param} ${value} from ${sshConfigPath}` + ` -> ${key} ${copyed[key]}ms`
       );
       return;
     }
 
-    setConfigValue(copyed, key, line.value);
+    setConfigValue(copyed, key, value);
   });
-
-  // Bug introduced in pull request #69 : Fix ssh config resolution
-  /* const parsedSSHConfig = sshConfig.parse(sshConfigContent);
-  const computed = parsedSSHConfig.compute(copyed.host);
-
-  const mapping = new Map([
-    ['hostname', 'host'],
-    ['port', 'port'],
-    ['user', 'username'],
-    ['serveraliveinterval', 'keepalive'],
-    ['connecttimeout', 'connTimeout'],
-  ]);
-
-  Object.entries<any>(computed).forEach(([param, value]) => {
-    if (param.toLowerCase() === 'identityfile') {
-      setConfigValue(copyed, 'privateKeyPath', value[0]);
-      return;
-    }
-
-    const key = mapping.get(param.toLowerCase());
-
-    if (key !== undefined) {
-      // don't need consider config priority, always set to the resolve host.
-      if (key === 'host') {
-        copyed[key] = value;
-      } else {
-        setConfigValue(copyed, key, value);
-      }
-    }
-  }); */
 
   return copyed;
 }
@@ -445,25 +445,6 @@ function getCompleteConfig(
   return mergedConfig;
 }
 
-function mergeProfile(
-  target: FileServiceConfig,
-  source: FileServiceConfig
-): FileServiceConfig {
-  const res = Object.assign({}, target);
-  delete res.profiles;
-
-  const keys = Object.keys(source);
-  for (const key of keys) {
-    if (key === 'ignore') {
-      res.ignore = res.ignore.concat(source.ignore);
-    } else {
-      res[key] = source[key];
-    }
-  }
-
-  return res;
-}
-
 // cache key standing in for "no profile applies", so it can't collide with a
 // real profile name
 const NO_PROFILE_KEY = '\u0000no-profile';
@@ -483,6 +464,7 @@ export default class FileService {
   private _profiles: string[];
   private _pendingTransferTasks: Set<TransferTask> = new Set();
   private _transferSchedulers: TransferScheduler[] = [];
+  private _schedulerGroup: TransferSchedulerGroup;
   private _config: FileServiceConfig;
   private _configValidator: ConfigValidator;
   // resolved configs by profile name. getConfig() is on hot paths (every file
@@ -509,6 +491,7 @@ export default class FileService {
     this.workspace = workspace;
     this.baseDir = baseDir;
     this._config = config;
+    this._schedulerGroup = new TransferSchedulerGroup(resolveConcurrency(config.concurrency));
     if (config.profiles) {
       this._profiles = Object.keys(config.profiles);
     }
@@ -589,13 +572,20 @@ export default class FileService {
     stallTimeout: number = 0
   ): TransferScheduler {
     const fileService = this;
+    const resolvedConcurrency = resolveConcurrency(concurrency);
+    // Applied immediately if the gate is idle; held and applied once every
+    // other in-flight batch finishes otherwise, so this batch's setting can
+    // never throttle work an unrelated, still-running batch already has
+    // queued or admitted through the same gate.
+    this._schedulerGroup.setConcurrency(resolvedConcurrency);
+    const endBatch = this._schedulerGroup.beginBatch();
     const { attempts: maxRetries, delay: retryBaseDelay } = {
       ...DEFAULT_RETRY_OPTION,
       ...retryOption,
     };
     const scheduler = new Scheduler({
       autoStart: false,
-      concurrency,
+      concurrency: resolvedConcurrency,
     });
 
     // tasks waiting out their backoff, with the failure that put them there.
@@ -605,19 +595,40 @@ export default class FileService {
       TransferTask,
       { timer: ReturnType<typeof setTimeout>; error: Error }
     >();
+    const gateTickets = new Map<TransferTask, GateTicket>();
+
+    const unwrapTask = (task: any): TransferTask => task.transferTask;
+    const queueTask = (transferTask: TransferTask) => {
+      scheduler.add({
+        transferTask,
+        run: () => {
+          const ticket = this._schedulerGroup.schedule(transferTask, () => {
+            // Deferred to here, rather than this local scheduler's own
+            // onTaskStart, so BEFORE_TRANSFER (and the Transfers view / status
+            // bar it drives) reflects the shared gate actually admitting the
+            // task, not just this batch's local queue dequeuing it -- with two
+            // batches contending for the gate, a task sitting behind another
+            // batch's work must not show as "Transferring" while still idle.
+            transferTask.setProgressListener(() =>
+              this._eventEmitter.emit(Event.PROGRESS_TRANSFER, transferTask)
+            );
+            this._eventEmitter.emit(Event.BEFORE_TRANSFER, transferTask);
+            return transferTask.run();
+          });
+          gateTickets.set(transferTask, ticket);
+          return ticket.promise.finally(() => gateTickets.delete(transferTask));
+        },
+      } as any);
+    };
 
     scheduler.onTaskStart(task => {
-      const transferTask = task as TransferTask;
+      const transferTask = unwrapTask(task);
       // emitted synchronously before run(), so the task is armed in time
       transferTask.stallTimeout = stallTimeout;
       this._pendingTransferTasks.add(transferTask);
-      transferTask.setProgressListener(() =>
-        this._eventEmitter.emit(Event.PROGRESS_TRANSFER, transferTask)
-      );
-      this._eventEmitter.emit(Event.BEFORE_TRANSFER, task);
     });
     scheduler.onTaskDone((err, task) => {
-      const transferTask = task as TransferTask;
+      const transferTask = unwrapTask(task);
       this._pendingTransferTasks.delete(transferTask);
 
       if (
@@ -642,13 +653,13 @@ export default class FileService {
             finishRun();
             return;
           }
-          scheduler.add(transferTask);
+          queueTask(transferTask);
         }, delay);
         retryTimers.set(transferTask, { timer, error: err });
         return;
       }
 
-      this._eventEmitter.emit(Event.AFTER_TRANSFER, err, task);
+      this._eventEmitter.emit(Event.AFTER_TRANSFER, err, transferTask);
       transferTask.dispose();
     });
 
@@ -667,6 +678,7 @@ export default class FileService {
       resolveRunning = null;
       runningPromise = null;
       fileService._removeScheduler(transferScheduler);
+      endBatch();
       resolve();
     }
 
@@ -681,6 +693,7 @@ export default class FileService {
         // Transfers view and the progress counters
         const abandoned = Array.from(retryTimers.entries());
         retryTimers.clear();
+        gateTickets.forEach(ticket => ticket.cancel());
         abandoned.forEach(([task, { timer, error }]) => {
           clearTimeout(timer);
           task.cancel();
@@ -701,7 +714,7 @@ export default class FileService {
         }
 
         fileService._eventEmitter.emit(Event.QUEUE_TRANSFER, task);
-        scheduler.add(task);
+        queueTask(task);
       },
       run() {
         if (isStopped) {
@@ -710,6 +723,7 @@ export default class FileService {
 
         if (scheduler.size <= 0) {
           fileService._removeScheduler(transferScheduler);
+          endBatch();
           return Promise.resolve();
         }
 

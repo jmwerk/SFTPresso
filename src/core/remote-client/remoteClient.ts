@@ -22,6 +22,11 @@ export interface ConnectOption {
   sock?: any;
   hop?: ConnectOption | ConnectOption[];
   limitOpenFilesOnRemote?: boolean | number;
+  // ms between SSH-level keepalive packets; also reachable via ~/.ssh/config's
+  // ServerAliveInterval. undefined falls back to a built-in default, 0 disables.
+  keepaliveInterval?: number;
+  // consecutive unanswered keepalive packets before the connection is torn down
+  keepaliveCountMax?: number;
   // OpenSSH's StrictHostKeyChecking, as true/false/'ask'/'accept-new'. Carried
   // on the connect option rather than in the connection identity: it is policy
   // about how we treat a host, not part of which host this is.

@@ -63,7 +63,9 @@ servers running in Docker:
   and `SFTPFileSystem`: password and key auth, the
   `filePerm` / `perserveTargetMode` / `fallbackMode` mode cascade, `futimes`
   mtime preservation, symlinks, the `useTempFile` atomic-rename paths, the
-  bounded directory walk, and `limitOpenFilesOnRemote`.
+  bounded directory walk, `limitOpenFilesOnRemote`, and server-side
+  rename/move — including that a populated directory's contents come through
+  byte-for-byte and an existing destination is refused.
 
 It is **not** part of `npm test`; it needs the compose stack up and Docker
 available.

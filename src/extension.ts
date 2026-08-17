@@ -19,6 +19,7 @@ import TransferView from './modules/transferView';
 import TestConnectionCodeLensProvider from './modules/testConnectionCodeLensProvider';
 import { CONGIF_FILENAME } from './constants';
 import { setManagedStorePath } from './core/remote-client/hostKeyStore';
+import { checkForLegacyExtensions } from './modules/legacyExtensionCheck';
 
 async function setupWorkspaceFolder(dir) {
   const configs = await tryLoadConfigs(dir);
@@ -48,6 +49,12 @@ export async function activate(context: vscode.ExtensionContext) {
     initCommands(context);
   } catch (error) {
     reportError(error, 'initCommands');
+  }
+
+  try {
+    checkForLegacyExtensions(context);
+  } catch (error) {
+    reportError(error, 'checkForLegacyExtensions');
   }
 
   context.subscriptions.push(

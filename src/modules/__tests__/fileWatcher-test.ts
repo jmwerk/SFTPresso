@@ -7,6 +7,8 @@
 
 jest.mock('vscode', () => {
   const created: any[] = [];
+  let onWillRenameHandler: ((e: any) => void) | undefined;
+  let onDidRenameHandler: ((e: any) => void) | undefined;
 
   class FakeWatcher {
     disposeCount = 0;
@@ -34,9 +36,19 @@ jest.mock('vscode', () => {
 
   return {
     __created: created,
+    // test-only hooks: fire the rename events fileWatcher.ts registered at
+    // module load, the same way VSCode would call them.
+    __fireWillRename: (files: any[]) => onWillRenameHandler && onWillRenameHandler({ files }),
+    __fireDidRename: (files: any[]) => onDidRenameHandler && onDidRenameHandler({ files }),
     workspace: {
       createFileSystemWatcher: (pattern: any) =>
         new FakeWatcher(pattern.base, pattern.pattern),
+      onWillRenameFiles: (fn: any) => {
+        onWillRenameHandler = fn;
+      },
+      onDidRenameFiles: (fn: any) => {
+        onDidRenameHandler = fn;
+      },
     },
     RelativePattern: class {
       constructor(public base: string, public pattern: string) {}
@@ -47,16 +59,24 @@ jest.mock('vscode', () => {
 jest.mock('../../fileHandlers', () => ({
   upload: jest.fn(() => Promise.resolve()),
   removeRemote: jest.fn(() => Promise.resolve()),
+  renameRemote: jest.fn(() => Promise.resolve()),
 }));
 
-// the real one drags in ../core and the whole vscode-backed app singleton
+// the real one drags in ../core and the whole vscode-backed app singleton.
+// isLocalPathAtOrUnder is pure (no vscode dependency of its own), so pull the
+// real implementation in directly rather than re-fake it -- watcherSuppression
+// relies on its actual boundary semantics, not just any stand-in.
 jest.mock('../../helper', () => ({
   isValidFile: (uri: any) => uri.scheme === 'file',
   fileDepth: (file: string) => file.split('/').length,
+  toRemotePath: (localPath: string, localContext: string, remoteContext: string) =>
+    remoteContext + localPath.slice(localContext.length),
+  isLocalPathAtOrUnder: jest.requireActual('../../helper/paths').isLocalPathAtOrUnder,
 }));
 
 jest.mock('../serviceManager', () => ({
   getRunningTransformTasks: () => [],
+  getFileService: jest.fn(),
 }));
 
 // only TransferDirection is needed at runtime; the rest of the barrel is types,
@@ -84,7 +104,8 @@ jest.mock('../../ui/statusBarItem', () => ({
 }));
 
 import * as vscode from 'vscode';
-import { upload, removeRemote } from '../../fileHandlers';
+import { upload, removeRemote, renameRemote } from '../../fileHandlers';
+import { getFileService } from '../serviceManager';
 import watcherService from '../fileWatcher';
 
 interface FakeWatcher {
@@ -99,8 +120,22 @@ interface FakeWatcher {
 const createdWatchers: FakeWatcher[] = (vscode as any).__created;
 const uploadMock = upload as unknown as jest.Mock;
 const removeRemoteMock = removeRemote as unknown as jest.Mock;
+const renameRemoteMock = renameRemote as unknown as jest.Mock;
+const getFileServiceMock = getFileService as unknown as jest.Mock;
 
 const uri = (fsPath: string) => ({ fsPath, scheme: 'file' });
+const fireWillRename = (files: Array<{ oldUri: any; newUri: any }>) =>
+  (vscode as any).__fireWillRename(files);
+const fireDidRename = (files: Array<{ oldUri: any; newUri: any }>) =>
+  (vscode as any).__fireDidRename(files);
+// handleRenamedFile is fire-and-forget from fileWatcher's own
+// onDidRenameFiles listener, so tests need to let its microtask chain settle
+// before asserting on what it did.
+const flushMicrotasks = async () => {
+  for (let i = 0; i < 5; i += 1) {
+    await Promise.resolve();
+  }
+};
 
 const watcherConfig = {
   files: '**/*',
@@ -138,6 +173,8 @@ beforeEach(() => {
   createdWatchers.length = 0;
   uploadMock.mockClear();
   removeRemoteMock.mockClear();
+  renameRemoteMock.mockReset().mockResolvedValue(undefined);
+  getFileServiceMock.mockReset();
 });
 
 afterEach(() => {
@@ -285,5 +322,155 @@ describe('watcher lifecycle', () => {
     expect(watcher.changeHandlers).toHaveLength(0);
     expect(watcher.createHandlers).toHaveLength(0);
     expect(watcher.deleteHandlers).toHaveLength(1);
+  });
+});
+
+describe('watcher rename (autoRename)', () => {
+  function fakeFileService(remotePath: string, baseDir: string, autoRename = true) {
+    return {
+      baseDir,
+      getConfig: () => ({ remotePath, watcher: { ...watcherConfig, autoRename } }),
+    };
+  }
+
+  test('autoRename on: suppresses the local delete+create and performs a server-side rename', async () => {
+    const fs = fakeFileService('/remote', '/ws');
+    getFileServiceMock.mockImplementation(() => fs);
+
+    watcherService.create('/ws', watcherConfig);
+    const watcher = lastWatcher();
+
+    fireWillRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+
+    // the OS-level rename fires these on the per-root watcher; suppression --
+    // armed before the disk rename happens -- must drop both.
+    fireDelete(watcher, '/ws/a.txt');
+    fireChange(watcher, '/ws/b.txt');
+    jest.runOnlyPendingTimers();
+
+    expect(uploadedPaths()).toEqual([]);
+    expect(removeRemoteMock).not.toHaveBeenCalled();
+
+    fireDidRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    await flushMicrotasks();
+
+    expect(renameRemoteMock).toHaveBeenCalledTimes(1);
+    const [ctxArg, optionArg] = renameRemoteMock.mock.calls[0];
+    expect(ctxArg).toEqual(uri('/ws/a.txt'));
+    expect(optionArg).toEqual({ newRemotePath: '/remote/b.txt' });
+    // the cheap path succeeded, so the expensive fallback must never run
+    expect(uploadMock).not.toHaveBeenCalled();
+    expect(removeRemoteMock).not.toHaveBeenCalled();
+  });
+
+  test('autoRename off leaves the normal delete+create flow untouched', async () => {
+    const fs = fakeFileService('/remote', '/ws', false);
+    getFileServiceMock.mockImplementation(() => fs);
+
+    watcherService.create('/ws', watcherConfig);
+    const watcher = lastWatcher();
+
+    fireWillRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    fireDelete(watcher, '/ws/a.txt');
+    fireChange(watcher, '/ws/b.txt');
+    jest.runOnlyPendingTimers();
+
+    expect(uploadedPaths()).toEqual(['/ws/b.txt']);
+    expect(removeRemoteMock.mock.calls.map(([u]) => u.fsPath)).toEqual(['/ws/a.txt']);
+
+    fireDidRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    await flushMicrotasks();
+
+    expect(renameRemoteMock).not.toHaveBeenCalled();
+  });
+
+  test('a move that crosses config roots falls back to upload then delete, in that order', async () => {
+    const fsA = fakeFileService('/remoteA', '/ws/a');
+    const fsB = fakeFileService('/remoteB', '/ws/b');
+    getFileServiceMock.mockImplementation((u: any) => (u.fsPath.startsWith('/ws/a') ? fsA : fsB));
+
+    fireWillRename([{ oldUri: uri('/ws/a/file.txt'), newUri: uri('/ws/b/file.txt') }]);
+    fireDidRename([{ oldUri: uri('/ws/a/file.txt'), newUri: uri('/ws/b/file.txt') }]);
+    await flushMicrotasks();
+
+    expect(renameRemoteMock).not.toHaveBeenCalled();
+    expect(uploadMock).toHaveBeenCalledTimes(1);
+    expect(uploadMock.mock.calls[0][0]).toEqual(uri('/ws/b/file.txt'));
+    expect(removeRemoteMock).toHaveBeenCalledTimes(1);
+    expect(removeRemoteMock.mock.calls[0][0]).toEqual(uri('/ws/a/file.txt'));
+    // upload before delete -- the only remote copy is never removed before
+    // its replacement exists
+    expect(uploadMock.mock.invocationCallOrder[0]).toBeLessThan(
+      removeRemoteMock.mock.invocationCallOrder[0]
+    );
+  });
+
+  test('a failed server-side rename falls back to upload then delete', async () => {
+    const fs = fakeFileService('/remote', '/ws');
+    getFileServiceMock.mockImplementation(() => fs);
+    renameRemoteMock.mockRejectedValueOnce(new Error('boom'));
+
+    fireWillRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    fireDidRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    await flushMicrotasks();
+
+    expect(renameRemoteMock).toHaveBeenCalledTimes(1);
+    expect(uploadMock).toHaveBeenCalledTimes(1);
+    expect(uploadMock.mock.calls[0][0]).toEqual(uri('/ws/b.txt'));
+    expect(removeRemoteMock).toHaveBeenCalledTimes(1);
+    expect(removeRemoteMock.mock.calls[0][0]).toEqual(uri('/ws/a.txt'));
+  });
+
+  test('suppression is released once the rename settles, so later activity uploads normally', async () => {
+    const fs = fakeFileService('/remote', '/ws');
+    getFileServiceMock.mockImplementation(() => fs);
+
+    watcherService.create('/ws', watcherConfig);
+    const watcher = lastWatcher();
+
+    fireWillRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    fireDidRename([{ oldUri: uri('/ws/a.txt'), newUri: uri('/ws/b.txt') }]);
+    await flushMicrotasks();
+
+    // an unrelated later edit of the renamed file must upload normally --
+    // suppression must not still be covering it
+    fireChange(watcher, '/ws/b.txt');
+    jest.runOnlyPendingTimers();
+
+    expect(uploadedPaths()).toEqual(['/ws/b.txt']);
+  });
+
+  test('suppression survives a rename slower than the old fixed 10s window, so tail-end watcher events during it are still dropped', async () => {
+    const fs = fakeFileService('/remote', '/ws');
+    getFileServiceMock.mockImplementation(() => fs);
+
+    watcherService.create('/ws', watcherConfig);
+    const watcher = lastWatcher();
+
+    let resolveRename!: () => void;
+    renameRemoteMock.mockImplementation(
+      () =>
+        new Promise<void>(resolve => {
+          resolveRename = resolve;
+        })
+    );
+
+    fireWillRename([{ oldUri: uri('/ws/a'), newUri: uri('/ws/b') }]);
+    fireDidRename([{ oldUri: uri('/ws/a'), newUri: uri('/ws/b') }]);
+    await flushMicrotasks();
+
+    // the rename is still in flight well past what used to be a fixed 10s
+    // suppression window -- the OS is still delivering delete/create events
+    // for the renamed subtree's contents in the meantime
+    jest.advanceTimersByTime(12_000);
+    fireDelete(watcher, '/ws/a/nested.txt');
+    fireChange(watcher, '/ws/b/nested.txt');
+    jest.runOnlyPendingTimers();
+
+    expect(uploadedPaths()).toEqual([]);
+    expect(removeRemoteMock).not.toHaveBeenCalled();
+
+    resolveRename();
+    await flushMicrotasks();
   });
 });
