@@ -1,4 +1,4 @@
-import { validateConfig } from '../config';
+import { validateConfig, defaultConfig } from '../config';
 
 const base = { host: 'h', username: 'u', remotePath: '/r' };
 
@@ -7,6 +7,10 @@ describe('validateConfig — stallTimeout', () => {
     expect(validateConfig({ ...base, stallTimeout: 30 * 1000 })).toBeUndefined();
     // 0 is the documented way to wait indefinitely
     expect(validateConfig({ ...base, stallTimeout: 0 })).toBeUndefined();
+  });
+
+  it('defaults on', () => {
+    expect(defaultConfig.stallTimeout).toBe(120 * 1000);
   });
 
   it('accepts a config that omits it', () => {

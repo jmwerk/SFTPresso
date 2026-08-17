@@ -19,7 +19,7 @@ describe('validateConfig — operationTimeout', () => {
     expect(validateConfig({ ...base, operationTimeout: 2.5 })).toBeDefined();
   });
 
-  it('defaults on, unlike idleTimeout and stallTimeout', () => {
+  it('defaults on', () => {
     // the point of the option: a hang has to end on its own, without the
     // user having first known to opt in
     expect(defaultConfig.operationTimeout).toBe(60 * 1000);

@@ -1,4 +1,4 @@
-import { validateConfig } from '../config';
+import { validateConfig, defaultConfig } from '../config';
 
 const base = { host: 'h', username: 'u', remotePath: '/r' };
 
@@ -7,6 +7,10 @@ describe('validateConfig — idleTimeout', () => {
     expect(validateConfig({ ...base, idleTimeout: 5 * 60 * 1000 })).toBeUndefined();
     // 0 is the documented way to turn the check off
     expect(validateConfig({ ...base, idleTimeout: 0 })).toBeUndefined();
+  });
+
+  it('defaults on', () => {
+    expect(defaultConfig.idleTimeout).toBe(60 * 1000);
   });
 
   it('accepts a config that omits it', () => {
