@@ -57,6 +57,9 @@ const configScheme = Joi.object({
     .min(0)
     .items(Joi.string()),
   ignoreFile: Joi.string(),
+  maxFileSize: Joi.number()
+    .integer()
+    .min(0),
   watcher: {
     files: Joi.string().allow(false, null),
     autoUpload: Joi.boolean(),

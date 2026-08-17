@@ -53,6 +53,9 @@ interface ServiceOption {
   };
   ignore: string[];
   ignoreFile: string;
+  // megabytes; files over this are skipped during a batch walk (folder
+  // transfer/sync). 0 or undefined disables.
+  maxFileSize?: number;
   remoteExplorer: {
     filesExclude?: string[];
     order: number;
@@ -214,6 +217,8 @@ function getHostInfo(config) {
     'idleTimeout',
     // transfer policy, likewise
     'stallTimeout',
+    // transfer policy, likewise
+    'maxFileSize',
     // request policy, likewise
     'operationTimeout',
     // host key policy, likewise -- tightening it must not open a second

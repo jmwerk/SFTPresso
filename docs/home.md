@@ -561,6 +561,17 @@ Path to an ignore file (e.g. `.gitignore`-style list) — absolute, or relative 
 { "ignoreFile": ".gitignore" }
 ```
 
+#### maxFileSize
+Caps individual file size (in megabytes) during a **batch** transfer — a folder upload/download or a [Sync](#sync-commands). A file over the limit is left out of the transfer rather than started, and reported afterward in a summary notification naming the count and the largest one (full list in the SFTP output), the same way [`syncOption.delete`](#syncoption) reports what it removed. Never applies to an explicitly-requested single-file transfer — right-click one file and choose Upload/Download and it always goes, regardless of size. `0` or unset disables the cap.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `maxFileSize` | number | `0` (disabled) |
+
+```json
+{ "maxFileSize": 100 }
+```
+
 #### watcher
 Watches for file changes made **outside** the VS Code editor (build output, `git checkout`, external tools) and reacts automatically. See [Two-way automatic sync](#two-way-automatic-sync-with-the-watcher).
 
@@ -1360,6 +1371,7 @@ A directory that couldn't be listed on either side is reported as **Could not re
 
 - **Don't commit credentials.** `password` and `passphrase` are stored in plain text in `sftp.json`. Prefer key-based auth ([`privateKeyPath`](#privatekeypath) or [`agent`](#agent)), keep passwords in [secret storage](#storing-passwords-securely) via `SFTP: Save Password`, set `"passphrase": true` for a prompt instead of a stored string, and add `.vscode/sftp.json` to `.gitignore` if it contains secrets.
 - **Ignore what you don't deploy.** Add `/.git`, `/.vscode`, `node_modules`, build caches, and OS junk (`.DS_Store`) to [`ignore`](#ignore) — transfers get faster and you avoid clobbering the server with noise. Use the [Force commands](#force-alt-commands) for one-off exceptions.
+- **Set `maxFileSize` before running a folder upload/download or Sync on an unfamiliar project.** A stray database dump, video asset, or `.iso` in the tree otherwise transfers along with everything else, and the first sign of it is the transfer still running long after you expected it to finish. See [`maxFileSize`](#maxfilesize).
 - **Protect live sites with atomic uploads.** Enable [`useTempFile`](#usetempfile) (plus [`openSsh`](#openssh) on OpenSSH servers) so a visitor never receives a half-uploaded file.
 - **Pick one auto-upload mechanism.** Use either [`uploadOnSave`](#uploadonsave) or a broad [`watcher`](#watcher) (`"**/*"` with `autoUpload`), not both — doubling up causes redundant transfers.
 - **Be careful with `syncOption.delete` and `watcher.autoDelete`.** They remove files on the destination. Leave [`syncConfirm`](#syncconfirm) on (its default when `delete` is enabled) to preview and confirm deletions before they happen, or run a [Compare Folders](#comparing-folders-with-the-remote) first if you're unsure what a sync will do.

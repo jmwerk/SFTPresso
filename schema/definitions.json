@@ -130,6 +130,11 @@
         "description": "Absolute path to the ignore file or Relative path relative to the workspace root folder.",
         "default": ".gitignore"
       },
+      "maxFileSize": {
+        "type": "number",
+        "description": "Megabytes. Files over this size are skipped during a batch transfer -- a folder upload/download or a Sync -- and reported in a summary notification instead of silently missing. Never applies to an explicitly-requested single-file transfer (Upload/Download on one file): if you pick one file, it always goes. 0 or unset disables the cap.",
+        "default": 0
+      },
       "remoteExplorer": {
         "type": "object",
         "description": "Remote Explorer Setting.",

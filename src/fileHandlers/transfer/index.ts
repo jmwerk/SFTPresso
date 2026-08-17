@@ -6,8 +6,50 @@ import createFileHandler, { FileHandlerContext } from '../createFileHandler';
 import { confirmSyncOrProceed } from '../syncPreview';
 import { diff } from '../diff';
 import { confirmUpload, updateBaselineAfterTransfer } from './conflictCheck';
-import { transfer, sync, TransferOption, SyncOption, TransferDirection } from './transfer';
+import {
+  transfer,
+  sync,
+  TransferOption,
+  SyncOption,
+  TransferDirection,
+  SkippedEntry,
+} from './transfer';
 import { claimWatcherSuppression } from '../../modules/watcherSuppression';
+
+function formatSize(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) {
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+  }
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
+/**
+ * Make maxFileSize skips visible after the fact.
+ *
+ * Skipped files never enter the transfer queue, so with no report a batch
+ * transfer of a project with one stray oversized file would just look done --
+ * one file quietly missing, no error, nothing in the log a user would think
+ * to check.
+ */
+function reportSkipped(label: string, skipped: SkippedEntry[]): void {
+  if (skipped.length === 0) {
+    return;
+  }
+
+  skipped.forEach(entry =>
+    logger.info(`${label} skipped ${entry.fsPath} (${formatSize(entry.size)}, over maxFileSize)`)
+  );
+  const largest = skipped.reduce((a, b) => (b.size > a.size ? b : a));
+  window.showInformationMessage(
+    `SFTP ${label}: skipped ${skipped.length} oversized` +
+      ` ${skipped.length === 1 ? 'file' : 'files'}` +
+      ` (largest: ${largest.fsPath}, ${formatSize(largest.size)}).` +
+      ' See the SFTP output for the full list.'
+  );
+}
 
 /**
  * Make a sync's deletions visible after the fact.
@@ -59,9 +101,11 @@ function createTransferHandle(direction: TransferDirection) {
       this.config.stallTimeout
     );
     // cancelling stops the scan too, not just the tasks already queued
+    const skipped: SkippedEntry[] = [];
     const walkOption = {
       walkConcurrency: this.config.concurrency,
       token: { isCancelled: () => scheduler.isStopped() },
+      skipped,
     };
     let transferConfig;
 
@@ -94,6 +138,7 @@ function createTransferHandle(direction: TransferDirection) {
     } finally {
       releaseWatcherClaim?.();
     }
+    reportSkipped(direction === TransferDirection.LOCAL_TO_REMOTE ? 'Upload' : 'Download', skipped);
 
     // Both directions leave us with a known-good remote to compare against next
     // time — a download is what establishes the baseline for later uploads.
@@ -123,6 +168,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
     // Attach filePerm and dirPerm to transferOption
     option.filePerm = this.config.filePerm;
     option.dirPerm = this.config.dirPerm;
+    const skipped: SkippedEntry[] = [];
     const deleted = await sync(
       {
         srcFsPath: localFsPath,
@@ -133,11 +179,13 @@ export const sync2Remote = createFileHandler<SyncOption>({
         transferDirection: TransferDirection.LOCAL_TO_REMOTE,
         walkConcurrency: this.config.concurrency,
         token: { isCancelled: () => scheduler.isStopped() },
+        skipped,
       },
       t => scheduler.add(t)
     );
     await scheduler.run();
     reportDeletions('Sync Local → Remote', deleted);
+    reportSkipped('Sync Local → Remote', skipped);
   },
   transformOption() {
     const config = this.config;
@@ -148,6 +196,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
       openSsh: config.openSsh,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
       delete: syncOption.delete,
       skipCreate: syncOption.skipCreate,
       ignoreExisting: syncOption.ignoreExisting,
@@ -175,6 +224,7 @@ export const sync2Local = createFileHandler<SyncOption>({
       this.config.retry,
       this.config.stallTimeout
     );
+    const skipped: SkippedEntry[] = [];
     const deleted = await sync(
       {
         srcFsPath: remoteFsPath,
@@ -185,11 +235,13 @@ export const sync2Local = createFileHandler<SyncOption>({
         transferDirection: TransferDirection.REMOTE_TO_LOCAL,
         walkConcurrency: this.config.concurrency,
         token: { isCancelled: () => scheduler.isStopped() },
+        skipped,
       },
       t => scheduler.add(t)
     );
     await scheduler.run();
     reportDeletions('Sync Remote → Local', deleted);
+    reportSkipped('Sync Remote → Local', skipped);
   },
   transformOption() {
     const config = this.config;
@@ -198,6 +250,7 @@ export const sync2Local = createFileHandler<SyncOption>({
       perserveTargetMode: false,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
       delete: syncOption.delete,
       skipCreate: syncOption.skipCreate,
       ignoreExisting: syncOption.ignoreExisting,
@@ -217,6 +270,7 @@ export const upload = createFileHandler<TransferOption>({
       openSsh: config.openSsh,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
     };
   },
   afterHandle() {
@@ -235,6 +289,7 @@ export const uploadFile = createFileHandler<TransferOption>({
       openSsh: config.openSsh,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
     };
   },
   afterHandle() {
@@ -253,6 +308,7 @@ export const uploadFolder = createFileHandler<TransferOption>({
       openSsh: config.openSsh,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
     };
   },
   afterHandle() {
@@ -269,6 +325,7 @@ export const download = createFileHandler<TransferOption>({
       perserveTargetMode: false,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
     };
   },
 });
@@ -282,6 +339,7 @@ export const downloadFile = createFileHandler<TransferOption>({
       perserveTargetMode: false,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
     };
   },
 });
@@ -295,6 +353,7 @@ export const downloadFolder = createFileHandler<TransferOption>({
       perserveTargetMode: false,
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
+      maxFileSize: config.maxFileSize,
     };
   },
 });

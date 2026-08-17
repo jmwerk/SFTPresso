@@ -332,6 +332,107 @@ describe('transfer walk — cancellation', () => {
   });
 });
 
+describe('transfer walk — maxFileSize', () => {
+  function sizedTree(): FakeFs {
+    return new FakeFs()
+      .addDir('/local')
+      .addFile('/local/small.txt', { size: 500 * 1024 })
+      .addFile('/local/big.txt', { size: 2 * 1024 * 1024 })
+      .addDir('/local/sub')
+      .addFile('/local/sub/big2.txt', { size: 5 * 1024 * 1024 });
+  }
+
+  test('oversized files are skipped and recorded during a folder walk, others still transfer', async () => {
+    const srcFs = sizedTree();
+    const targetFs = new FakeFs();
+    const skipped: { fsPath: string; size: number }[] = [];
+
+    const tasks: TransferTask[] = [];
+    await transfer(
+      uploadConfig(srcFs, targetFs, {
+        transferOption: { perserveTargetMode: false, maxFileSize: 1 },
+        skipped,
+      }),
+      t => tasks.push(t)
+    );
+
+    expect(tasks.map(t => t.targetFsPath).sort()).toEqual(['/remote/small.txt']);
+    expect(skipped.map(s => s.fsPath).sort()).toEqual([
+      '/local/big.txt',
+      '/local/sub/big2.txt',
+    ]);
+  });
+
+  test('an explicitly-requested single-file transfer is never skipped, however large', async () => {
+    const srcFs = new FakeFs().addFile('/local/huge.txt', { size: 10 * 1024 * 1024 });
+    const targetFs = new FakeFs();
+    const skipped: { fsPath: string; size: number }[] = [];
+
+    const tasks: TransferTask[] = [];
+    await transfer(
+      {
+        srcFsPath: '/local/huge.txt',
+        srcFs,
+        targetFsPath: '/remote/huge.txt',
+        targetFs,
+        transferDirection: TransferDirection.LOCAL_TO_REMOTE,
+        transferOption: { perserveTargetMode: false, maxFileSize: 1 },
+        skipped,
+      },
+      t => tasks.push(t)
+    );
+
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0].targetFsPath).toBe('/remote/huge.txt');
+    expect(skipped).toHaveLength(0);
+  });
+
+  test('0 (or unset) disables the cap', async () => {
+    const srcFs = sizedTree();
+    const targetFs = new FakeFs();
+
+    const tasks: TransferTask[] = [];
+    await transfer(
+      uploadConfig(srcFs, targetFs, {
+        transferOption: { perserveTargetMode: false, maxFileSize: 0 },
+      }),
+      t => tasks.push(t)
+    );
+
+    expect(tasks.map(t => t.targetFsPath).sort()).toEqual([
+      '/remote/big.txt',
+      '/remote/small.txt',
+      '/remote/sub/big2.txt',
+    ]);
+  });
+
+  test('sync skips oversized files from the transfer list and records them', async () => {
+    const srcFs = sizedTree();
+    const targetFs = new FakeFs();
+    const skipped: { fsPath: string; size: number }[] = [];
+
+    const tasks: TransferTask[] = [];
+    await sync(
+      {
+        srcFsPath: '/local',
+        srcFs,
+        targetFsPath: '/remote',
+        targetFs,
+        transferDirection: TransferDirection.LOCAL_TO_REMOTE,
+        transferOption: { perserveTargetMode: false, maxFileSize: 1 },
+        skipped,
+      },
+      t => tasks.push(t)
+    );
+
+    expect(tasks.map(t => t.targetFsPath).sort()).toEqual(['/remote/small.txt']);
+    expect(skipped.map(s => s.fsPath).sort()).toEqual([
+      '/local/big.txt',
+      '/local/sub/big2.txt',
+    ]);
+  });
+});
+
 describe('sync --delete removals', () => {
   function syncFixture() {
     const srcFs = new FakeFs().addDir('/local').addFile('/local/keep.txt');
