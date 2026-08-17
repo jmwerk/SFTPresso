@@ -227,7 +227,11 @@ export default class FTPFileSystem extends RemoteFileSystem {
     // which also fires on end-of-stream when a failed download closes
     // the destination without ever writing data
     const receivedData = new Promise<void>(resolve => {
-      const originalWrite = stream.write.bind(stream);
+      // Typed as a plain variadic function rather than left as write()'s own
+      // (overloaded, tuple-parametered) type: args below is a runtime any[]
+      // collected from an arbitrary caller, not a tuple matching any one
+      // overload, and the bound function already ignores its thisArg.
+      const originalWrite = stream.write.bind(stream) as (...args: any[]) => any;
       (stream as any).write = (...args: any[]) => {
         resolve();
         return originalWrite(...args);

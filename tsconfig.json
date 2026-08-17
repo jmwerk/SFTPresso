@@ -11,7 +11,21 @@
         "noUnusedLocals": true,
         "strictNullChecks": true,
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        // TS 6 stopped auto-including every package under node_modules/@types
+        // as ambient globals; jest and node are the only two this project
+        // actually relies on as globals (everything else under @types/ is
+        // resolved through normal import statements, which this setting
+        // doesn't affect).
+        "types": ["jest", "node"],
+        // TS 6 changed these three from "off" (this project's actual,
+        // longstanding strictness level, since `strict` was never turned on)
+        // to "on" by default. Restated explicitly so upgrading the compiler
+        // doesn't silently tighten what type-checks -- that's a separate,
+        // much larger cleanup this project hasn't opted into.
+        "noImplicitAny": false,
+        "useUnknownInCatchVariables": false,
+        "strictPropertyInitialization": false
     },
     "exclude": [
         "node_modules",

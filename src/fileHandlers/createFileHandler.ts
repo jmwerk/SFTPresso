@@ -3,6 +3,7 @@ import app from '../app';
 import { UResource, FileService, ServiceConfig } from '../core';
 import logger from '../logger';
 import { getFileService } from '../modules/serviceManager';
+import { FileHandleOption } from './option';
 
 interface FileHandlerConfig {
   _?: boolean;
@@ -86,18 +87,21 @@ export function allHandleCtxFromUri(uri: Uri): Array<FileHandlerContext> {
 export default function createFileHandler<T>(
   handlerOption: FileHandlerOption<T>
 ): (ctx: FileHandlerContext | Uri, option?: Partial<T>) => Promise<void> {
-  async function fileHandle(ctx: Uri | FileHandlerContext, option?: T) {
+  async function fileHandle(ctx: Uri | FileHandlerContext, option?: Partial<T>) {
     const handleCtx = ctx instanceof Uri ? handleCtxFromUri(ctx) : ctx;
     const { target } = handleCtx;
 
-    const invokeOption = handlerOption.transformOption
+    const invokeOption: Partial<T> = handlerOption.transformOption
       ? handlerOption.transformOption.call(handleCtx)
       : {};
     if (option) {
       Object.assign(invokeOption, option);
     }
 
-    if (invokeOption.ignore && invokeOption.ignore(target.localFsPath)) {
+    // `ignore` is a convention several (not all) T's happen to include, not
+    // something T is constrained to here -- same as the runtime always was.
+    const ignore = (invokeOption as FileHandleOption).ignore;
+    if (ignore && ignore(target.localFsPath)) {
       return;
     }
 
@@ -105,7 +109,11 @@ export default function createFileHandler<T>(
 
     app.sftpBarItem.startSpinner();
     try {
-      await handlerOption.handle.call(handleCtx, invokeOption);
+      // By this point invokeOption has transformOption's full T (or {}, for
+      // a handler with no transformOption -- see FileHandlerOption['handle']
+      // callers, none of which read anything off an empty option) merged
+      // with the caller's overrides; handle() has always assumed a full T.
+      await handlerOption.handle.call(handleCtx, invokeOption as T);
     // } catch (error) {
     //   reportError(error, `when ${handlerOption.name} ${target.localFsPath}`);
     //   Object.defineProperty(error, 'reported', {
