@@ -103,6 +103,7 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Connection hopping | [`hop`](#connection-hopping-ssh-proxy--bastion) | Reach a target server through one or more SSH bastions |
 | Upload to all profiles | `SFTP: Upload … To All Profiles` | Push one file/folder/project to every profile at once |
 | Run Remote Command | `SFTP: Run Remote Command` | Run a shell command on the server over the existing SSH connection — no re-authentication. Pick a saved command from [`remoteCommands`](#remotecommands) or type one; output streams to the SFTP output channel and the exit code is reported. SFTP only. |
+| Legacy extension detection | Automatic, on startup | Warns if an older `@liximomo`/`@Natizyskunk` `sftp` extension is also enabled — see [Legacy extension detection](#legacy-extension-detection) |
 
 ---
 
@@ -113,8 +114,8 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 As of **v1.20.2**, every tagged release is published automatically to both the **VS Code Marketplace** and **Open VSX** by [`.github/workflows/publish.yml`](https://github.com/jmwerk/SFTPresso/blob/develop/.github/workflows/publish.yml), so you can install it straight from your editor:
 
 1. Open the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`).
-2. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), uninstall it first to avoid command conflicts.
-3. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
+2. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
+3. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), SFTPresso detects it on startup and prompts you to disable it — see [Legacy extension detection](#legacy-extension-detection).
 
 Listings: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso) · [Open VSX](https://open-vsx.org/extension/jmwerk/sftpresso) (for VSCodium, Gitpod, Eclipse Theia, and other editors that use Open VSX).
 
@@ -122,10 +123,9 @@ To sideload a specific build instead, install from a VSIX package:
 
 1. Grab a `.vsix` from [GitHub Releases](https://github.com/jmwerk/SFTPresso/releases) — or build one from source (see [Development and Contributing](#9-development-and-contributing)).
 2. In VS Code, open the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`).
-3. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), uninstall it first to avoid command conflicts.
-4. Open the **⋯ (More Actions)** menu at the top of the Extensions view and choose **Install from VSIX…**.
-5. Locate the `.vsix` file and select it.
-6. Reload VS Code.
+3. Open the **⋯ (More Actions)** menu at the top of the Extensions view and choose **Install from VSIX…**.
+4. Locate the `.vsix` file and select it.
+5. Reload VS Code. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), SFTPresso detects it on startup and prompts you to disable it — see [Legacy extension detection](#legacy-extension-detection).
 
 To build the VSIX yourself:
 
@@ -135,6 +135,18 @@ cd vscode-sftp
 npm install          # also applies bundled patches via patch-package
 npm run package      # produces sftpresso-<version>.vsix via vsce
 ```
+
+### Legacy extension detection
+
+SFTPresso is a fork, and the extensions it forked from — `sftp` from `@liximomo` and `vscode-sftp` from `@Natizyskunk` — register commands under the same `sftp.*` namespace. If both are enabled at once, VS Code resolves the collision unpredictably: `SFTP: Upload` might silently run the other extension's handler against the same `sftp.json`, with different behavior and none of SFTPresso's fixes, and the resulting bug reports are effectively unreproducible.
+
+On startup, SFTPresso checks whether either legacy extension is installed **and enabled** (an installed-but-disabled copy is invisible to this check and never triggers it) and, if so, shows one notification with three choices:
+
+- **Disable the Other** — disables the conflicting extension via VS Code's own Extensions view action.
+- **Show Me** — reveals the conflicting extension in the Extensions view so you can look before deciding.
+- **Don't Show Again** — suppresses the prompt for this workspace only, in case the two are meant to coexist there.
+
+Nothing is ever disabled automatically. The suppression is workspace-scoped, since the right answer can differ per project.
 
 ### First-time setup
 

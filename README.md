@@ -27,6 +27,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 - **SSH host key verification** (`strictHostKeyChecking`) — reads your own `~/.ssh/known_hosts` so trusted hosts never prompt, and refuses to connect if a server's key ever changes
 - **`SFTP: Run Remote Command`** — run a shell command on the server over the existing SSH connection, no re-authentication; save common ones (`remoteCommands`) as a quick pick
 - **Multiple configurations**, switchable **profiles**, SSH **connection hopping**, and temp-file/atomic uploads
+- **Legacy-extension conflict detection** — warns on startup if an older `sftp` extension from `@liximomo` or `@Natizyskunk` is also enabled, since both claim the same `sftp.*` commands
 
 See the [command reference](https://github.com/jmwerk/SFTPresso/wiki#3-command-reference) for the full list.
 
@@ -37,8 +38,8 @@ As of v1.20.2, each tagged release is published automatically to both the VS Cod
 ### From the Marketplace / Open VSX (recommended)
 
 1. Open the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`).
-2. Uninstall any older `sftp` extension from `@liximomo` or `@Natizyskunk` to avoid command conflicts.
-3. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
+2. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
+3. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), SFTPresso detects it on startup and prompts you to disable it — both register commands under the same `sftp.*` namespace, so only one can run at a time.
 
 Listings: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso) (VS Code, VSCodium, and other VS Code–based editors) · [Open VSX](https://open-vsx.org/extension/jmwerk/sftpresso) (VSCodium, Gitpod, Eclipse Theia, …).
 
