@@ -186,3 +186,87 @@ describe('~/.ssh/config durations', () => {
     expect(config.username).toMatch(/^bob-/);
   });
 });
+
+describe('~/.ssh/config host resolution (compute)', () => {
+  // One fixture exercising every kind of Host/Match resolution `compute()`
+  // does that the old `find({ Host })` couldn't: a literal Host, a wildcard
+  // Host, a Match block, and repeated IdentityFile lines in one section.
+  const FIXTURE = [
+    'Host literal.example.com',
+    '  HostName literal-resolved.example.com',
+    '  Port 2200',
+    '  User literaluser',
+    '  IdentityFile ~/.ssh/id_literal',
+    '',
+    'Host *.wildcard.example.com',
+    '  HostName wildcard-resolved.example.com',
+    '  User wildcarduser',
+    '',
+    'Match host match.example.com',
+    '  HostName match-resolved.example.com',
+    '  User matchuser',
+    '',
+    'Host multikey.example.com',
+    '  IdentityFile ~/.ssh/id_first',
+    '  IdentityFile ~/.ssh/id_second',
+    '  HostName multikey-resolved.example.com',
+    '',
+    'Host alive.example.com',
+    '  HostName alive-resolved.example.com',
+    '  ServerAliveInterval 30',
+  ].join('\n');
+
+  test.each([
+    [
+      'literal host',
+      'literal.example.com',
+      {
+        host: 'literal-resolved.example.com',
+        port: 2200,
+        privateKeyPath: path.join(os.homedir(), '.ssh', 'id_literal'),
+      },
+    ],
+    [
+      'wildcard host (Host *.wildcard.example.com)',
+      'sub.wildcard.example.com',
+      { host: 'wildcard-resolved.example.com' },
+    ],
+    [
+      'Match block (Match host match.example.com)',
+      'match.example.com',
+      { host: 'match-resolved.example.com' },
+    ],
+    [
+      'multiple IdentityFile lines: the first one wins',
+      'multikey.example.com',
+      {
+        host: 'multikey-resolved.example.com',
+        privateKeyPath: path.join(os.homedir(), '.ssh', 'id_first'),
+      },
+    ],
+    [
+      'ServerAliveInterval unit conversion still applies via compute()',
+      'alive.example.com',
+      { host: 'alive-resolved.example.com', keepaliveInterval: 30000 },
+    ],
+    [
+      'a host with no matching section is left untouched',
+      'unmatched.example.com',
+      { host: 'unmatched.example.com' },
+    ],
+  ])('%s', (_label, host, expected: Record<string, any>) => {
+    const config = createService(FIXTURE, { host }).getConfig();
+
+    expect(config.host).toBe(expected.host);
+
+    if ('port' in expected) {
+      expect(config.port).toBe(expected.port);
+    }
+    if ('privateKeyPath' in expected) {
+      expect(config.privateKeyPath).toBe(expected.privateKeyPath);
+    }
+    if ('keepaliveInterval' in expected) {
+      expect((config as any).keepaliveInterval).toBe(expected.keepaliveInterval);
+    }
+  });
+});

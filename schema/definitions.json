@@ -37,13 +37,19 @@
             "type": "boolean",
             "description": "delete when file changed.",
             "default": false
+          },
+          "autoRename": {
+            "type": "boolean",
+            "description": "Server-side rename/move when a file or folder is renamed locally, instead of deleting and re-uploading it.",
+            "default": false
           }
         },
         "required": ["files"],
         "default": {
           "files": "**/*",
           "autoUpload": true,
-          "autoDelete": false
+          "autoDelete": false,
+          "autoRename": false
         }
       }
     }
@@ -81,23 +87,23 @@
         "properties": {
           "delete": {
             "type": "boolean",
-            "description": "Delete extraneous files from dest dirs.",
-            "default": true
+            "description": "Delete files in the destination that do not exist in the source (mirror the source). Off unless set.",
+            "default": false
           },
           "skipCreate": {
             "type": "boolean",
-            "description": "Skip creating new files on dest.",
-            "default": true
+            "description": "Skip creating files in the destination that exist only in the source. Off unless set.",
+            "default": false
           },
           "ignoreExisting": {
             "type": "boolean",
-            "description": "Skip updating files that exist on dest.",
-            "default": true
+            "description": "Skip files that already exist in the destination. Off unless set.",
+            "default": false
           },
           "update": {
             "type": "boolean",
-            "description": "Update the dest only if a newer version is on the src filesystem.",
-            "default": true
+            "description": "Update the destination only when the source is newer. Off unless set.",
+            "default": false
           }
         }
       },
@@ -124,6 +130,11 @@
         "description": "Absolute path to the ignore file or Relative path relative to the workspace root folder.",
         "default": ".gitignore"
       },
+      "maxFileSize": {
+        "type": "number",
+        "description": "Megabytes. Files over this size are skipped during a batch transfer -- a folder upload/download or a Sync -- and reported in a summary notification instead of silently missing. Never applies to an explicitly-requested single-file transfer (Upload/Download on one file): if you pick one file, it always goes. 0 or unset disables the cap.",
+        "default": 0
+      },
       "remoteExplorer": {
         "type": "object",
         "description": "Remote Explorer Setting.",
@@ -141,6 +152,11 @@
             "type": "number",
             "description": "Remote Explorer will ascending sorting by this value. If the values are the same, sort by name.",
             "default": 0
+          },
+          "enableDragAndDrop": {
+            "type": "boolean",
+            "description": "Allow dragging a file or folder onto another folder in the Remote Explorer to move it there with a single server-side rename. Refuses to overwrite an existing item at the destination, and refuses drags between different configurations. Off unless set.",
+            "default": false
           }
         }
       },
@@ -186,6 +202,25 @@
       "operationTimeout": {
         "type": "number",
         "description": "Milliseconds a single remote request (mkdir, stat, directory listing, rename, delete) may go unanswered before it is failed and the connection dropped, so the next command reconnects instead of inheriting a dead one. Applies to SFTP only; FTP is already covered by connectTimeout, which basic-ftp applies as a socket idle timeout. Does not apply to the actual file transfer, which is governed by stallTimeout. Defaults to 60000. Set to 0 to wait indefinitely.",
+        "default": 60000
+      },
+      "remoteCommands": {
+        "type": "object",
+        "description": "Labeled shell commands offered by SFTP: Run Remote Command as a quick pick, label -> command. Runs over the existing SSH connection; no re-authentication. Applies to SFTP only -- FTP configs get an error when the command is run. None unless set.",
+        "additionalProperties": {
+          "type": "string"
+        },
+        "default": {},
+        "examples": [
+          {
+            "Restart PHP": "sudo systemctl reload php8.3-fpm",
+            "Clear cache": "php artisan cache:clear"
+          }
+        ]
+      },
+      "remoteCommandTimeout": {
+        "type": "number",
+        "description": "Milliseconds a command started by SFTP: Run Remote Command may run before it is killed and reported as timed out. OpenSSH does not act on the kill request for a plain (non-pty) exec session, so the remote process may keep running detached after the timeout is reported.",
         "default": 60000
       }
     }
@@ -358,6 +393,16 @@
         "enum": [true, false, "ask", "accept-new"],
         "description": "How the server's SSH host key is checked, mirroring OpenSSH's StrictHostKeyChecking. Keys are looked up in your own ~/.ssh/known_hosts first, then in the store of keys accepted in SFTPresso. \"accept-new\" (the default) trusts a host the first time it is seen and remembers its key, then refuses to connect if that key ever changes. \"ask\" prompts with the fingerprint on first sight instead. true refuses any host that is not already in a known_hosts file. false also allows a changed host key through, which disables the protection against a man-in-the-middle — only use it if you understand the consequence. Bastion hosts configured with \"hop\" are verified in their own right. Applies to sftp only.",
         "default": "accept-new"
+      },
+      "keepaliveInterval": {
+        "type": "number",
+        "description": "Milliseconds between SSH-level keepalive packets sent to the server, so a dead or silently dropped connection (common on high-latency or heavily NATed links) is detected instead of leaving an operation to hang. Also settable as ServerAliveInterval in ~/.ssh/config (there, in seconds); an explicit value here takes precedence. Set to 0 to disable. Applies to sftp only.",
+        "default": 30000
+      },
+      "keepaliveCountMax": {
+        "type": "number",
+        "description": "How many consecutive keepalive packets may go unanswered before the connection is considered dead and torn down. Applies to sftp only.",
+        "default": 2
       }
     }
   },

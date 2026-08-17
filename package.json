@@ -140,6 +140,11 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.runRemoteCommand",
+        "title": "Run Remote Command",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.cancelAllTransfer",
         "title": "Cancel All Transfers",
         "category": "SFTP"
@@ -314,6 +319,11 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.rename.remote",
+        "title": "Rename",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.create.folder",
         "title": "Create Folder",
         "category": "SFTP"
@@ -364,6 +374,18 @@
           "light": "resources/light/refresh.svg",
           "dark": "resources/dark/refresh.svg"
         }
+      },
+      {
+        "command": "sftp.remoteExplorer.filter",
+        "title": "Filter Remote Explorer",
+        "category": "SFTP",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "sftp.remoteExplorer.clearFilter",
+        "title": "Clear Filter",
+        "category": "SFTP",
+        "icon": "$(clear-all)"
       }
     ],
     "menus": {
@@ -403,6 +425,18 @@
         {
           "command": "sftp.forgetHostKey",
           "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.runRemoteCommand",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.remoteExplorer.filter",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.remoteExplorer.clearFilter",
+          "when": "sftp.enabled && sftp.remoteExplorer.filterActive"
         },
         {
           "command": "sftp.cancelAllTransfer",
@@ -530,6 +564,10 @@
         },
         {
           "command": "sftp.delete.remote",
+          "when": "false"
+        },
+        {
+          "command": "sftp.rename.remote",
           "when": "false"
         },
         {
@@ -683,6 +721,16 @@
       ],
       "view/title": [
         {
+          "command": "sftp.remoteExplorer.filter",
+          "when": "view == remoteExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "sftp.remoteExplorer.clearFilter",
+          "when": "view == remoteExplorer && sftp.remoteExplorer.filterActive",
+          "group": "navigation"
+        },
+        {
           "command": "sftp.remoteExplorer.refresh",
           "when": "view == remoteExplorer",
           "group": "navigation"
@@ -756,6 +804,11 @@
           "command": "sftp.download.file",
           "group": "3_trans@2",
           "when": "view == remoteExplorer && viewItem != root && viewItem == file"
+        },
+        {
+          "command": "sftp.rename.remote",
+          "group": "7_modification",
+          "when": "view == remoteExplorer && viewItem != root"
         },
         {
           "command": "sftp.delete.remote",
@@ -929,13 +982,13 @@
   "dependencies": {
     "async": "^3.2.6",
     "basic-ftp": "^6.2.0",
-    "fs-extra": "^10.1.0",
+    "fs-extra": "^11.2.0",
     "ignore": "^7.0.6",
     "joi": "^18.2.3",
     "jsonc-parser": "^3.3.1",
     "lodash.debounce": "^4.0.8",
     "lru-cache": "^11.5.2",
-    "ssh-config": "^1.1.3",
+    "ssh-config": "^5.2.1",
     "ssh2": "^1.17.0",
     "tmp": "^0.2.1",
     "upath": "^3.0.8",

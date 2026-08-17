@@ -43,6 +43,12 @@ export interface TransferCancellationToken {
   isCancelled(): boolean;
 }
 
+// A file the walk left out of the transfer because it was over maxFileSize.
+export interface SkippedEntry {
+  fsPath: string;
+  size: number;
+}
+
 interface BaseTransferHandleConfig {
   srcFsPath: string;
   targetFsPath: string;
@@ -57,6 +63,9 @@ interface BaseTransferHandleConfig {
   // shared by the whole walk; installed by transfer()/sync(), then carried
   // along by the `{ ...config }` spreads below
   limiter?: Limiter;
+  // shared by the whole walk, same as `limiter`. Passed in by the caller so it
+  // can read the accumulated list back once the walk finishes.
+  skipped?: SkippedEntry[];
 }
 
 interface TransferHandleConfig<T> extends BaseTransferHandleConfig {
@@ -84,7 +93,21 @@ function withLimiter<T extends BaseTransferHandleConfig>(config: T): T {
     limiter:
       config.limiter ||
       createLimiter(config.walkConcurrency || DEFAULT_WALK_CONCURRENCY),
+    skipped: config.skipped || [],
   };
+}
+
+// `maxFileSize` is in megabytes; `size` (from the source-side stat/listing
+// entry) is in bytes.
+function exceedsMaxSize(size: number | undefined, maxFileSize: number | undefined): boolean {
+  return !!maxFileSize && typeof size === 'number' && size > maxFileSize * 1024 * 1024;
+}
+
+function recordSkipped(config: BaseTransferHandleConfig, fsPath: string, size: number): void {
+  if (config.skipped) {
+    config.skipped.push({ fsPath, size });
+  }
+  logger.info(`skip ${fsPath}: ${size} bytes exceeds maxFileSize`);
 }
 
 function describeFailure(error: any, action: string, fsPath: string): Error {
@@ -164,8 +187,18 @@ async function transferFolder(
 
   const fileEntries = await limited(config, () => srcFs.list(srcFsPath));
   await Promise.all(
-    fileEntries.map(file =>
-      transferWithType(
+    fileEntries.map(file => {
+      // Only entries discovered by this walk are capped -- an explicitly
+      // requested single-file transfer never goes through transferFolder.
+      if (
+        (file.type === FileType.File || file.type === FileType.SymbolicLink) &&
+        exceedsMaxSize(file.size, transferOption.maxFileSize)
+      ) {
+        recordSkipped(config, file.fspath, file.size);
+        return;
+      }
+
+      return transferWithType(
         {
           ...config,
           transferOption: {
@@ -180,8 +213,8 @@ async function transferFolder(
         },
         file.type,
         collect
-      )
-    )
+      );
+    })
   );
 
   logger.info('folder transfered.');
@@ -382,6 +415,10 @@ async function _sync(
 
             // only transfer changed files
             if (isFileModified(from, to)) {
+              if (exceedsMaxSize(from.size, transferOption.maxFileSize)) {
+                recordSkipped(config, from.fspath, from.size);
+                return;
+              }
               file2trans.push([
                 from.fspath,
                 to.fspath,
@@ -414,6 +451,10 @@ async function _sync(
           break;
         case FileType.File:
         case FileType.SymbolicLink:
+          if (exceedsMaxSize(srcFile.size, transferOption.maxFileSize)) {
+            recordSkipped(config, srcFile.fspath, srcFile.size);
+            break;
+          }
           file2trans.push([
             srcFile.fspath,
             fspath,
@@ -444,6 +485,10 @@ async function _sync(
               break;
             case FileType.File:
             case FileType.SymbolicLink:
+              if (exceedsMaxSize(file.size, transferOption.maxFileSize)) {
+                recordSkipped(config, file.fspath, file.size);
+                break;
+              }
               file2trans.push([
                 file.fspath,
                 fspath,

@@ -46,6 +46,7 @@
    - [Multiple contexts (array config)](#multiple-contexts-array-config)
    - [Connection hopping (SSH proxy / bastion)](#connection-hopping-ssh-proxy--bastion)
    - [Two-way automatic sync with the watcher](#two-way-automatic-sync-with-the-watcher)
+   - [Renaming and moving files on the remote](#renaming-and-moving-files-on-the-remote)
    - [Uploading a folder's contents without the folder itself](#uploading-a-folders-contents-without-the-folder-itself)
    - [Configuration in User Settings (remote-fs)](#configuration-in-user-settings-remote-fs)
    - [Using the Remote Explorer](#using-the-remote-explorer)
@@ -83,6 +84,7 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Feature | Where to find it | Details |
 | --- | --- | --- |
 | Remote Explorer | SFTP icon in the Activity Bar | Browse remote files, multi-select download/upload — see [Using the Remote Explorer](#using-the-remote-explorer) |
+| Remote Explorer filter | `SFTP: Filter Remote Explorer` / `SFTP: Clear Filter` | Live, debounced substring search across the whole remote tree — including folders you haven't expanded yet — see [Using the Remote Explorer](#using-the-remote-explorer) |
 | Transfers view | SFTP sidebar → **Transfers** | Live per-file status (queued / transferring / failed) with byte-level progress, speed, and ETA, per-file cancel, and retry for failed transfers — see [Monitoring and cancelling transfers](#monitoring-and-cancelling-transfers) |
 | Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter plus combined transfer speed; click to cancel all |
 | Diff local ↔ remote | `SFTP: Diff with Remote` | Opens VS Code's diff view against the remote copy |
@@ -94,11 +96,14 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 | Upload on save | [`uploadOnSave`](#uploadonsave) | Mirrors every VS Code save to the server |
 | Upload conflict check | [`conflictCheck`](#conflictcheck) | Prompts before an upload overwrites a remote file someone else changed |
 | File watcher | [`watcher`](#watcher) | Reacts to changes made *outside* VS Code (build tools, git checkout, …) |
+| Server-side rename/move | Remote Explorer context menu → **Rename**, drag-and-drop ([`remoteExplorer.enableDragAndDrop`](#remoteexplorer)), or [`watcher.autoRename`](#watcher) | Renames or moves a file/folder with a single remote `rename()` call, regardless of size — no re-upload — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote) |
 | Multiple configurations | [Array config](#multiple-contexts-array-config) | Different servers per workspace subfolder |
 | Switchable profiles | [`profiles`](#profiles) + `SFTP: Set Profile` | One config, many targets — the status bar shows the active profile; click it to switch |
 | Temp-file / atomic uploads | [`useTempFile`](#usetempfile), [`openSsh`](#openssh) | Avoid serving half-written files |
 | Connection hopping | [`hop`](#connection-hopping-ssh-proxy--bastion) | Reach a target server through one or more SSH bastions |
 | Upload to all profiles | `SFTP: Upload … To All Profiles` | Push one file/folder/project to every profile at once |
+| Run Remote Command | `SFTP: Run Remote Command` | Run a shell command on the server over the existing SSH connection — no re-authentication. Pick a saved command from [`remoteCommands`](#remotecommands) or type one; output streams to the SFTP output channel and the exit code is reported. SFTP only. |
+| Legacy extension detection | Automatic, on startup | Warns if an older `@liximomo`/`@Natizyskunk` `sftp` extension is also enabled — see [Legacy extension detection](#legacy-extension-detection) |
 
 ---
 
@@ -109,8 +114,8 @@ SFTPresso lets you add, edit, or delete files in a local directory and have thos
 As of **v1.20.2**, every tagged release is published automatically to both the **VS Code Marketplace** and **Open VSX** by [`.github/workflows/publish.yml`](https://github.com/jmwerk/SFTPresso/blob/develop/.github/workflows/publish.yml), so you can install it straight from your editor:
 
 1. Open the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`).
-2. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), uninstall it first to avoid command conflicts.
-3. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
+2. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
+3. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), SFTPresso detects it on startup and prompts you to disable it — see [Legacy extension detection](#legacy-extension-detection).
 
 Listings: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso) · [Open VSX](https://open-vsx.org/extension/jmwerk/sftpresso) (for VSCodium, Gitpod, Eclipse Theia, and other editors that use Open VSX).
 
@@ -118,10 +123,9 @@ To sideload a specific build instead, install from a VSIX package:
 
 1. Grab a `.vsix` from [GitHub Releases](https://github.com/jmwerk/SFTPresso/releases) — or build one from source (see [Development and Contributing](#9-development-and-contributing)).
 2. In VS Code, open the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`).
-3. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), uninstall it first to avoid command conflicts.
-4. Open the **⋯ (More Actions)** menu at the top of the Extensions view and choose **Install from VSIX…**.
-5. Locate the `.vsix` file and select it.
-6. Reload VS Code.
+3. Open the **⋯ (More Actions)** menu at the top of the Extensions view and choose **Install from VSIX…**.
+4. Locate the `.vsix` file and select it.
+5. Reload VS Code. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), SFTPresso detects it on startup and prompts you to disable it — see [Legacy extension detection](#legacy-extension-detection).
 
 To build the VSIX yourself:
 
@@ -131,6 +135,18 @@ cd vscode-sftp
 npm install          # also applies bundled patches via patch-package
 npm run package      # produces sftpresso-<version>.vsix via vsce
 ```
+
+### Legacy extension detection
+
+SFTPresso is a fork, and the extensions it forked from — `sftp` from `@liximomo` and `vscode-sftp` from `@Natizyskunk` — register commands under the same `sftp.*` namespace. If both are enabled at once, VS Code resolves the collision unpredictably: `SFTP: Upload` might silently run the other extension's handler against the same `sftp.json`, with different behavior and none of SFTPresso's fixes, and the resulting bug reports are effectively unreproducible.
+
+On startup, SFTPresso checks whether either legacy extension is installed **and enabled** (an installed-but-disabled copy is invisible to this check and never triggers it) and, if so, shows one notification with three choices:
+
+- **Disable the Other** — disables the conflicting extension via VS Code's own Extensions view action.
+- **Show Me** — reveals the conflicting extension in the Extensions view so you can look before deciding.
+- **Don't Show Again** — suppresses the prompt for this workspace only, in case the two are meant to coexist there.
+
+Nothing is ever disabled automatically. The suppression is workspace-scoped, since the right answer can differ per project.
 
 ### First-time setup
 
@@ -220,6 +236,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Clear Password` | `sftp.clearPassword` | Remove a saved password from secret storage. |
 | `SFTP: Show Host Key Fingerprint` | `sftp.showHostKey` | Show the SSH host key(s) stored for a remote — fingerprint, key type, and which known_hosts file each came from — with a button to copy the fingerprints. See [Host key verification](#host-key-verification). |
 | `SFTP: Forget Host Key` | `sftp.forgetHostKey` | Remove the stored SSH host key(s) for a remote, so the next connection treats it as a new host. This is what unblocks a connection refused because the server's key changed. Entries in files maintained by your ssh client (`~/.ssh/known_hosts`) are only removed after a confirmation naming the file and line. |
+| `SFTP: Run Remote Command` | `sftp.runRemoteCommand` | Run a command on the remote over the existing SSH connection — no re-authentication. Offers [`remoteCommands`](#remotecommands) as a quick pick, or prompts for a command to type. Always confirms the resolved command and host before running it, since this executes on whatever server the active config points at. Output streams into the SFTP output channel and the exit code is reported when it finishes; a command that runs past [`remoteCommandTimeout`](#remotecommandtimeout) is killed and reported as timed out. FTP configs get an error instead of attempting the command. |
 
 ### Upload commands
 
@@ -268,6 +285,7 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Command | ID | Description |
 | --- | --- | --- |
 | `SFTP: List` / `SFTP: List Active Folder` / `SFTP: List All` | `sftp.list` / `sftp.listActiveFolder` / `sftp.listAll` | List remote directory contents in a QuickPick. `List All` includes ignored files. |
+| Rename | `sftp.rename.remote` | Rename or move the selected file/folder **on the remote** (Remote Explorer context menu) — a single `rename()` call regardless of size, no re-upload. A name containing `/` moves the item. Refuses to overwrite an existing destination or move the item outside `remotePath` or into itself. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). |
 | Delete | `sftp.delete.remote` | Delete the selected file/folder **on the remote** (Remote Explorer context menu). |
 | Create Folder / Create File | `sftp.create.folder` / `sftp.create.file` | Create a remote folder or file from the Remote Explorer. |
 | Edit in Local | `sftp.remoteExplorer.editInLocal` | Download the remote file into the workspace so it can be edited (Remote Explorer opens files read-only by default). |
@@ -276,6 +294,8 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Reveal in Remote Explorer | `sftp.revealInRemoteExplorer` | Jump from a local file to its remote counterpart in the Remote Explorer. |
 | Refresh | `sftp.remoteExplorer.refresh` | Refresh the Remote Explorer tree. |
 | Refresh Active Remote File | `sftp.remoteExplorer.refreshActiveFile` | Re-fetch the remote file open in the editor. |
+| `SFTP: Filter Remote Explorer` | `sftp.remoteExplorer.filter` | Open a live, debounced quick pick that narrows the Remote Explorer to entries whose name contains the typed substring, plus their ancestor folders — including folders not yet expanded. See [Using the Remote Explorer](#using-the-remote-explorer). |
+| `SFTP: Clear Filter` | `sftp.remoteExplorer.clearFilter` | Clear an active Remote Explorer filter and restore the full listing. |
 
 ### Transfer management commands
 
@@ -462,12 +482,14 @@ Tunes the [Sync commands](#sync-commands).
 | --- | --- | --- |
 | `syncOption` | object | `{}` |
 
-| Sub-option | Type | Effect |
-| --- | --- | --- |
-| `syncOption.delete` | boolean | Delete extraneous files from the destination. |
-| `syncOption.skipCreate` | boolean | Don't create files that are new to the destination. |
-| `syncOption.ignoreExisting` | boolean | Don't update files that already exist on the destination. |
-| `syncOption.update` | boolean | Only overwrite the destination if the source copy is newer. |
+| Sub-option | Type | Default | Effect |
+| --- | --- | --- | --- |
+| `syncOption.delete` | boolean | `false` | Delete extraneous files from the destination. |
+| `syncOption.skipCreate` | boolean | `false` | Don't create files that are new to the destination. |
+| `syncOption.ignoreExisting` | boolean | `false` | Don't update files that already exist on the destination. |
+| `syncOption.update` | boolean | `false` | Only overwrite the destination if the source copy is newer. |
+
+All four are off unless set explicitly — an omitted key has never done anything at runtime, though the JSON schema incorrectly advertised `true` as the default before this was corrected.
 
 ```json
 {
@@ -551,6 +573,17 @@ Path to an ignore file (e.g. `.gitignore`-style list) — absolute, or relative 
 { "ignoreFile": ".gitignore" }
 ```
 
+#### maxFileSize
+Caps individual file size (in megabytes) during a **batch** transfer — a folder upload/download or a [Sync](#sync-commands). A file over the limit is left out of the transfer rather than started, and reported afterward in a summary notification naming the count and the largest one (full list in the SFTP output), the same way [`syncOption.delete`](#syncoption) reports what it removed. Never applies to an explicitly-requested single-file transfer — right-click one file and choose Upload/Download and it always goes, regardless of size. `0` or unset disables the cap.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `maxFileSize` | number | `0` (disabled) |
+
+```json
+{ "maxFileSize": 100 }
+```
+
 #### watcher
 Watches for file changes made **outside** the VS Code editor (build output, `git checkout`, external tools) and reacts automatically. See [Two-way automatic sync](#two-way-automatic-sync-with-the-watcher).
 
@@ -565,6 +598,7 @@ A [profile](#profiles) may override `watcher` to change what is watched — or t
 | `watcher.files` | string (glob) | Which files to watch (required). |
 | `watcher.autoUpload` | boolean | Upload when a watched file changes. |
 | `watcher.autoDelete` | boolean | Delete on the remote when a watched file is removed locally. |
+| `watcher.autoRename` | boolean | Server-side rename/move on the remote when a watched file or folder is renamed locally, instead of deleting and re-uploading it. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). Default `false`. |
 
 > 💡 Set [`uploadOnSave`](#uploadonsave) to `false` when watching everything (`"**/*"`) — otherwise every save triggers both mechanisms.
 
@@ -573,7 +607,8 @@ A [profile](#profiles) may override `watcher` to change what is watched — or t
   "watcher": {
     "files": "dist/*.{js,css}",
     "autoUpload": true,
-    "autoDelete": false
+    "autoDelete": false,
+    "autoRename": true
   },
   "profiles": {
     "dev": {},
@@ -604,12 +639,14 @@ Tunes the [Remote Explorer](#using-the-remote-explorer) view.
 | --- | --- | --- |
 | `remoteExplorer.filesExclude` | string[] | Patterns for files/folders to hide in the Remote Explorer. |
 | `remoteExplorer.order` | number | Sort position of this config among Remote Explorer roots (default `0`). |
+| `remoteExplorer.enableDragAndDrop` | boolean | Allow dragging an item onto a folder in the Remote Explorer to move it there with a single server-side rename. Default `false`. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). |
 
 ```json
 {
   "remoteExplorer": {
     "filesExclude": ["**/node_modules"],
-    "order": 1
+    "order": 1,
+    "enableDragAndDrop": true
   }
 }
 ```
@@ -761,6 +798,42 @@ A timeout is reported at warn level, so the line appears whether or not `sftp.de
 
 > ⚠️ Unlike the two options above, this one defaults on. A request that has gone a full minute without a reply is not slow, it's lost, and the alternative is an extension that hangs until you reload the window. If you have a genuinely slow server and see spurious timeouts, raise it rather than turning it off — `0` restores the old behaviour of waiting indefinitely.
 
+#### remoteCommands
+Labeled shell commands offered by [`SFTP: Run Remote Command`](#configuration-and-connection-commands) as a quick pick, instead of a blank prompt every time. Each command runs over the existing pooled SSH connection.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `remoteCommands` | object (label → command string) | *(none)* |
+
+```jsonc
+{
+  "remoteCommands": {
+    "Restart PHP": "sudo systemctl reload php8.3-fpm",
+    "Clear cache": "php artisan cache:clear"
+  }
+}
+```
+
+Editing this doesn't invalidate the pooled connection — it's read fresh on every run, not baked into the connection identity.
+
+> ℹ️ SFTP only. Running a command against an FTP config fails with a clear error rather than attempting it — FTP has no remote shell to run one on.
+
+#### remoteCommandTimeout
+How long, in milliseconds, a command started by [`SFTP: Run Remote Command`](#configuration-and-connection-commands) may run before it is killed and reported as timed out.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `remoteCommandTimeout` | number | `60000` |
+
+```jsonc
+{
+  // give a long migration more room before it's killed
+  "remoteCommandTimeout": 300000
+}
+```
+
+> ℹ️ OpenSSH's server does not act on the kill request for a plain (non-pty) exec session, so a command that times out may keep running on the server after SFTPresso reports it as timed out — the SSH channel is closed on this end, but the remote process is not guaranteed to be. SFTP only.
+
 ### SFTP-only options
 
 #### agent
@@ -854,7 +927,7 @@ Default:
 ```
 
 #### sshConfigPath
-Path to your OpenSSH client config file; the first `Host` entry matching this config's [`host`](#host) contributes settings to the connection.
+Path to your OpenSSH client config file; settings for this config's [`host`](#host) are resolved the way `ssh` itself does — literal `Host` entries, wildcard `Host` patterns (`Host *.example.com`), and `Match` blocks are all considered, in file order, per `ssh_config(5)` precedence.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -867,13 +940,15 @@ Six directives are read:
 | `HostName` | [`host`](#host) | Always applied — this is the point of an alias. |
 | `Port` | [`port`](#port) | |
 | `User` | [`username`](#username) | |
-| `IdentityFile` | [`privateKeyPath`](#privatekeypath) | |
+| `IdentityFile` | [`privateKeyPath`](#privatekeypath) | The first line found wins if it's set more than once. |
 | `ConnectTimeout` | [`connectTimeout`](#connecttimeout) | Seconds in `ssh_config`, converted to ms. |
-| `ServerAliveInterval` | SSH keepalive interval | Seconds in `ssh_config`, converted to ms. Replaces the built-in 30s default. |
+| `ServerAliveInterval` | [`keepaliveInterval`](#keepaliveinterval) | Seconds in `ssh_config`, converted to ms. |
 
 Except for `HostName`, a value you set in `sftp.json` wins — the ssh config only fills in what you left out. `ConnectTimeout` and `ServerAliveInterval` are ignored, with a warning in the output channel, if their value isn't a number of seconds.
 
 > ℹ️ **Fixed in 1.30.1.** `ServerAliveInterval` and `ConnectTimeout` were read from your ssh config and then dropped: they were mapped onto option names the SSH client does not have, so neither had any effect. If you rely on either, they start working with this release — a `ServerAliveInterval` far below the previous 30-second default means noticeably more keepalive traffic.
+
+> ℹ️ **Fixed.** Resolution used to be a literal string match against `Host` — a config using a wildcard `Host *.example.com` pattern or a `Match` block, both ordinary `ssh_config(5)` syntax, contributed nothing at all, silently. Both are now resolved correctly.
 
 #### sshCustomParams
 Extra parameters appended to the `ssh` command used by `SFTP: Open SSH in Terminal`.
@@ -918,6 +993,41 @@ Controls how the server's SSH host key is checked, mirroring OpenSSH's option of
 A key marked `@revoked` in a known_hosts file is refused under every value, as is a certificate host key (SFTPresso cannot validate one).
 
 > ℹ️ SFTP only. Setting it on an FTP config is accepted and ignored.
+
+#### keepaliveInterval
+How often, in milliseconds, an SSH-level keepalive packet is sent to the server. Guards against links that silently drop an idle connection — a NAT or firewall that closes an unused mapping, or a host that reaps connections it hasn't heard from — leaving the next operation to hang against a socket nothing will ever answer on.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `keepaliveInterval` | number | `30000` |
+
+Resolved in that order: this option if you set it, otherwise `ServerAliveInterval` from your [ssh config](#sshconfigpath) (which states it in seconds), otherwise `30000`. Set to `0` to disable keepalive packets entirely.
+
+```jsonc
+{
+  // a host that reaps idle connections after 45s needs a shorter grace period
+  // than the 60s the default 30000ms / x2 gives it
+  "keepaliveInterval": 15000
+}
+```
+
+> ℹ️ SFTP only.
+
+#### keepaliveCountMax
+How many consecutive keepalive packets may go unanswered before the connection is considered dead and torn down. Paired with [`keepaliveInterval`](#keepaliveinterval), an unresponsive server is given up on after roughly `keepaliveInterval × keepaliveCountMax` milliseconds.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `keepaliveCountMax` | number | `2` |
+
+```jsonc
+{
+  // more tolerance for a link that occasionally drops a packet
+  "keepaliveCountMax": 4
+}
+```
+
+> ℹ️ SFTP only.
 
 ### FTP(S)-only options
 
@@ -1047,7 +1157,7 @@ When a config defines profiles, the status bar item shows the active profile (e.
 }
 ```
 
-> `context` is only available at the root level, not inside a profile. [`watcher`](#watcher) may be set at either — a profile's watcher replaces the root one while that profile is active, which is how you turn auto-upload off for production.
+> `context` is only available at the root level, not inside a profile. [`watcher`](#watcher) may be set at either — a profile's watcher is merged one level over the root one while that profile is active, so `{ "autoUpload": false }` turns uploads off for production without losing the root's other watcher settings (`files`, `autoDelete`, etc.). `syncOption` and `remoteExplorer` merge the same way when set inside a profile.
 
 To deploy to every environment at once, use the **`… To All Profiles`** [upload commands](#upload-commands).
 
@@ -1143,7 +1253,8 @@ Keep the server updated with **no manual interaction** — including changes mad
   "watcher": {
     "files": "**/*",
     "autoUpload": true,
-    "autoDelete": true
+    "autoDelete": true,
+    "autoRename": true
   },
   "syncOption": {
     "delete": true
@@ -1151,7 +1262,35 @@ Keep the server updated with **no manual interaction** — including changes mad
 }
 ```
 
-Keep `uploadOnSave` **false** here — the watcher already covers saves when watching `**/*` (see [`watcher`](#watcher)).
+Keep `uploadOnSave` **false** here — the watcher already covers saves when watching `**/*` (see [`watcher`](#watcher)). `autoRename` here means a rename or move made in VS Code's own Explorer moves the remote copy instead of deleting and re-uploading it — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote). It doesn't extend to `git checkout` or other tools that write straight to disk outside VS Code; those are still handled as a plain delete-and-create.
+
+### Renaming and moving files on the remote
+
+Renaming or moving something used to mean a full re-upload — for a large directory, of everything inside it. Renaming/moving is now a single remote `rename()` call, regardless of size, in two places:
+
+**From the Remote Explorer.** Right-click a file or folder and choose **Rename**. Type a new name — including a path with `/` to move it into a subfolder — and confirm. The move is refused (with a clear message, nothing is touched) if the destination already exists, falls outside [`remotePath`](#remotepath), or would move a folder into itself.
+
+**By dragging within the Remote Explorer.** Set [`remoteExplorer.enableDragAndDrop`](#remoteexplorer) to `true`, then drag a file or folder onto another folder in the tree to move it there — the same single `rename()` call as the **Rename** command, just started with a drag instead of a right-click. Off by default. Dragging more than one selected item asks for one confirmation covering the whole batch; a single item moves immediately. Refused, with a message, in the same cases the Rename command refuses (existing destination, moving a folder into itself or a descendant), plus a drag between two different configured roots and dragging a connection's root item itself.
+
+**Automatically, for renames and moves made in VS Code's own Explorer.** Set `watcher.autoRename` to `true` and a rename VS Code reports — F2, drag-and-drop, cut-and-paste-as-move, all in VS Code's Explorer — is turned into the same single server-side rename instead of the delete-then-upload the watcher would otherwise do:
+
+```json
+{
+  "watcher": {
+    "files": "**/*",
+    "autoUpload": true,
+    "autoDelete": true,
+    "autoRename": true
+  }
+}
+```
+
+A few things worth knowing:
+
+- It only fires for renames VS Code itself reports (its Explorer, or any tool that goes through VS Code's file-rename API). A rename made by an external tool that writes straight to disk still looks like a delete-and-create to the watcher, the same as before.
+- A move that crosses into a **different** configured root (a workspace with more than one `sftp.json` context) can't be a single remote rename — there's nowhere on that remote for the old path's `rename()` to reach. It falls back to a normal upload of the file at its new local path, followed by deleting the old remote path, so the two sides never disagree about the file's existence.
+- Any other rename failure — a source the watcher never got around to uploading in the first place, a permissions error, a dropped connection — falls back the same way: upload the new path, *then* delete the old one, never the other order. Whatever else happens, the only remote copy is never removed before its replacement exists.
+- The default is `false`. Turning it on doesn't change what `autoUpload`/`autoDelete` do for anything other than renames.
 
 ### Uploading a folder's contents without the folder itself
 
@@ -1216,8 +1355,10 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 
 - Browsing opens files in a **read-only** view by default. Run **`SFTP: Edit in Local`** (context menu) to download a file into the workspace for editing — or flip the [`sftp.downloadWhenOpenInRemoteExplorer`](#vs-code-extension-settings) setting to make downloading the default.
 - **Multi-select** works like the regular explorer: hold `Ctrl`/`Cmd` or `Shift` while clicking to select several files/folders, then upload or download them all at once.
-- Create and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)).
+- Create, rename/move, and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)) — rename/move is a single remote operation regardless of size, see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
+- **Drag a file or folder onto another folder** in the tree to move it there, once [`remoteExplorer.enableDragAndDrop`](#remoteexplorer) is turned on (off by default) — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 - Hide noise (e.g. `node_modules`) with [`remoteExplorer.filesExclude`](#remoteexplorer), and control root ordering with `remoteExplorer.order`.
+- **Filter** the tree with **`SFTP: Filter Remote Explorer`** (funnel icon in the view title) — typing live-narrows the tree to matching names and the folders leading to them, even inside folders you haven't opened yet. **`SFTP: Clear Filter`** resets it, and the view title shows the active query while it's on. Substring match only for now. VS Code's own `workbench.list.keyboardNavigation: filter` setting is a handy complement for searching within a folder you've already expanded.
 - After a **delete**, manually refresh the parent folder if the tree doesn't update on its own (known issue).
 
 ### Monitoring and cancelling transfers
@@ -1242,6 +1383,7 @@ A directory that couldn't be listed on either side is reported as **Could not re
 
 - **Don't commit credentials.** `password` and `passphrase` are stored in plain text in `sftp.json`. Prefer key-based auth ([`privateKeyPath`](#privatekeypath) or [`agent`](#agent)), keep passwords in [secret storage](#storing-passwords-securely) via `SFTP: Save Password`, set `"passphrase": true` for a prompt instead of a stored string, and add `.vscode/sftp.json` to `.gitignore` if it contains secrets.
 - **Ignore what you don't deploy.** Add `/.git`, `/.vscode`, `node_modules`, build caches, and OS junk (`.DS_Store`) to [`ignore`](#ignore) — transfers get faster and you avoid clobbering the server with noise. Use the [Force commands](#force-alt-commands) for one-off exceptions.
+- **Set `maxFileSize` before running a folder upload/download or Sync on an unfamiliar project.** A stray database dump, video asset, or `.iso` in the tree otherwise transfers along with everything else, and the first sign of it is the transfer still running long after you expected it to finish. See [`maxFileSize`](#maxfilesize).
 - **Protect live sites with atomic uploads.** Enable [`useTempFile`](#usetempfile) (plus [`openSsh`](#openssh) on OpenSSH servers) so a visitor never receives a half-uploaded file.
 - **Pick one auto-upload mechanism.** Use either [`uploadOnSave`](#uploadonsave) or a broad [`watcher`](#watcher) (`"**/*"` with `autoUpload`), not both — doubling up causes redundant transfers.
 - **Be careful with `syncOption.delete` and `watcher.autoDelete`.** They remove files on the destination. Leave [`syncConfirm`](#syncconfirm) on (its default when `delete` is enabled) to preview and confirm deletions before they happen, or run a [Compare Folders](#comparing-folders-with-the-remote) first if you're unsure what a sync will do.
@@ -1403,6 +1545,9 @@ Sync is timestamp-based; correct clock/timezone differences with [`remoteTimeOff
 
 **Q: Transfers randomly fail on my shared host.**
 Lower [`concurrency`](#concurrency) (some servers cap simultaneous operations) and/or set [`limitOpenFilesOnRemote`](#limitopenfilesonremote) if the server runs out of file descriptors.
+
+**Q: Why was my rename/move refused?**
+Renaming refuses rather than clobbering or guessing: the destination already exists (delete it first, or pick a different name), the new path falls outside [`remotePath`](#remotepath), or it would move a folder into its own subfolder. Nothing is touched when it's refused. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 
 ---
 

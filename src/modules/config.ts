@@ -57,10 +57,14 @@ const configScheme = Joi.object({
     .min(0)
     .items(Joi.string()),
   ignoreFile: Joi.string(),
+  maxFileSize: Joi.number()
+    .integer()
+    .min(0),
   watcher: {
     files: Joi.string().allow(false, null),
     autoUpload: Joi.boolean(),
     autoDelete: Joi.boolean(),
+    autoRename: Joi.boolean(),
   },
   concurrency: Joi.number().integer(),
 
@@ -85,6 +89,14 @@ const configScheme = Joi.object({
     .integer()
     .min(0),
 
+  keepaliveInterval: Joi.number()
+    .integer()
+    .min(0),
+
+  keepaliveCountMax: Joi.number()
+    .integer()
+    .min(0),
+
   syncOption: {
     delete: Joi.boolean(),
     skipCreate: Joi.boolean(),
@@ -100,6 +112,7 @@ const configScheme = Joi.object({
       .min(0)
       .items(Joi.string()),
     order: Joi.number(),
+    enableDragAndDrop: Joi.boolean(),
   },
 });
 
@@ -155,6 +168,12 @@ export const defaultConfig = {
   // front of ConnectTimeout from ~/.ssh/config forever. FileService applies
   // DEFAULT_CONNECT_TIMEOUT after the ssh config has had its say instead, so
   // precedence reads sftp.json > ~/.ssh/config > built-in.
+
+  // keepaliveInterval and keepaliveCountMax are likewise left undefined here,
+  // for the same reason: ~/.ssh/config's ServerAliveInterval maps onto
+  // keepaliveInterval (see fileService's mergeConfigWithExternalRefer), and a
+  // default set here would always outrank it. SSHClient falls back to its own
+  // defaults (30s / x2) only once both sftp.json and ~/.ssh/config are silent.
 
   // sftp
   // agent,

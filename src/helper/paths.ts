@@ -38,8 +38,47 @@ export function toLocalPath(remotePath: string, remoteContext: string, localCont
   return path.join(localContext, upath.relative(remoteContext, remotePath));
 }
 
-export function isSubpathOf(possiableParentPath: string, pathname: string) {
-  return path.normalize(pathname).indexOf(path.normalize(possiableParentPath)) === 0;
+// Separator-boundary-safe "is at or under" checks, used by the rename/move
+// feature for both root-escape and self-nesting validation. A plain
+// `pathname.indexOf(parent) === 0` check -- the obvious first way to write
+// this -- false-positives on prefix siblings (e.g. `/src` reads as a parent
+// of `/src-legacy`), because nothing requires a boundary character after the
+// parent; these two require one.
+
+// Remote paths are always POSIX, regardless of the platform SFTPresso runs
+// on, so this normalizes with upath (which also resolves `.`/`..` segments)
+// rather than the platform-specific `path` module.
+export function isRemotePathAtOrUnder(parent: string, pathname: string): boolean {
+  const normalizedParent = upath.normalize(parent).replace(/\/+$/, '') || '/';
+  const normalizedPath = upath.normalize(pathname);
+
+  if (normalizedPath === normalizedParent) {
+    return true;
+  }
+
+  const prefix = normalizedParent === '/' ? '/' : normalizedParent + '/';
+  return normalizedPath.startsWith(prefix);
+}
+
+function trimTrailingSep(pathname: string): string {
+  let end = pathname.length;
+  while (end > 1 && pathname[end - 1] === path.sep) {
+    end -= 1;
+  }
+  return pathname.slice(0, end);
+}
+
+// Local-fsPath equivalent, using the platform path module/separator.
+export function isLocalPathAtOrUnder(parent: string, pathname: string): boolean {
+  const normalizedParent = trimTrailingSep(path.normalize(parent));
+  const normalizedPath = path.normalize(pathname);
+
+  if (normalizedPath === normalizedParent) {
+    return true;
+  }
+
+  const prefix = normalizedParent === path.sep ? path.sep : normalizedParent + path.sep;
+  return normalizedPath.startsWith(prefix);
 }
 
 export function replaceHomePath(pathname: string) {
