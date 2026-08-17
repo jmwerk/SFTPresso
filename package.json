@@ -968,7 +968,7 @@
     "@types/fs-extra": "^9.0.13",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.20.1",
-    "@types/vscode": "~1.75.0",
+    "@types/vscode": "~1.125.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.1",
     "eslint": "^10.6.0",
@@ -977,11 +977,11 @@
     "patch-package": "^8.0.1",
     "ts-jest": "^29.4.11",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.63.0"
+    "typescript-eslint": "^8.67.0"
   },
   "dependencies": {
     "async": "^3.2.6",
-    "basic-ftp": "^6.0.1",
+    "basic-ftp": "^6.2.0",
     "fs-extra": "^11.2.0",
     "ignore": "^7.0.6",
     "joi": "^18.2.3",
