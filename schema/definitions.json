@@ -191,13 +191,13 @@
       },
       "idleTimeout": {
         "type": "number",
-        "description": "Milliseconds of inactivity after which the pooled connection is checked with a cheap round-trip before it is reused, reconnecting if the server has closed it in the meantime. Useful against hosts that drop idle connections, which otherwise leave the next operation hanging. Defaults to 60000. Set to 0 to reuse the connection unchecked.",
-        "default": 60000
+        "description": "Milliseconds of inactivity after which the pooled connection is checked with a cheap round-trip before it is reused, reconnecting if the server has closed it in the meantime. Useful against hosts that drop idle connections, which otherwise leave the next operation hanging. 0 (the default) reuses the connection unchecked.",
+        "default": 0
       },
       "stallTimeout": {
         "type": "number",
-        "description": "Milliseconds without a single byte moving before a transfer is treated as stalled and failed, so it can be retried instead of waiting forever on a connection that died mid-transfer. The clock resets on every chunk, so a slow but progressing transfer is never interrupted. Defaults to 120000. Set to 0 to wait indefinitely.",
-        "default": 120000
+        "description": "Milliseconds without a single byte moving before a transfer is treated as stalled and failed, so it can be retried instead of waiting forever on a connection that died mid-transfer. The clock resets on every chunk, so a slow but progressing transfer is never interrupted. 0 (the default) waits indefinitely.",
+        "default": 0
       },
       "operationTimeout": {
         "type": "number",

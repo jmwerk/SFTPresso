@@ -725,7 +725,7 @@ Set it a little under whatever your host allows. If it drops connections after 5
 
 | Key | Type | Default |
 | --- | --- | --- |
-| `idleTimeout` | number | `60000` (set to `0` to never check) |
+| `idleTimeout` | number | `0` (never checked) |
 
 ```jsonc
 {
@@ -758,7 +758,7 @@ The clock resets on every chunk, so this measures *stalling*, not total duration
 
 | Key | Type | Default |
 | --- | --- | --- |
-| `stallTimeout` | number | `120000` (set to `0` to wait indefinitely) |
+| `stallTimeout` | number | `0` (wait indefinitely) |
 
 ```jsonc
 {
@@ -769,7 +769,7 @@ The clock resets on every chunk, so this measures *stalling*, not total duration
 ```
 
 #### operationTimeout
-Covers the third way a connection can go quiet.
+Covers the third way a connection can go quiet, and the only one of the three that is on by default.
 
 [`idleTimeout`](#idletimeout) catches a connection that died between operations and [`stallTimeout`](#stalltimeout) catches one that died mid-transfer. Neither covers the requests that surround a transfer — the `mkdir` that creates the target directory, the directory listing that drives a sync, a `stat`, a rename, a delete. A server can leave the SSH transport up, answering keepalives perfectly happily, while the SFTP subsystem behind it stops reading its channel; every request after that is queued locally and nothing is ever answered. There is no error to react to, so the command simply never finishes.
 

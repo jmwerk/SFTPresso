@@ -142,16 +142,12 @@ export const defaultConfig = {
   },
 
   // ms of inactivity after which a pooled connection is checked before it is
-  // reused. A minute-idle connection is worth one cheap round-trip to confirm
-  // it is still alive, rather than discovering it is dead partway through the
-  // next transfer. Set to 0 to reuse it unchecked, as before.
-  idleTimeout: 60 * 1000,
+  // reused. 0 keeps the existing behaviour of reusing it unchecked.
+  idleTimeout: 0,
 
-  // ms without a byte moving before a transfer is given up on. Two minutes
-  // with zero bytes moving is dead, not slow -- the clock resets on every
-  // chunk, so a large transfer that is merely slow is never touched. Set to
-  // 0 to wait indefinitely, as before.
-  stallTimeout: 120 * 1000,
+  // ms without a byte moving before a transfer is given up on. 0 waits
+  // indefinitely, as before.
+  stallTimeout: 0,
 
   // ms a single remote request may go unanswered before it is failed and the
   // connection dropped. Unlike the two above this defaults on: a request that
