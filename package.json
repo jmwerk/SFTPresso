@@ -912,7 +912,7 @@
     "pub:debug": "rm -rf _debug && mkdir _debug && vsce package --out _debug/sftp-debug.vsix && cd _debug && git init && git commit --allow-empty -m 'update debug package' && git checkout -b debug-pacakge && cp ../INSTALL_DEBUG.md README.md  && git add . && git commit -am 'update debug package' && git push git@github.com:jmwerk/SFTPresso.git debug-pacakge --force"
   },
   "devDependencies": {
-    "@types/fs-extra": "^9.0.13",
+    "@types/fs-extra": "^11.0.4",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.20.1",
     "@types/vscode": "~1.125.0",
@@ -929,7 +929,7 @@
   "dependencies": {
     "async": "^3.2.6",
     "basic-ftp": "^6.2.0",
-    "fs-extra": "^10.1.0",
+    "fs-extra": "^11.4.0",
     "ignore": "^7.0.6",
     "joi": "^18.2.3",
     "jsonc-parser": "^3.3.1",
