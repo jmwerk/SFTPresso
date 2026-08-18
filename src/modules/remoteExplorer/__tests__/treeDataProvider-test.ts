@@ -29,6 +29,12 @@ jest.mock('vscode', () => {
 jest.mock('../../../helper', () => ({
   toLocalPath: jest.fn(),
   toRemotePath: jest.fn(),
+  isImageFile: jest.fn(() => false),
+  reportError: jest.fn(),
+}));
+
+jest.mock('../../../fileHandlers', () => ({
+  previewImage: jest.fn(),
 }));
 
 jest.mock('../../../core', () => ({

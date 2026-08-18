@@ -52,6 +52,13 @@ export function showTextDocument(uri: vscode.Uri, option?: vscode.TextDocumentSh
   return vscode.window.showTextDocument(uri, option);
 }
 
+// Unlike showTextDocument, this lets VS Code resolve the default editor for
+// the uri (e.g. the built-in image preview for png/jpg/...) instead of
+// forcing the plain-text editor.
+export function openFile(uri: vscode.Uri, option?: vscode.TextDocumentShowOptions) {
+  return executeCommand('vscode.open', uri, option);
+}
+
 export function diffFiles(leftFsPath, rightFsPath, title, option?) {
   const leftUri = vscode.Uri.file(leftFsPath);
   const rightUri = vscode.Uri.file(rightFsPath);

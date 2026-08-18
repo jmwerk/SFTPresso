@@ -10,6 +10,8 @@ import {
   Ignore,
   ServiceConfig,
 } from '../../core';
+import { isImageFile, reportError } from '../../helper';
+import { previewImage } from '../../fileHandlers';
 import {
   COMMAND_REMOTEEXPLORER_VIEW_CONTENT,
   COMMAND_REMOTEEXPLORER_EDITINLOCAL,
@@ -357,6 +359,17 @@ export default class RemoteTreeData
 
   showItem(item: ExplorerItem): void {
     if (item.isDirectory) {
+      return;
+    }
+
+    // The "view content" path renders the remote bytes as a plain-text
+    // document (via provideTextDocumentContent below), which mangles binary
+    // data. Images need real bytes on disk so VS Code's image preview can
+    // render them, but "View Content" is meant to just look, not to persist
+    // anything into the workspace -- so pull to a throwaway tmp file rather
+    // than the actual local-mirror download used by "Edit in Local".
+    if (isImageFile(item.resource.fsPath)) {
+      previewImage(item.resource.uri).catch(reportError);
       return;
     }
 

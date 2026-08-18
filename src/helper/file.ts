@@ -17,6 +17,28 @@ export function fileDepth(file: string) {
   return upath.normalize(file).split('/').length;
 }
 
+const IMAGE_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.bmp',
+  '.webp',
+  '.ico',
+  '.svg',
+  '.tif',
+  '.tiff',
+  '.avif',
+]);
+
+// TextDocumentContentProvider can only surface a document as text, and
+// showTextDocument forces the plain-text editor -- neither can render an
+// image, so callers need to detect this case up front and route through
+// vscode.open (which resolves the built-in image preview) instead.
+export function isImageFile(fsPath: string): boolean {
+  return IMAGE_EXTENSIONS.has(path.extname(fsPath).toLowerCase());
+}
+
 export function makeTmpFile(option): Promise<string> {
   return new Promise((resolve, reject) => {
     tmp.file({ ...option, discardDescriptor: true }, (err, tmpPath) => {
