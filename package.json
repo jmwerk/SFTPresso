@@ -970,7 +970,7 @@
     "@types/node": "^22.20.1",
     "@types/vscode": "~1.125.0",
     "@vscode/vsce": "^3.9.2",
-    "esbuild": "^0.28.1",
+    "esbuild": "^0.28.2",
     "eslint": "^10.6.0",
     "jest": "^30.4.2",
     "memfs": "2.17.1",
