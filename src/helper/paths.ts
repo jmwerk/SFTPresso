@@ -15,10 +15,17 @@ function getFileSystemPath(uri: URI | string): string {
 		result = result[0].toUpperCase() + result.substr(1);
 	}
 	if (process.platform === 'win32' || process.platform === 'darwin') {
-		const realpath = fs.realpathSync.native(result);
-		// Only use the real path if only the casing has changed.
-		if (realpath.toLowerCase() === result.toLowerCase()) {
-			result = realpath;
+		// The path may no longer exist on disk -- e.g. a delete-watcher event
+		// fires after the file is already gone -- in which case there's no
+		// real path to resolve casing against, so fall back to the input as-is.
+		try {
+			const realpath = fs.realpathSync.native(result);
+			// Only use the real path if only the casing has changed.
+			if (realpath.toLowerCase() === result.toLowerCase()) {
+				result = realpath;
+			}
+		} catch {
+			// ignore, use result unresolved
 		}
 	}
 	return result;

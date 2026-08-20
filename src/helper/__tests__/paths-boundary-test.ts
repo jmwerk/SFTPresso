@@ -2,8 +2,9 @@
 // dependency of their own -- but paths.ts also exports functions that reach
 // through ../host into vscode. The default __mocks__/vscode.js stub already
 // makes that safe to import for real.
-import { isRemotePathAtOrUnder, isLocalPathAtOrUnder } from '../paths';
+import { isRemotePathAtOrUnder, isLocalPathAtOrUnder, toRemotePath } from '../paths';
 import * as path from 'path';
+import * as os from 'os';
 
 describe('isRemotePathAtOrUnder', () => {
   test('the parent itself counts as at-or-under', () => {
@@ -66,5 +67,19 @@ describe('isLocalPathAtOrUnder', () => {
   test('resolves .. before comparing', () => {
     const root = j(path.sep, 'src');
     expect(isLocalPathAtOrUnder(root, j(root, '..', 'dist'))).toBe(false);
+  });
+});
+
+// Regression for #70: a delete-watcher event fires *after* the file is
+// already gone from disk, so realpath has nothing to resolve. On win32/darwin
+// that used to throw ENOENT out of toRemotePath (via getFileSystemPath)
+// before the remote delete ever ran, silently breaking autoDelete.
+describe('toRemotePath with a path that no longer exists on disk', () => {
+  test('does not throw, and falls back to the unresolved path', () => {
+    const gone = path.join(os.tmpdir(), `sftpresso-test-gone-${Date.now()}`, 'file.txt');
+    const localContext = path.dirname(gone);
+
+    expect(() => toRemotePath(gone, localContext, '/remote')).not.toThrow();
+    expect(toRemotePath(gone, localContext, '/remote')).toBe('/remote/file.txt');
   });
 });
