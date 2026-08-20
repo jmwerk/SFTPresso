@@ -6,8 +6,10 @@ import StatusBarItem from '../ui/statusBarItem';
 import {
   onDidOpenTextDocument,
   onDidSaveTextDocument,
+  onDidGrantWorkspaceTrust,
   showConfirmMessage,
   showInformationMessage,
+  isWorkspaceTrusted,
 } from '../host';
 import { readConfigsFromFile } from './config';
 import {
@@ -92,6 +94,15 @@ async function handleFileSave(uri: vscode.Uri) {
 
   const config = fileService.getConfig();
   if (config.uploadOnSave) {
+    // uploadOnSave is a value read straight out of the workspace's
+    // sftp.json -- honoring it in an untrusted workspace would let a repo
+    // silently exfiltrate every file the user saves to a host it picked
+    if (!isWorkspaceTrusted()) {
+      logger.info(`[file-save] upload-on-save blocked, workspace is not trusted: ${uri.fsPath}`);
+      app.sftpBarItem.updateStatus(StatusBarItem.Status.warn);
+      return;
+    }
+
     const fspath = await realpathSync.native(uri.fsPath);
     uri = vscode.Uri.file(fspath);
     logger.info(`[file-save] ${fspath}`);
@@ -112,6 +123,15 @@ async function downloadOnOpen(uri: vscode.Uri) {
 
   const config = fileService.getConfig();
   if (config.downloadOnOpen) {
+    // Same reasoning as uploadOnSave above: this is workspace-supplied
+    // config driving an automatic write to disk, which is exactly what
+    // Workspace Trust exists to gate.
+    if (!isWorkspaceTrusted()) {
+      logger.info(`[file-open] download-on-open blocked, workspace is not trusted: ${uri.fsPath}`);
+      app.sftpBarItem.updateStatus(StatusBarItem.Status.warn);
+      return;
+    }
+
     if (config.downloadOnOpen === 'confirm') {
       const isConfirm = await showConfirmMessage('Do you want SFTP to download this file?');
       if (!isConfirm) return;
@@ -160,6 +180,7 @@ function watchWorkspace({
 }
 
 let activeEditorWatcher: vscode.Disposable;
+let trustWatcher: vscode.Disposable;
 
 function init() {
   onDidOpenTextDocument((doc: vscode.TextDocument) => {
@@ -168,6 +189,14 @@ function init() {
     }
 
     downloadOnOpen(doc.uri);
+  });
+
+  // Trust is granted once per workspace and never revoked within a session,
+  // so this only ever needs to clear the blocked-by-trust indicator, not set
+  // it -- handleFileSave/downloadOnOpen set it themselves when they fire.
+  trustWatcher = onDidGrantWorkspaceTrust(() => {
+    logger.info('[trust] workspace trusted; upload-on-save and download-on-open re-enabled');
+    app.sftpBarItem.updateStatus(StatusBarItem.Status.ok);
   });
 
   // keep the status-bar "upload on save" indicator in sync with the focused
@@ -202,6 +231,9 @@ function destory() {
   }
   if (activeEditorWatcher) {
     activeEditorWatcher.dispose();
+  }
+  if (trustWatcher) {
+    trustWatcher.dispose();
   }
   if (configDeleteWatcher) {
     configDeleteWatcher.dispose();

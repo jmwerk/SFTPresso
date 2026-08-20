@@ -32,6 +32,12 @@
   ],
   "icon": "resources/icon.png",
   "main": "./dist/extension",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "Upload-on-save, download-on-open, and running remote commands read behavior straight out of the workspace's sftp.json and are disabled until the workspace is trusted. Manually triggered commands (Upload File, Download Project, etc.) still work."
+    }
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -386,10 +392,19 @@
         "title": "Clear Filter",
         "category": "SFTP",
         "icon": "$(clear-all)"
+      },
+      {
+        "command": "sftp.toggleOutput",
+        "title": "Toggle Output Panel",
+        "category": "SFTP"
       }
     ],
     "menus": {
       "commandPalette": [
+        {
+          "command": "sftp.toggleOutput",
+          "when": "sftp.enabled"
+        },
         {
           "command": "sftp.setProfile",
           "when": "sftp.enabled"

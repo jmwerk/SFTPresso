@@ -1,6 +1,6 @@
 import { Uri, window } from 'vscode';
 import { COMMAND_RUN_REMOTE_COMMAND } from '../constants';
-import { showConfirmMessage, showErrorMessage, showInformationMessage } from '../host';
+import { showConfirmMessage, showErrorMessage, showInformationMessage, isWorkspaceTrusted } from '../host';
 import { RemoteFileSystem } from '../core/fs';
 import { execCommand } from '../core/remote-client/exec';
 import { SSHClient } from '../core/remote-client';
@@ -52,6 +52,16 @@ export default checkCommand({
   id: COMMAND_RUN_REMOTE_COMMAND,
 
   async handleCommand(uri?: Uri) {
+    // The saved-command list this prompts from comes straight out of the
+    // workspace's sftp.json -- an untrusted repo could label an arbitrary
+    // shell command with an innocent-looking name and have the user run it.
+    if (!isWorkspaceTrusted()) {
+      showErrorMessage(
+        'Running a remote command requires a trusted workspace. Use "Workspaces: Manage Workspace Trust" to enable it.'
+      );
+      return;
+    }
+
     const service = await resolveTargetService(uri, 'Select a config to run a command on');
     if (!service) {
       showErrorMessage('No SFTP config found.');

@@ -10,7 +10,23 @@ jest.mock('vscode', () => {
     fn.toString = fn.toLocaleString = (fn as any)[Symbol.toPrimitive] = () => '';
     (fn as any).valueOf = () => false;
     return new Proxy(fn, {
-      get: (o: any, key) => (o.hasOwnProperty(key) ? o[key] : Nothing),
+      get: (o: any, key) => {
+        // withProgress is actually awaited and runs its callback -- unlike
+        // everything else here, Nothing() would hang the test forever. This
+        // needs to live on the inner proxy (not just the outer one below) so
+        // it still applies through `vscode.window.withProgress`, not just a
+        // hypothetical top-level `vscode.withProgress`.
+        if (key === 'withProgress') {
+          return (_options: any, task: any) =>
+            Promise.resolve(
+              task(
+                { report() {} },
+                { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) }
+              )
+            );
+        }
+        return o.hasOwnProperty(key) ? o[key] : Nothing;
+      },
     });
   })();
 
@@ -35,6 +51,7 @@ jest.mock('../../../logger', () => ({
 
 jest.mock('../../../modules/serviceManager', () => ({
   getFileService: () => undefined,
+  onTransferEvent: () => ({ dispose() {} }),
 }));
 
 jest.mock('../../shared', () => ({

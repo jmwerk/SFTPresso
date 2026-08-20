@@ -10,7 +10,22 @@ const Nothing = (() => {
 	fn.valueOf = () => false
 
 	return new Proxy(fn, {
-		get: (o, key) => o.hasOwnProperty(key) ? o[key] : Nothing
+		get: (o, key) => {
+			// Unlike everything else here, callers actually await what this
+			// returns and run code inside the callback -- Nothing() would give
+			// back Nothing, which is a thenable that never settles and hangs
+			// any test that awaits it.
+			if (key === 'withProgress') {
+				return (_options, task) =>
+					Promise.resolve(
+						task(
+							{ report() {} },
+							{ isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) }
+						)
+					)
+			}
+			return o.hasOwnProperty(key) ? o[key] : Nothing
+		}
 	})
 })()
 

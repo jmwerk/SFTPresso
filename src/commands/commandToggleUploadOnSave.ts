@@ -1,6 +1,6 @@
 import { Uri } from 'vscode';
 import { COMMAND_TOGGLE_UPLOAD_ON_SAVE } from '../constants';
-import { showInformationMessage, showErrorMessage } from '../host';
+import { showErrorMessage } from '../host';
 import app from '../app';
 import { FileService } from '../core';
 import { getConfigPath, writeConfigValue } from '../modules/config';
@@ -44,9 +44,11 @@ export default checkCommand({
       return;
     }
 
-    // reflect the change immediately, without waiting for a config reload
+    // reflect the change immediately, without waiting for a config reload --
+    // this already redraws the $(cloud-upload) status bar icon, so a
+    // separate confirmation toast would just be a second copy of the same
+    // information the user is already looking at
     service.setConfigValue('uploadOnSave', next);
     app.state.uploadOnSave = next;
-    showInformationMessage(`Upload on Save ${next ? 'enabled' : 'disabled'}.`);
   },
 });

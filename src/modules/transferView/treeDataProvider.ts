@@ -16,6 +16,13 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
   // pending "remove failed item" timers, so a retried task keeps its row
   private readonly _errorTimers: Map<TransferTask, ReturnType<typeof setTimeout>> = new Map();
 
+  // Failures the user hasn't seen yet -- the tree row itself disappears after
+  // ERROR_DISPLAY_DURATION, so this is what drives the activity-bar badge and
+  // survives independently of that timer until the Transfers view is opened.
+  private _unseenFailedCount = 0;
+  private readonly _onDidChangeUnseenFailedCount = new vscode.EventEmitter<number>();
+  readonly onDidChangeUnseenFailedCount = this._onDidChangeUnseenFailedCount.event;
+
   constructor() {
     onTransferEvent(({ type, task, error }) => {
       switch (type) {
@@ -42,6 +49,8 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
               this._onDidChangeTreeData.fire(undefined);
             }, ERROR_DISPLAY_DURATION);
             this._errorTimers.set(task, timer);
+            this._unseenFailedCount++;
+            this._onDidChangeUnseenFailedCount.fire(this._unseenFailedCount);
           } else {
             this._items.delete(task);
           }
@@ -50,6 +59,14 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
 
       this._onDidChangeTreeData.fire(undefined);
     });
+  }
+
+  clearUnseenFailures(): void {
+    if (this._unseenFailedCount === 0) {
+      return;
+    }
+    this._unseenFailedCount = 0;
+    this._onDidChangeUnseenFailedCount.fire(0);
   }
 
   private _clearErrorTimer(task: TransferTask) {
