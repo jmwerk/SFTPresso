@@ -50,7 +50,7 @@ jest.mock('../../../host', () => ({
   showTextDocument: jest.fn(),
 }));
 
-import { FileType, upath } from '../../../core';
+import { FileType, upath, UResource } from '../../../core';
 import { getAllFileService } from '../../serviceManager';
 import RemoteTreeData, { ExplorerItem, ExplorerRoot } from '../treeDataProvider';
 
@@ -334,5 +334,57 @@ describe('RemoteTreeData filtering', () => {
     const retried = await provider.getChildren(root);
     expect(basenames(retried)).toEqual(['src']);
     expect(srcCallCount).toBe(2);
+  });
+});
+
+// Regression: getParent()/provideTextDocumentContent() are reachable from a
+// file operation's post-transfer refresh (refreshRemoteExplorer) before the
+// Remote Explorer view has ever rendered a root, which is the only thing that
+// used to populate _rootsMap. findRoot() must build it lazily rather than
+// require getChildren() to have run first.
+describe('RemoteTreeData.findRoot before the view has ever rendered', () => {
+  test('getParent resolves a root-level item on a brand new provider', async () => {
+    const config = fakeConfig();
+    getAllFileServiceMock.mockReturnValue([fakeFileService(config)]);
+    const provider = new RemoteTreeData();
+
+    // no getChildren() call yet -- _rootsMap would still be null here
+    const item: ExplorerItem = {
+      resource: UResource.makeResource({
+        remote: { host: config.host, port: config.port },
+        fsPath: upath.join(ROOT, 'readme.txt'),
+        remoteId: 1,
+      }),
+      isDirectory: false,
+    };
+
+    const parent = await provider.getParent(item);
+    expect(parent.resource.fsPath).toBe(ROOT);
+  });
+
+  test('provideTextDocumentContent resolves a root on a brand new provider', async () => {
+    const config = fakeConfig();
+    getAllFileServiceMock.mockReturnValue([
+      {
+        id: 1,
+        name: 'test-server',
+        getConfig: () => config,
+        getRemoteFileSystem: async () => ({
+          list,
+          readFile: async () => Buffer.from('content'),
+        }),
+      },
+    ]);
+    const provider = new RemoteTreeData();
+
+    const uri = UResource.makeResource({
+      remote: { host: config.host, port: config.port },
+      fsPath: upath.join(ROOT, 'readme.txt'),
+      remoteId: 1,
+    }).uri;
+
+    await expect(
+      provider.provideTextDocumentContent(uri, {} as any)
+    ).resolves.toBeDefined();
   });
 });

@@ -329,12 +329,15 @@ export default class RemoteTreeData
   }
 
   findRoot(uri: vscode.Uri): ExplorerRoot | null | undefined {
-    if (!this._rootsMap) {
-      return null;
-    }
+    // _rootsMap is normally populated by VS Code's own initial getChildren()
+    // call, but getParent()/provideTextDocumentContent() can be reached first
+    // -- e.g. a file operation's post-transfer refresh, before the Remote
+    // Explorer view has ever rendered. _getRoots() is cheap (in-memory config,
+    // no I/O) and already memoized, so build it here rather than failing.
+    this._getRoots();
 
     const rootId = UResource.makeResource(uri).remoteId;
-    return this._rootsMap.get(rootId);
+    return this._rootsMap!.get(rootId);
   }
 
   async provideTextDocumentContent(
