@@ -3,7 +3,12 @@ import logger from '../logger';
 import { realpathSync } from 'fs';
 import app from '../app';
 import StatusBarItem from '../ui/statusBarItem';
-import { onDidOpenTextDocument, onDidSaveTextDocument, showConfirmMessage } from '../host';
+import {
+  onDidOpenTextDocument,
+  onDidSaveTextDocument,
+  showConfirmMessage,
+  showInformationMessage,
+} from '../host';
 import { readConfigsFromFile } from './config';
 import {
   createFileService,
@@ -15,8 +20,10 @@ import {
 } from './serviceManager';
 import { reportError, isValidFile, isConfigFile, isInWorkspace } from '../helper';
 import { downloadFile, uploadFile } from '../fileHandlers';
+import { CONGIF_FILENAME } from '../constants';
 
 let workspaceWatcher: vscode.Disposable;
+let configDeleteWatcher: vscode.FileSystemWatcher;
 
 async function handleConfigSave(uri: vscode.Uri) {
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
@@ -45,6 +52,35 @@ async function handleConfigSave(uri: vscode.Uri) {
     reconcileActiveProfile();
     refreshUploadOnSaveState();
     app.remoteExplorer.refresh();
+  }
+}
+
+// Nothing else observes sftp.json disappearing -- onDidSaveTextDocument only
+// fires on save, so without this the trie keeps handing out a FileService
+// built from a config that's no longer on disk until the window reloads.
+function handleConfigDelete(uri: vscode.Uri) {
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+  const workspacePath = workspaceFolder && workspaceFolder.uri.fsPath;
+
+  const affectedServices = findAllFileService(service => service.workspace === workspacePath);
+  affectedServices.forEach(service => {
+    logger.info(`[config] ${uri.fsPath} removed, disabling SFTP for ${service.baseDir}`);
+    disposeFileService(service);
+  });
+
+  reconcileActiveProfile();
+  refreshUploadOnSaveState();
+  if (app.remoteExplorer) {
+    app.remoteExplorer.refresh();
+  }
+
+  // Only worth surfacing when it actually turned SFTP off for something --
+  // an sftp.json deleted before any config ever loaded from it (e.g. it was
+  // invalid) leaves nothing disposed above and would make this a false alarm.
+  if (affectedServices.length > 0) {
+    const label = workspaceFolder ? workspaceFolder.name : uri.fsPath;
+    showInformationMessage(`SFTP config removed. SFTP disabled for "${label}".`);
+    app.sftpBarItem.showMsg('SFTP config removed', uri.fsPath, 2000 * 2);
   }
 }
 
@@ -144,6 +180,20 @@ function init() {
     onDidSaveFile: handleFileSave,
     onDidSaveSftpConfig: handleConfigSave,
   });
+
+  if (configDeleteWatcher) {
+    configDeleteWatcher.dispose();
+  }
+  // ignoreCreate/ignoreChange: creation and edits are already handled via
+  // onDidSaveTextDocument above; this watcher exists solely for delete, which
+  // saves never fire for.
+  configDeleteWatcher = vscode.workspace.createFileSystemWatcher(
+    `**/.vscode/${CONGIF_FILENAME}`,
+    true,
+    true,
+    false
+  );
+  configDeleteWatcher.onDidDelete(handleConfigDelete);
 }
 
 function destory() {
@@ -152,6 +202,9 @@ function destory() {
   }
   if (activeEditorWatcher) {
     activeEditorWatcher.dispose();
+  }
+  if (configDeleteWatcher) {
+    configDeleteWatcher.dispose();
   }
 }
 
