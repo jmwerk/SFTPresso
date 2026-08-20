@@ -98,7 +98,8 @@ function createTransferHandle(direction: TransferDirection) {
     const scheduler = this.fileService.createTransferScheduler(
       this.config.concurrency,
       this.config.retry,
-      this.config.stallTimeout
+      this.config.stallTimeout,
+      this.config
     );
     // cancelling stops the scan too, not just the tasks already queued
     const skipped: SkippedEntry[] = [];
@@ -163,7 +164,8 @@ export const sync2Remote = createFileHandler<SyncOption>({
     const scheduler = this.fileService.createTransferScheduler(
       this.config.concurrency,
       this.config.retry,
-      this.config.stallTimeout
+      this.config.stallTimeout,
+      this.config
     );
     // Attach filePerm and dirPerm to transferOption
     option.filePerm = this.config.filePerm;
@@ -227,7 +229,8 @@ export const sync2Local = createFileHandler<SyncOption>({
     const scheduler = this.fileService.createTransferScheduler(
       this.config.concurrency,
       this.config.retry,
-      this.config.stallTimeout
+      this.config.stallTimeout,
+      this.config
     );
     const skipped: SkippedEntry[] = [];
     let deleted: FileEntry[];

@@ -29,7 +29,8 @@ export default checkCommand({
     const scheduler = fileService.createTransferScheduler(
       config.concurrency,
       config.retry,
-      config.stallTimeout
+      config.stallTimeout,
+      config
     );
     task.reset();
     // an explicit retry earns a fresh automatic-retry budget

@@ -8,12 +8,14 @@ function createFakeTask(
   option: { cancelled?: boolean } = {}
 ) {
   const runsAt: number[] = [];
+  const refreshedFs: unknown[] = [];
   const task = {
     attempts: 0,
     resetCount: 0,
     disposeCount: 0,
     cancelCount: 0,
     runsAt,
+    refreshedFs,
     localFsPath: '/ws/file.txt',
     transferType: 'local ➞ remote',
     setProgressListener() {
@@ -29,6 +31,9 @@ function createFakeTask(
     },
     dispose() {
       task.disposeCount += 1;
+    },
+    refreshRemoteFs(fs: unknown) {
+      refreshedFs.push(fs);
     },
     async run() {
       runsAt.push(Date.now());
@@ -213,5 +218,89 @@ describe('transfer retry', () => {
     expect(task.cancelCount).toBe(1);
     expect(afterTransfer).toHaveBeenCalledWith(error, task);
     expect(task.disposeCount).toBe(1);
+  });
+
+  it('reconnects and refreshes the remote fs before re-running a retried task', async () => {
+    const freshFs = { marker: 'fresh' };
+    const getRemoteFileSystem = jest
+      .spyOn(service, 'getRemoteFileSystem')
+      .mockResolvedValue(freshFs as any);
+    const task = createFakeTask([transientError(), null]);
+    const config = { some: 'config' } as any;
+    const scheduler = service.createTransferScheduler(
+      1,
+      { attempts: 2, delay: 1000 },
+      0,
+      config
+    );
+    scheduler.add(task as unknown as TransferTask);
+
+    await runToCompletion(scheduler);
+
+    expect(getRemoteFileSystem).toHaveBeenCalledWith(config);
+    expect(task.refreshedFs).toEqual([freshFs]);
+    expect(task.runsAt).toHaveLength(2);
+    expect(afterTransfer).toHaveBeenCalledWith(null, task);
+  });
+
+  it('reports the task as failed, without hanging, when the reconnect itself fails', async () => {
+    const reconnectError = new Error('ECONNREFUSED');
+    jest.spyOn(service, 'getRemoteFileSystem').mockRejectedValue(reconnectError);
+    const task = createFakeTask([transientError()]);
+    const config = { some: 'config' } as any;
+    const scheduler = service.createTransferScheduler(
+      1,
+      { attempts: 2, delay: 1000 },
+      0,
+      config
+    );
+    scheduler.add(task as unknown as TransferTask);
+
+    await runToCompletion(scheduler);
+
+    // the retry never actually re-ran the transfer
+    expect(task.runsAt).toHaveLength(1);
+    expect(task.refreshedFs).toHaveLength(0);
+    expect(afterTransfer).toHaveBeenCalledWith(reconnectError, task);
+    expect(task.disposeCount).toBe(1);
+  });
+
+  it('does not re-run or hang when stop() lands while a reconnect is in flight', async () => {
+    const error = transientError();
+    let resolveReconnect: (fs: unknown) => void;
+    jest.spyOn(service, 'getRemoteFileSystem').mockReturnValue(
+      new Promise(resolve => {
+        resolveReconnect = resolve;
+      }) as any
+    );
+    const task = createFakeTask([error]);
+    const config = { some: 'config' } as any;
+    const scheduler = service.createTransferScheduler(
+      1,
+      { attempts: 2, delay: 1000 },
+      0,
+      config
+    );
+    scheduler.add(task as unknown as TransferTask);
+
+    const done = scheduler.run();
+    // let the first attempt fail and its backoff elapse, landing us mid-reconnect
+    await jest.advanceTimersByTimeAsync(2000);
+    expect(task.runsAt).toHaveLength(1);
+
+    scheduler.stop();
+    // stop() should have already cancelled and reported the task synchronously
+    expect(task.cancelCount).toBe(1);
+    expect(afterTransfer).toHaveBeenCalledTimes(1);
+    expect(afterTransfer).toHaveBeenCalledWith(error, task);
+
+    // the reconnect now resolves after the fact -- must not re-run the task or
+    // report it a second time, and run() must still settle
+    resolveReconnect!({ marker: 'late' });
+    await done;
+
+    expect(task.runsAt).toHaveLength(1);
+    expect(task.refreshedFs).toHaveLength(0);
+    expect(afterTransfer).toHaveBeenCalledTimes(1);
   });
 });

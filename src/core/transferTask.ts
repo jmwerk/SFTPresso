@@ -109,8 +109,8 @@ export default class TransferTask implements Task {
   readonly fileType: FileType;
   private readonly _srcFsPath: string;
   private readonly _targetFsPath: string;
-  private readonly _srcFs: FileSystem;
-  private readonly _targetFs: FileSystem;
+  private _srcFs: FileSystem;
+  private _targetFs: FileSystem;
   private readonly _transferDirection: TransferDirection;
   private readonly _TransferOption: TransferOption;
   private _cancelTokenSource: CancellationTokenSource | undefined;
@@ -163,6 +163,19 @@ export default class TransferTask implements Task {
   // called by the scheduler wiring to receive throttled progress updates
   setProgressListener(listener: () => void) {
     this._progressListener = listener;
+  }
+
+  // Swaps in a freshly-resolved remote filesystem ahead of a retried attempt.
+  // The connection pool may have evicted the instance this task was built
+  // with; the retry path calls this after reconnecting and before re-queueing
+  // so the retry doesn't run against the dead instance. Only the remote side
+  // is ever pool-backed, so only it needs refreshing.
+  refreshRemoteFs(fs: FileSystem) {
+    if (this._transferDirection === TransferDirection.REMOTE_TO_LOCAL) {
+      this._srcFs = fs;
+    } else {
+      this._targetFs = fs;
+    }
   }
 
   // reset transient state so this task can be re-run (used by Retry)

@@ -569,7 +569,8 @@ export default class FileService {
   createTransferScheduler(
     concurrency,
     retryOption: RetryOption = DEFAULT_RETRY_OPTION,
-    stallTimeout: number = 0
+    stallTimeout: number = 0,
+    config?: ServiceConfig
   ): TransferScheduler {
     const fileService = this;
     const resolvedConcurrency = resolveConcurrency(concurrency);
@@ -646,13 +647,48 @@ export default class FileService {
             ` (${err.message}), retrying in ${delay}ms` +
             ` (attempt ${transferTask.attempts} of ${maxRetries})`
         );
-        const timer = setTimeout(() => {
-          retryTimers.delete(transferTask);
-          if (isStopped) {
-            // nothing left to run this task; let run() settle
+        const timer = setTimeout(async () => {
+          // Reconnect before re-queueing rather than after: the pool may have
+          // evicted the connection this task was built with (see #50's
+          // operationTimeout work), and running the retry against a dead
+          // instance would just fail it again. The entry deliberately stays in
+          // retryTimers for the duration of the reconnect -- if stop() runs
+          // while we're awaiting it, it finds this task, cancels/reports it,
+          // and clears the map itself, which the isStopped checks below defer
+          // to instead of reporting a second time.
+          if (!config) {
+            retryTimers.delete(transferTask);
+            queueTask(transferTask);
+            return;
+          }
+          let freshFs;
+          try {
+            freshFs = await fileService.getRemoteFileSystem(config);
+          } catch (reconnectError) {
+            if (isStopped) {
+              finishRun();
+              return;
+            }
+            retryTimers.delete(transferTask);
+            logger.warn(
+              `${transferTask.transferType} ${transferTask.localFsPath} retry` +
+                ` aborted: reconnect failed (${reconnectError.message})`
+            );
+            fileService._eventEmitter.emit(
+              Event.AFTER_TRANSFER,
+              reconnectError,
+              transferTask
+            );
+            transferTask.dispose();
             finishRun();
             return;
           }
+          if (isStopped) {
+            finishRun();
+            return;
+          }
+          retryTimers.delete(transferTask);
+          transferTask.refreshRemoteFs(freshFs);
           queueTask(transferTask);
         }, delay);
         retryTimers.set(transferTask, { timer, error: err });
