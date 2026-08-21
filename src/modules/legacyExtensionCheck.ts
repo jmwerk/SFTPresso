@@ -5,11 +5,10 @@ import logger from '../logger';
 // Both extensions register commands under the same `sftp.*` namespace as us,
 // so VS Code resolves the collision unpredictably and `SFTP: Upload` can
 // silently run the other extension's handler against the same sftp.json.
-const LEGACY_EXTENSION_IDS = ['liximomo.sftp', 'Natizyskunk.vscode-sftp'];
+const LEGACY_EXTENSION_IDS = ['liximomo.sftp', 'Natizyskunk.sftp'];
 
 const SUPPRESS_KEY = 'sftp.legacyExtensionCheck.suppressed';
 
-const DISABLE_LABEL = 'Disable the Other';
 const SHOW_LABEL = 'Show Me';
 const DONT_SHOW_LABEL = "Don't Show Again";
 
@@ -32,15 +31,12 @@ export function checkForLegacyExtensions(context: vscode.ExtensionContext) {
   logger.warn(`Detected legacy SFTP extension "${legacyId}" alongside SFTPresso.`);
 
   showWarningMessage(
-    `SFTPresso and ${displayName} both register sftp.* commands. Only one will run.`,
-    DISABLE_LABEL,
+    `SFTPresso and ${displayName} both register sftp.* commands. Only one will run. ` +
+      `Disable ${displayName} to avoid conflicts.`,
     SHOW_LABEL,
     DONT_SHOW_LABEL
   ).then(choice => {
     switch (choice) {
-      case DISABLE_LABEL:
-        executeCommand('workbench.extensions.action.disableExtension', legacyId);
-        break;
       case SHOW_LABEL:
         executeCommand('workbench.extensions.action.showExtensionsWithIds', [legacyId]);
         break;

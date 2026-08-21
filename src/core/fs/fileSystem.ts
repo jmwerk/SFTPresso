@@ -42,6 +42,26 @@ export type FileEntry = FileStats & {
   name: string;
 };
 
+// Structurally compatible with vscode.CancellationToken, so a TransferTask's
+// real token can be passed straight through without this module depending on
+// vscode.
+export interface ParallelTransferToken {
+  readonly isCancellationRequested: boolean;
+  onCancellationRequested(listener: () => void): { dispose(): void };
+}
+
+export interface ParallelTransferOption {
+  // total bytes to move, from the source-side stat -- required, since it's
+  // what the chunk range is divided up over.
+  size: number;
+  // applied to the destination once it's open, put-side only.
+  mode?: number;
+  concurrency?: number;
+  chunkSize?: number;
+  onProgress?: (transferred: number) => void;
+  token?: ParallelTransferToken;
+}
+
 export default abstract class FileSystem {
   static getFileTypecharacter(stat: fs.Stats): FileType {
     if (stat.isDirectory()) {
@@ -94,6 +114,22 @@ export default abstract class FileSystem {
   abstract rmdir(path: string, recursive: boolean): Promise<void>;
   abstract rename(srcPath: string, destPath: string): Promise<void>;
   abstract renameAtomic(srcPath: string, destPath: string): Promise<void>;
+
+  // Parallel-chunk transfer to/from a real local file, bypassing get()/put()'s
+  // single-stream pipe. Only worth implementing where the protocol supports
+  // pipelined positional reads/writes (SFTP); everything else keeps the
+  // default here and falls back to the stream path.
+  supportsParallelTransfer(): boolean {
+    return false;
+  }
+
+  getToFile(remotePath: string, localPath: string, option: ParallelTransferOption): Promise<void> {
+    throw new Error('getToFile is not supported by this file system');
+  }
+
+  putFromFile(localPath: string, remotePath: string, option: ParallelTransferOption): Promise<void> {
+    throw new Error('putFromFile is not supported by this file system');
+  }
 
   static abortReadableStream(stream: Readable) {
     const err = new Error('Transfer Aborted') as FileSystemError;

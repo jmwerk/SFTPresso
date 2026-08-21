@@ -1,0 +1,38 @@
+diff --git a/node_modules/@jsonjoy.com/fs-node/lib/volume.js b/node_modules/@jsonjoy.com/fs-node/lib/volume.js
+index ab91ead..50e0d35 100644
+--- a/node_modules/@jsonjoy.com/fs-node/lib/volume.js
++++ b/node_modules/@jsonjoy.com/fs-node/lib/volume.js
+@@ -108,7 +108,17 @@ class Volume {
+         };
+         this.close = (fd, callback) => {
+             (0, fs_core_1.validateFd)(fd);
+-            const file = this._core.getFileByFdOrThrow(fd, 'close');
++            let file;
++            try {
++                file = this._core.getFileByFdOrThrow(fd, 'close');
++            }
++            catch (er) {
++                if (er && er.code === 'EBADF') {
++                    callback();
++                    return;
++                }
++                throw er;
++            }
+             this.wrapAsync(this._core.close, [file.fd], callback);
+         };
+         this.readSync = (fd, buffer, offset, length, position) => {
+@@ -1620,7 +1630,13 @@ FsWriteStream.prototype.close = function (cb) {
+     }
+     this.fd = null;
+ };
+-FsWriteStream.prototype._destroy = FsReadStream.prototype._destroy;
++FsWriteStream.prototype._destroy = function (err, cb) {
++    if (!this.autoClose) {
++        cb(err);
++        return;
++    }
++    FsReadStream.prototype._destroy.call(this, err, cb);
++};
+ // There is no shutdown() for files.
+ FsWriteStream.prototype.destroySoon = FsWriteStream.prototype.end;
+ // ---------------------------------------- FSWatcher

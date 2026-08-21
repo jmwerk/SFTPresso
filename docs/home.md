@@ -1011,6 +1011,19 @@ How many consecutive keepalive packets may go unanswered before the connection i
 
 > ℹ️ SFTP only.
 
+#### transferMode
+How a single file's bytes are moved. `"auto"` (the default) transfers a file larger than ~256KB as several concurrent chunked requests instead of one stream — on a high-latency link, a single outstanding request bounds throughput to chunk-size/round-trip-time regardless of available bandwidth, so a "slow server" is often just protocol latency, and chunking removes that ceiling. Smaller files stay on the single-stream path, where the extra requests would cost more than they save. `"parallel"` forces chunked transfer for every file regardless of size; `"stream"` always uses the classic single-pipe transfer. Per-file chunk concurrency scales down as [`concurrency`](#concurrency) goes up, so a batch of several large files transferring at once can't multiply into an unbounded number of simultaneous requests against one connection. If the chunked path fails for a reason other than cancelling the transfer yourself — a server that caps concurrent handles, say — it's retried once as a plain stream before counting as a real failure.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `transferMode` | `"auto"` \| `"parallel"` \| `"stream"` | `"auto"` |
+
+```json
+{ "transferMode": "parallel" }
+```
+
+> ℹ️ SFTP only — always behaves as `"stream"` on FTP and `local`.
+
 ### FTP(S)-only options
 
 #### secure

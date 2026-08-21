@@ -6,6 +6,12 @@ import { FileSystem, RemoteFileSystem, SFTPFileSystem } from '../fs';
 import logger from '../../logger';
 import CustomError from '../customError';
 import { describeConnectError } from '../../helper/error';
+import {
+  getStoredPassphrase,
+  getStoredPassword,
+  offerToRememberPassphrase,
+  offerToRememberPassword,
+} from '../../credentialStore';
 import { isKnownHost, normalizeStrictHostKeyChecking } from './hostKeyStore';
 import { verifyHostKey } from './hostKeyVerifier';
 
@@ -117,6 +123,25 @@ export default class SSHClient extends RemoteClient {
     if (lastOption.privateKeyPath) {
       const buffer = await fs.readFile(lastOption.privateKeyPath);
       lastOption.privateKey = buffer.toString();
+    }
+
+    // Reached via `_connectSSHClient` directly rather than `this.connect()`,
+    // so -- unlike every other leg of a hop chain, which goes through
+    // `connect()` and gets a password resolved from secret storage or a
+    // prompt -- this last leg would otherwise attempt zero auth methods
+    // whenever it relies on a password rather than a key/agent.
+    if (!this._hasProvideAuth(lastOption)) {
+      const storedPassword = await getStoredPassword(lastOption);
+      if (storedPassword !== undefined) {
+        lastOption.password = storedPassword;
+      } else {
+        const password = await config.askForPasswd(`[${lastOption.host}]: Enter your password`);
+        if (password === undefined) {
+          throw new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled');
+        }
+        lastOption.password = password;
+        offerToRememberPassword(lastOption, password);
+      }
     }
 
     await this._connectSSHClient(this._client, { ...lastOption, sock }, config);
@@ -314,11 +339,18 @@ export default class SSHClient extends RemoteClient {
 
     // explict compare to true, cause we want to distinct between string and true
     if (option.passphrase === true) {
-      option.passphrase = await config.askForPasswd(
-        `[${option.host}]: Enter your passphrase`
-      );
-      if (option.passphrase === undefined) {
-        throw new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled');
+      const storedPassphrase = await getStoredPassphrase(option);
+      if (storedPassphrase !== undefined) {
+        option.passphrase = storedPassphrase;
+      } else {
+        const enteredPassphrase = await config.askForPasswd(
+          `[${option.host}]: Enter your passphrase`
+        );
+        if (enteredPassphrase === undefined) {
+          throw new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled');
+        }
+        option.passphrase = enteredPassphrase;
+        offerToRememberPassphrase(option, enteredPassphrase);
       }
     }
 

@@ -384,6 +384,11 @@
         "type": "number",
         "description": "Concurrency number."
       },
+      "transferMode": {
+        "enum": ["auto", "parallel", "stream"],
+        "description": "How a single file's bytes are moved. \"auto\" (the default) transfers larger files as several concurrent chunked requests instead of one stream, once the remote filesystem supports it (sftp only) -- on a high-latency link, one outstanding request bounds throughput to chunkSize/round-trip-time regardless of bandwidth, and chunking removes that ceiling. Small files stay on the single-stream path, where the extra requests would cost more than they save. \"parallel\" forces chunked transfer for every file that supports it, regardless of size; \"stream\" always uses the classic single-pipe transfer. Falls back to \"stream\" automatically on ftp or local.",
+        "default": "auto"
+      },
       "sshCustomParams": {
         "type": "string",
         "description": "Extra parameters append to SSH command using by \"Open SSH in Terminal\"",

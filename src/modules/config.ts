@@ -67,6 +67,7 @@ const configScheme = Joi.object({
     autoRename: Joi.boolean(),
   },
   concurrency: Joi.number().integer(),
+  transferMode: Joi.any().valid('auto', 'parallel', 'stream'),
 
   retry: {
     attempts: Joi.number()
@@ -134,6 +135,12 @@ export const defaultConfig = {
   // },
   concurrency: 4,
   // limitOpenFilesOnRemote: false
+
+  // 'auto' uses parallel-chunk transfer (SFTP only) for files above a size
+  // threshold, where a single outstanding request no longer bounds throughput
+  // to chunkSize/RTT. 'stream' always uses the classic single-pipe transfer;
+  // 'parallel' forces chunked transfer regardless of size.
+  transferMode: 'auto',
 
   // automatic retry of transfers that fail with a transient error
   retry: {
@@ -343,6 +350,17 @@ export function writeConfigValue(
   matchConfig?: (config: any) => boolean
 ): Promise<void> {
   return editConfigProperty(configPath, [key], value, matchConfig);
+}
+
+// Writes a value at an arbitrary path within an sftp.json file (e.g. a new
+// profile). `keyPath` may point at a nested property. See `editConfigProperty`.
+export function setConfigValueAtPath(
+  configPath: string,
+  keyPath: JSONPath,
+  value: any,
+  matchConfig?: (config: any) => boolean
+): Promise<void> {
+  return editConfigProperty(configPath, keyPath, value, matchConfig);
 }
 
 // Removes a property from an sftp.json file. `keyPath` may point at a nested

@@ -38,6 +38,7 @@ function createTask(stallTimeout: number) {
   };
 
   const targetFs: any = {
+    supportsParallelTransfer: () => false,
     open: async () => 1,
     close: async () => undefined,
     fstat: async () => ({ mode: 0o644 }),

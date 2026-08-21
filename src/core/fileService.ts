@@ -56,6 +56,8 @@ interface ServiceOption {
   // megabytes; files over this are skipped during a batch walk (folder
   // transfer/sync). 0 or undefined disables.
   maxFileSize?: number;
+  // 'auto' (default), 'parallel', or 'stream' -- see schema/definitions.json.
+  transferMode?: 'auto' | 'parallel' | 'stream';
   remoteExplorer: {
     filesExclude?: string[];
     order: number;
