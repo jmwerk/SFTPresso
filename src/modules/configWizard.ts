@@ -8,6 +8,7 @@ import { replaceHomePath, reportError } from '../helper';
 import { showErrorMessage, showInformationMessage, showTextDocument } from '../host';
 import { getConfigPath, readConfigsFromFile, setConfigValueAtPath, validateConfig } from './config';
 import { testConnection } from './connectionTest';
+import { detectAgentCandidates } from './sshAgentDetect';
 import { ConnectIdentity, storePassphrase } from '../credentialStore';
 import {
   createFileService,
@@ -294,6 +295,36 @@ function stepPrivateKeyPath(
   };
 }
 
+async function promptAgentManually(
+  input: MultiStepInput,
+  wizard: WizardState,
+  target: HostAuthTarget,
+  planKey: string
+): Promise<string> {
+  const { step, totalSteps } = stepInfo(wizard, planKey);
+  const value = await input.showInputBox({
+    title: `${target.titlePrefix}SSH Agent`,
+    step,
+    totalSteps,
+    value: target.state.agent || (process.platform === 'win32' ? 'pageant' : '$SSH_AUTH_SOCK'),
+    prompt: 'SSH agent socket ("$VARNAME" reads from an environment variable)',
+    validate: v => (v.trim() ? undefined : 'Agent is required.'),
+  });
+  return value.trim();
+}
+
+function stepAgentManual(
+  wizard: WizardState,
+  target: HostAuthTarget,
+  planKey: string,
+  next: () => InputStep
+): InputStep {
+  return async input => {
+    target.state.agent = await promptAgentManually(input, wizard, target, planKey);
+    return next();
+  };
+}
+
 function stepAgent(
   wizard: WizardState,
   target: HostAuthTarget,
@@ -301,17 +332,34 @@ function stepAgent(
   next: () => InputStep
 ): InputStep {
   return async input => {
+    const candidates = await detectAgentCandidates();
+    if (candidates.length === 0) {
+      target.state.agent = await promptAgentManually(input, wizard, target, planKey);
+      return next();
+    }
+
     const { step, totalSteps } = stepInfo(wizard, planKey);
-    const value = await input.showInputBox({
+    const items: (vscode.QuickPickItem & { value?: string })[] = [
+      ...candidates.map(c => ({ label: c.label, description: c.description, value: c.value })),
+      { label: '$(edit) Enter manually...', description: '' },
+    ];
+    const activeItem = items.find(i => i.value === target.state.agent) || items[0];
+    const picked = await input.showQuickPick({
       title: `${target.titlePrefix}SSH Agent`,
       step,
       totalSteps,
-      value: target.state.agent || (process.platform === 'win32' ? 'pageant' : '$SSH_AUTH_SOCK'),
-      prompt: 'SSH agent socket ("$VARNAME" reads from an environment variable)',
-      validate: v => (v.trim() ? undefined : 'Agent is required.'),
+      items,
+      activeItem,
+      placeholder: 'Select a detected SSH agent, or enter one manually',
     });
-    target.state.agent = value.trim();
-    return next();
+
+    if (picked.value !== undefined) {
+      target.state.agent = picked.value;
+      return next();
+    }
+    // a separate step, so Back from the manual box returns here rather than
+    // skipping past the dropdown entirely
+    return stepAgentManual(wizard, target, planKey, next);
   };
 }
 
