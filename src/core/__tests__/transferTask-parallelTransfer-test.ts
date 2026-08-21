@@ -164,12 +164,18 @@ describe('TransferTask parallel-chunk transfer', () => {
       transferMode: 'parallel',
     });
 
-    const run = task.run().catch((err: Error) => err);
-    // let the transfer actually start before cancelling
-    await new Promise(resolve => setImmediate(resolve));
-    task.cancel();
+    // Cancel as soon as the first chunk has actually landed, rather than
+    // after a fixed number of event-loop ticks -- against an in-memory fs,
+    // chunk I/O resolves via microtasks with no real latency, so a transfer
+    // this size can finish well within one macrotask tick and a scheduling
+    // guess would flake depending on how fast the mocked fs happens to be.
+    task.setProgressListener(() => {
+      if (task.transferredBytes > 0 && !task.isCancelled()) {
+        task.cancel();
+      }
+    });
 
-    const outcome = await run;
+    const outcome = await task.run().catch((err: Error) => err);
     expect(task.isCancelled()).toBe(true);
     expect(outcome).toBeDefined();
   });
