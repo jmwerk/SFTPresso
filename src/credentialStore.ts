@@ -9,7 +9,8 @@ export interface ConnectIdentity {
   username?: string;
 }
 
-const SECRET_KEY_PREFIX = 'sftp.password.';
+const SECRET_KEY_PREFIX_PASSWORD = 'sftp.password.';
+const SECRET_KEY_PREFIX_PASSPHRASE = 'sftp.passphrase.';
 
 // "protocol://username@host:port" — identifies a remote both in secret
 // storage keys and in messages shown to the user
@@ -19,8 +20,8 @@ export function connectionToken(identity: ConnectIdentity): string {
   return `${protocol}://${identity.username}@${identity.host}:${port}`;
 }
 
-function secretKey(identity: ConnectIdentity): string {
-  return SECRET_KEY_PREFIX + connectionToken(identity);
+function secretKey(prefix: string, identity: ConnectIdentity): string {
+  return prefix + connectionToken(identity);
 }
 
 function getSecretStorage() {
@@ -28,52 +29,100 @@ function getSecretStorage() {
   return context ? context.secrets : undefined;
 }
 
-export async function getStoredPassword(identity: ConnectIdentity): Promise<string | undefined> {
+async function getStoredSecret(
+  prefix: string,
+  identity: ConnectIdentity,
+  kind: string
+): Promise<string | undefined> {
   const secrets = getSecretStorage();
   if (!secrets) {
     return undefined;
   }
 
   try {
-    return await secrets.get(secretKey(identity));
+    return await secrets.get(secretKey(prefix, identity));
   } catch (error) {
-    logger.warn(`read password for ${connectionToken(identity)} from secret storage failed: ${error.message}`);
+    logger.warn(`read ${kind} for ${connectionToken(identity)} from secret storage failed: ${error.message}`);
     return undefined;
   }
 }
 
-export async function storePassword(identity: ConnectIdentity, password: string): Promise<void> {
+async function storeSecret(prefix: string, identity: ConnectIdentity, value: string): Promise<void> {
   const secrets = getSecretStorage();
   if (!secrets) {
     throw new Error('Secret storage is unavailable.');
   }
 
-  await secrets.store(secretKey(identity), password);
+  await secrets.store(secretKey(prefix, identity), value);
 }
 
-export async function clearStoredPassword(identity: ConnectIdentity): Promise<boolean> {
+async function clearStoredSecret(prefix: string, identity: ConnectIdentity): Promise<boolean> {
   const secrets = getSecretStorage();
   if (!secrets) {
     return false;
   }
 
-  const key = secretKey(identity);
+  const key = secretKey(prefix, identity);
   const existed = (await secrets.get(key)) !== undefined;
   await secrets.delete(key);
   return existed;
 }
 
-export async function offerToRememberPassword(identity: ConnectIdentity, password: string) {
+async function offerToRememberSecret(
+  prefix: string,
+  identity: ConnectIdentity,
+  value: string,
+  kind: string,
+  offerLabel: string
+) {
   try {
     const answer = await showInformationMessage(
-      `Remember password for ${connectionToken(identity)}?`,
-      'Remember password'
+      `Remember ${kind} for ${connectionToken(identity)}?`,
+      offerLabel
     );
-    if (answer === 'Remember password') {
-      await storePassword(identity, password);
-      logger.info(`password for ${connectionToken(identity)} saved to secret storage`);
+    if (answer === offerLabel) {
+      await storeSecret(prefix, identity, value);
+      logger.info(`${kind} for ${connectionToken(identity)} saved to secret storage`);
     }
   } catch (error) {
-    logger.warn(`save password for ${connectionToken(identity)} failed: ${error.message}`);
+    logger.warn(`save ${kind} for ${connectionToken(identity)} failed: ${error.message}`);
   }
+}
+
+export function getStoredPassword(identity: ConnectIdentity): Promise<string | undefined> {
+  return getStoredSecret(SECRET_KEY_PREFIX_PASSWORD, identity, 'password');
+}
+
+export function storePassword(identity: ConnectIdentity, password: string): Promise<void> {
+  return storeSecret(SECRET_KEY_PREFIX_PASSWORD, identity, password);
+}
+
+export function clearStoredPassword(identity: ConnectIdentity): Promise<boolean> {
+  return clearStoredSecret(SECRET_KEY_PREFIX_PASSWORD, identity);
+}
+
+export function offerToRememberPassword(identity: ConnectIdentity, password: string) {
+  return offerToRememberSecret(SECRET_KEY_PREFIX_PASSWORD, identity, password, 'password', 'Remember password');
+}
+
+export function getStoredPassphrase(identity: ConnectIdentity): Promise<string | undefined> {
+  return getStoredSecret(SECRET_KEY_PREFIX_PASSPHRASE, identity, 'passphrase');
+}
+
+export function storePassphrase(identity: ConnectIdentity, passphrase: string): Promise<void> {
+  return storeSecret(SECRET_KEY_PREFIX_PASSPHRASE, identity, passphrase);
+}
+
+export function clearStoredPassphrase(identity: ConnectIdentity): Promise<boolean> {
+  return clearStoredSecret(SECRET_KEY_PREFIX_PASSPHRASE, identity);
+}
+
+export function offerToRememberPassphrase(identity: ConnectIdentity, passphrase: string) {
+  return offerToRememberSecret(
+    SECRET_KEY_PREFIX_PASSPHRASE,
+    identity,
+    passphrase,
+    'passphrase',
+    'Remember passphrase'
+  );
 }

@@ -1,7 +1,7 @@
 import { Uri } from 'vscode';
 import { COMMAND_TEST_CONNECTION } from '../constants';
 import { showInformationMessage, showErrorMessage } from '../host';
-import logger from '../logger';
+import { testConnection } from '../modules/connectionTest';
 import { checkCommand } from './abstract/createCommand';
 import { resolveTargetService } from './shared';
 
@@ -28,15 +28,13 @@ export default checkCommand({
       return;
     }
 
-    try {
-      const fs = await service.getRemoteFileSystem(config);
-      await fs.lstat('/');
+    const result = await testConnection(service, config);
+    if (result.ok) {
       showInformationMessage(
         `Successfully connected to ${config.host}:${config.port} via ${config.protocol.toUpperCase()}.`
       );
-    } catch (error) {
-      logger.error(error, 'testConnection');
-      showErrorMessage(`Failed to connect to ${config.host}:${config.port}: ${error.message}`);
+    } else {
+      showErrorMessage(`Failed to connect to ${config.host}:${config.port}: ${result.error.message}`);
     }
   },
 });

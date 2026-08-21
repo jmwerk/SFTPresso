@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as fse from 'fs-extra';
 import { COMMAND_CONFIG } from '../constants';
 import { newConfig, getConfigPath } from '../modules/config';
-import { quickSetupConfig } from '../modules/configWizard';
+import { addProfileConfig, quickSetupConfig } from '../modules/configWizard';
 import {
   getWorkspaceFolders,
   showConfirmMessage,
@@ -15,6 +15,25 @@ import { checkCommand } from './abstract/createCommand';
 async function configureWorkspace(basePath: string) {
   const exist = await fse.pathExists(getConfigPath(basePath));
   if (exist) {
+    const picked = await vscode.window.showQuickPick(
+      [
+        { label: 'Edit JSON', description: 'Open the existing config file' },
+        {
+          label: 'Add Profile',
+          description: 'Answer a few questions to add a profile to the existing config',
+        },
+      ],
+      { placeHolder: 'A config already exists. What do you want to do?' }
+    );
+
+    if (picked === undefined) {
+      return;
+    }
+
+    if (picked.label === 'Add Profile') {
+      return addProfileConfig(basePath);
+    }
+
     return newConfig(basePath);
   }
 

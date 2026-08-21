@@ -352,6 +352,17 @@ export function writeConfigValue(
   return editConfigProperty(configPath, [key], value, matchConfig);
 }
 
+// Writes a value at an arbitrary path within an sftp.json file (e.g. a new
+// profile). `keyPath` may point at a nested property. See `editConfigProperty`.
+export function setConfigValueAtPath(
+  configPath: string,
+  keyPath: JSONPath,
+  value: any,
+  matchConfig?: (config: any) => boolean
+): Promise<void> {
+  return editConfigProperty(configPath, keyPath, value, matchConfig);
+}
+
 // Removes a property from an sftp.json file. `keyPath` may point at a nested
 // property (e.g. a profile's password). See `editConfigProperty`.
 export function removeConfigValue(

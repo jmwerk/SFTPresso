@@ -6,7 +6,12 @@ import { FileSystem, RemoteFileSystem, SFTPFileSystem } from '../fs';
 import logger from '../../logger';
 import CustomError from '../customError';
 import { describeConnectError } from '../../helper/error';
-import { getStoredPassword, offerToRememberPassword } from '../../credentialStore';
+import {
+  getStoredPassphrase,
+  getStoredPassword,
+  offerToRememberPassphrase,
+  offerToRememberPassword,
+} from '../../credentialStore';
 import { isKnownHost, normalizeStrictHostKeyChecking } from './hostKeyStore';
 import { verifyHostKey } from './hostKeyVerifier';
 
@@ -334,11 +339,18 @@ export default class SSHClient extends RemoteClient {
 
     // explict compare to true, cause we want to distinct between string and true
     if (option.passphrase === true) {
-      option.passphrase = await config.askForPasswd(
-        `[${option.host}]: Enter your passphrase`
-      );
-      if (option.passphrase === undefined) {
-        throw new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled');
+      const storedPassphrase = await getStoredPassphrase(option);
+      if (storedPassphrase !== undefined) {
+        option.passphrase = storedPassphrase;
+      } else {
+        const enteredPassphrase = await config.askForPasswd(
+          `[${option.host}]: Enter your passphrase`
+        );
+        if (enteredPassphrase === undefined) {
+          throw new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled');
+        }
+        option.passphrase = enteredPassphrase;
+        offerToRememberPassphrase(option, enteredPassphrase);
       }
     }
 
