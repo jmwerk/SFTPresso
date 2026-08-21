@@ -32,7 +32,26 @@ export interface TransferOption {
   // total size of the file in bytes, used to render transfer progress.
   // undefined when unknown (progress then degrades to bytes-only).
   size?: number;
+  // 'auto' (default) uses parallel-chunk transfer above PARALLEL_TRANSFER_THRESHOLD
+  // when the remote filesystem supports it, 'parallel' forces it whenever
+  // supported, 'stream' always uses the single-pipe path.
+  transferMode?: 'auto' | 'parallel' | 'stream';
+  // the batch's file-level concurrency (config.concurrency), used to scale
+  // per-file chunk concurrency down so the two don't multiply into an
+  // unbounded number of simultaneous outstanding requests.
+  batchConcurrency?: number;
 }
+
+// files smaller than this transfer as a single stream even in 'auto' mode --
+// below it, parallel-chunk setup cost (multiple open/read/write round trips)
+// outweighs the latency win.
+const PARALLEL_TRANSFER_THRESHOLD = 256 * 1024;
+
+// upper bound on (per-file chunk concurrency) x (batch file concurrency), so
+// a batch of several large files transferring in parallel can't multiply into
+// an unbounded number of simultaneous outstanding requests against one
+// connection.
+const PARALLEL_CHUNK_BUDGET = 16;
 
 // throttle progress reporting to ~2 updates/sec per task
 const PROGRESS_REPORT_INTERVAL = 500;
@@ -274,6 +293,11 @@ export default class TransferTask implements Task {
         if (this._handle) {
           FileSystem.abortReadableStream(this._handle);
         }
+        // same for the parallel-chunk path, which has no stream to destroy --
+        // its in-flight chunk I/O is raced against this same token instead
+        if (this._cancelTokenSource) {
+          this._cancelTokenSource.cancel();
+        }
         reject(
           Object.assign(
             new Error(
@@ -323,7 +347,31 @@ export default class TransferTask implements Task {
     const targetFs = this._targetFs;
     switch (this.fileType) {
       case FileType.File:
-        await this._transferFile();
+        if (this._shouldUseParallelTransfer()) {
+          try {
+            await this._transferFileParallel();
+          } catch (error) {
+            // An explicit cancel or a stall both unblock the parallel path
+            // through the same cancellation token, surfacing as this error --
+            // neither should trigger a fresh attempt from in here, since the
+            // stall race (see _withStallWatchdog) or the caller's cancel
+            // handling already owns what happens next.
+            if (this.isCancelled() || FileSystem.isAbortedError(error)) {
+              throw error;
+            }
+            // a server that limits concurrent handles/requests, or anything
+            // else specific to the parallel path, gets one retry as a plain
+            // stream before this counts as a real failure. Safe to redo from
+            // scratch: both paths open the upload target with a truncating
+            // flag, so a partial parallel write is simply overwritten.
+            logger.warn(
+              `parallel transfer of ${src} failed (${error.message}), retrying as a single stream`
+            );
+            await this._transferFile();
+          }
+        } else {
+          await this._transferFile();
+        }
         break;
       case FileType.SymbolicLink:
         await fileOperations.transferSymlink(
@@ -368,6 +416,115 @@ export default class TransferTask implements Task {
       this._cancelTokenSource = new CancellationTokenSource();
     }
     return this._cancelTokenSource;
+  }
+
+  private _shouldUseParallelTransfer(): boolean {
+    const { transferMode, size } = this._TransferOption;
+    if (transferMode === 'stream') {
+      return false;
+    }
+    const remoteFs =
+      this._transferDirection === TransferDirection.REMOTE_TO_LOCAL ? this._srcFs : this._targetFs;
+    if (!remoteFs.supportsParallelTransfer()) {
+      return false;
+    }
+    if (transferMode === 'parallel') {
+      return true;
+    }
+    return typeof size === 'number' && size >= PARALLEL_TRANSFER_THRESHOLD;
+  }
+
+  private _parallelChunkConcurrency(): number {
+    const batchConcurrency = this._TransferOption.batchConcurrency || 1;
+    return Math.max(2, Math.floor(PARALLEL_CHUNK_BUDGET / Math.max(1, batchConcurrency)));
+  }
+
+  // Same shape as _transferFile(), but the byte-moving part is delegated to
+  // the target/source filesystem's parallel-chunk transfer instead of a piped
+  // stream. perserveTargetMode is resolved up front here (one extra
+  // open/fstat/close) rather than reused from a handle kept open across the
+  // whole transfer, since getToFile()/putFromFile() own their handles.
+  private async _transferFileParallel() {
+    const src = this._srcFsPath;
+    const target = this._targetFsPath;
+    const srcFs = this._srcFs;
+    const targetFs = this._targetFs;
+    const {
+      perserveTargetMode,
+      useTempFile,
+      openSsh,
+      fallbackMode,
+      atime,
+      mtime,
+      filePerm,
+      size,
+    } = this._TransferOption;
+    let mode = filePerm ? parseInt(String(filePerm), 8) : this._TransferOption.mode;
+    const uploadTarget = target + (useTempFile ? '.new' : '');
+    const totalSize = size || 0;
+
+    if (
+      mode === undefined &&
+      perserveTargetMode &&
+      this._transferDirection === TransferDirection.LOCAL_TO_REMOTE
+    ) {
+      try {
+        const fd = await targetFs.open(target, 'r');
+        try {
+          mode = (await targetFs.fstat(fd)).mode;
+        } finally {
+          await targetFs.close(fd);
+        }
+      } catch {
+        mode = fallbackMode;
+      }
+    }
+
+    const transferOption = {
+      size: totalSize,
+      mode,
+      concurrency: this._parallelChunkConcurrency(),
+      onProgress: (transferred: number) => this._reportProgress(transferred),
+      token: this.token,
+    };
+
+    if (this._transferDirection === TransferDirection.REMOTE_TO_LOCAL) {
+      await srcFs.getToFile(src, uploadTarget, transferOption);
+    } else {
+      await targetFs.putFromFile(src, uploadTarget, transferOption);
+    }
+
+    if (atime && mtime) {
+      try {
+        const fd = await targetFs.open(uploadTarget, 'r+');
+        try {
+          await targetFs.futimes(fd, Math.floor(atime / 1000), Math.floor(mtime / 1000));
+        } finally {
+          await targetFs.close(fd);
+        }
+      } catch (error) {
+        if (!hasWarnedModifedTimePermission) {
+          hasWarnedModifedTimePermission = true;
+          logger.warn(
+            `Can't set modified time to the file because ${error.message}`
+          );
+        }
+      }
+    }
+
+    if (useTempFile) {
+      logger.info('moving from: ' + uploadTarget + ' to: ' + target);
+      if (openSsh) {
+        await targetFs.renameAtomic(uploadTarget, target);
+      } else {
+        try {
+          await targetFs.unlink(target);
+        } catch (error) {
+          // Just ignore
+        }
+        await targetFs.rename(uploadTarget, target);
+      }
+    }
   }
 
   private async _transferFile() {

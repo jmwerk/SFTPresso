@@ -1,12 +1,15 @@
 import { Readable, Writable } from 'stream';
+import * as fs from 'fs';
 import FileSystem, {
   FileEntry,
   FileType,
   FileStats,
   FileOption,
+  ParallelTransferOption,
 } from './fileSystem';
 import RemoteFileSystem from './remoteFileSystem';
 import { SSHClient } from '../remote-client';
+import { parallelCopy, ChunkReader, ChunkWriter } from './parallelTransfer';
 
 type FileHandle = Buffer;
 
@@ -477,5 +480,138 @@ export default class SFTPFileSystem extends RemoteFileSystem {
       }
       input.pipe(writer);
     });
+  }
+
+  supportsParallelTransfer(): boolean {
+    return true;
+  }
+
+  private _openHandle(path: string, flags: string): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      this.sftp.open(path, flags, (err, handle) => (err ? reject(err) : resolve(handle)));
+    });
+  }
+
+  private _closeHandle(handle: Buffer): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.sftp.close(handle, err => (err ? reject(err) : resolve()));
+    });
+  }
+
+  private _remoteReader(handle: Buffer): ChunkReader {
+    const sftp = this.sftp;
+    return {
+      read: (buffer, position, length) =>
+        new Promise((resolve, reject) => {
+          sftp.read(handle, buffer, 0, length, position, (err, nbytes) =>
+            err ? reject(err) : resolve(nbytes)
+          );
+        }),
+    };
+  }
+
+  private _remoteWriter(handle: Buffer): ChunkWriter {
+    const sftp = this.sftp;
+    return {
+      write: (buffer, position, length) =>
+        new Promise((resolve, reject) => {
+          sftp.write(handle, buffer, 0, length, position, err => (err ? reject(err) : resolve()));
+        }),
+    };
+  }
+
+  // Plain callback fs, not fs-extra/fs.promises -- so this goes through
+  // whatever `fs` a test has mocked in, same as the rest of this file.
+  private _openLocal(path: string, flags: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      fs.open(path, flags, (err, fd) => (err ? reject(err) : resolve(fd)));
+    });
+  }
+
+  private _closeLocal(fd: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      fs.close(fd, err => (err ? reject(err) : resolve()));
+    });
+  }
+
+  private _localReader(fd: number): ChunkReader {
+    return {
+      read: (buffer, position, length) =>
+        new Promise((resolve, reject) => {
+          fs.read(fd, buffer, 0, length, position, (err, bytesRead) =>
+            err ? reject(err) : resolve(bytesRead)
+          );
+        }),
+    };
+  }
+
+  private _localWriter(fd: number): ChunkWriter {
+    return {
+      write: (buffer, position, length) =>
+        new Promise((resolve, reject) => {
+          fs.write(fd, buffer, 0, length, position, err => (err ? reject(err) : resolve()));
+        }),
+    };
+  }
+
+  // Remote -> local, both ends real files, as concurrent positional chunks
+  // instead of one piped stream. See parallelTransfer.ts for why.
+  async getToFile(remotePath: string, localPath: string, option: ParallelTransferOption): Promise<void> {
+    const remoteHandle = await this._openHandle(remotePath, 'r');
+    let localFd: number;
+    try {
+      localFd = await this._openLocal(localPath, 'w');
+    } catch (err) {
+      await this._closeHandle(remoteHandle).catch(() => undefined);
+      throw err;
+    }
+
+    try {
+      await parallelCopy(this._remoteReader(remoteHandle), this._localWriter(localFd), {
+        size: option.size,
+        concurrency: option.concurrency,
+        chunkSize: option.chunkSize,
+        onProgress: option.onProgress,
+        token: option.token,
+      });
+    } finally {
+      await Promise.all([
+        this._closeHandle(remoteHandle).catch(() => undefined),
+        this._closeLocal(localFd).catch(() => undefined),
+      ]);
+    }
+  }
+
+  // Local -> remote, both ends real files. See getToFile() above.
+  async putFromFile(localPath: string, remotePath: string, option: ParallelTransferOption): Promise<void> {
+    const localFd = await this._openLocal(localPath, 'r');
+    let remoteHandle: Buffer;
+    try {
+      remoteHandle = await this._openHandle(remotePath, 'w');
+    } catch (err) {
+      await this._closeLocal(localFd).catch(() => undefined);
+      throw err;
+    }
+
+    try {
+      if (option.mode !== undefined) {
+        // Mirrors put()'s fd-based mode handling: the mode is applied
+        // explicitly rather than passed to open(), and a server that only
+        // supports the non-f variant is tolerated.
+        await this.fchmod({ handle: remoteHandle, path: remotePath }, option.mode).catch(() => undefined);
+      }
+      await parallelCopy(this._localReader(localFd), this._remoteWriter(remoteHandle), {
+        size: option.size,
+        concurrency: option.concurrency,
+        chunkSize: option.chunkSize,
+        onProgress: option.onProgress,
+        token: option.token,
+      });
+    } finally {
+      await Promise.all([
+        this._closeHandle(remoteHandle).catch(() => undefined),
+        this._closeLocal(localFd).catch(() => undefined),
+      ]);
+    }
   }
 }

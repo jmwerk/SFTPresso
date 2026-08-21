@@ -285,6 +285,8 @@ export const sync2Remote = createFileHandler<SyncOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
       delete: syncOption.delete,
       skipCreate: syncOption.skipCreate,
       ignoreExisting: syncOption.ignoreExisting,
@@ -360,6 +362,8 @@ export const sync2Local = createFileHandler<SyncOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
       delete: syncOption.delete,
       skipCreate: syncOption.skipCreate,
       ignoreExisting: syncOption.ignoreExisting,
@@ -380,6 +384,8 @@ export const upload = createFileHandler<TransferOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
     };
   },
   afterHandle() {
@@ -399,6 +405,8 @@ export const uploadFile = createFileHandler<TransferOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
     };
   },
   afterHandle() {
@@ -418,6 +426,8 @@ export const uploadFolder = createFileHandler<TransferOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
     };
   },
   afterHandle() {
@@ -435,6 +445,8 @@ export const download = createFileHandler<TransferOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
     };
   },
 });
@@ -449,6 +461,8 @@ export const downloadFile = createFileHandler<TransferOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
     };
   },
 });
@@ -463,6 +477,8 @@ export const downloadFolder = createFileHandler<TransferOption>({
       // remoteTimeOffsetInHours: config.remoteTimeOffsetInHours,
       ignore: config.ignore,
       maxFileSize: config.maxFileSize,
+      transferMode: config.transferMode,
+      batchConcurrency: config.concurrency,
     };
   },
 });
