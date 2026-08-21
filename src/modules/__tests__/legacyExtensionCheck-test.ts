@@ -92,30 +92,27 @@ describe('checkForLegacyExtensions', () => {
     expect(showWarningMessage).not.toHaveBeenCalled();
   });
 
+  it('warns when Natizyskunk.sftp is enabled', () => {
+    getExtension.mockImplementation((id: string) =>
+      id === 'Natizyskunk.sftp' ? { packageJSON: { displayName: 'SFTP' } } : undefined
+    );
+    showWarningMessage.mockResolvedValue(undefined);
+
+    checkForLegacyExtensions(makeContext());
+
+    expect(showWarningMessage).toHaveBeenCalledTimes(1);
+    const [message] = showWarningMessage.mock.calls[0];
+    expect(message).toContain('SFTP');
+  });
+
   it('stays quiet once suppressed for the workspace', () => {
     getExtension.mockImplementation((id: string) =>
-      id === 'Natizyskunk.vscode-sftp' ? { packageJSON: {} } : undefined
+      id === 'Natizyskunk.sftp' ? { packageJSON: {} } : undefined
     );
 
     checkForLegacyExtensions(makeContext(true));
 
     expect(showWarningMessage).not.toHaveBeenCalled();
-  });
-
-  it('disables the other extension when chosen', async () => {
-    getExtension.mockImplementation((id: string) =>
-      id === 'liximomo.sftp' ? { packageJSON: {} } : undefined
-    );
-    showWarningMessage.mockResolvedValue('Disable the Other');
-
-    checkForLegacyExtensions(makeContext());
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(executeCommand).toHaveBeenCalledWith(
-      'workbench.extensions.action.disableExtension',
-      'liximomo.sftp'
-    );
   });
 
   it('reveals the extension when "Show Me" is chosen', async () => {
