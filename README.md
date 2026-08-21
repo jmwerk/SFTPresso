@@ -1,6 +1,15 @@
 # SFTPresso
 
+[![VS Code Marketplace version](https://vsmarketplacebadges.dev/version/jmwerk.sftpresso.png)](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso)
+[![VS Code Marketplace installs](https://vsmarketplacebadges.dev/installs/jmwerk.sftpresso.png)](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso)
+[![Open VSX version](https://img.shields.io/open-vsx/v/jmwerk/sftpresso?label=Open%20VSX)](https://open-vsx.org/extension/jmwerk/sftpresso)
+[![Open VSX downloads](https://img.shields.io/open-vsx/dt/jmwerk/sftpresso?label=Open%20VSX%20downloads)](https://open-vsx.org/extension/jmwerk/sftpresso)
+[![CI](https://img.shields.io/github/actions/workflow/status/jmwerk/SFTPresso/ci.yml?branch=develop&label=CI)](https://github.com/jmwerk/SFTPresso/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Sync files between a local folder and a remote server over **SFTP (SSH)** or **FTP/FTPS**, right from VS Code. Edit locally in a familiar environment and mirror your changes to a web server, staging box, or embedded device — on every save, on demand, or continuously. The most basic setup is a few lines of config; a wide range of options covers multi-server, profile, and bastion-hop workflows.
+
+![SFTPresso Remote Explorer showing a remote file tree alongside the Transfers view](assets/showcase/remote-explorer.png)
 
 - **Install:** [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso) · [Open VSX](https://open-vsx.org/extension/jmwerk/sftpresso) — see [Installation](#installation)
 - **Docs:** [project wiki](https://github.com/jmwerk/SFTPresso/wiki)

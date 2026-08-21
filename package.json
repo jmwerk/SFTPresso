@@ -1,7 +1,7 @@
 {
   "name": "sftpresso",
   "displayName": "SFTPresso",
-  "description": "SFTP/FTP sync — actively maintained fork of vscode-sftp",
+  "description": "Sync files over SFTP, FTP/FTPS, or SSH from VS Code — upload on save, browse a remote explorer, diff and compare folders. Actively maintained fork of vscode-sftp.",
   "version": "1.31.1",
   "publisher": "jmwerk",
   "author": "Joe Werkheiser <j.m.werkheiser@gmail.com> (https://github.com/jmwerk)",
@@ -24,13 +24,25 @@
   "keywords": [
     "ftp",
     "sftp",
+    "ssh",
+    "ftps",
     "sync",
-    "remote"
+    "remote",
+    "deploy",
+    "upload",
+    "download",
+    "file transfer",
+    "remote development",
+    "remote explorer"
   ],
   "activationEvents": [
     "workspaceContains:.vscode/sftp.json"
   ],
   "icon": "resources/icon.png",
+  "galleryBanner": {
+    "color": "#1E1E1E",
+    "theme": "dark"
+  },
   "main": "./dist/extension",
   "capabilities": {
     "untrustedWorkspaces": {
