@@ -2,7 +2,7 @@
   "name": "sftpresso",
   "displayName": "SFTPresso",
   "description": "Sync files over SFTP, FTP/FTPS, or SSH from VS Code — upload on save, browse a remote explorer, diff and compare folders. Actively maintained fork of vscode-sftp.",
-  "version": "1.32.0",
+  "version": "1.33.0",
   "publisher": "jmwerk",
   "author": "Joe Werkheiser <j.m.werkheiser@gmail.com> (https://github.com/jmwerk)",
   "engines": {
