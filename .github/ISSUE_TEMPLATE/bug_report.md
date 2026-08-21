@@ -7,34 +7,31 @@ assignees: ''
 
 ---
 
-**Do you read the FAQ?**
-- [ ] Yes.
-- [ ] [I am going to read now.](https://github.com/jmwerk/SFTPresso/wiki#8-frequently-asked-questions)
+**Checked the FAQ first?**
+- [ ] Yes, this isn't covered there.
+- [ ] [Not yet — checking now.](https://github.com/jmwerk/SFTPresso/wiki#8-frequently-asked-questions)
 
 **Describe the bug**
 A clear and concise description of what the bug is.
 
-**To Reproduce**
+**To reproduce**
 Steps to reproduce the behavior:
 1. Go to '...'
 2. Run command '....'
 3. See error
 
 **Expected behavior**
-A clear and concise description of what you expected to happen.
+What you expected to happen instead.
 
 **Screenshots**
-If applicable, add screenshots to help explain your problem.
+If applicable, add screenshots to help explain the problem.
 
-**Desktop (please complete the following information):**
- - OS: [e.g. Mac, Win, Linux]
- - VSCode Version [e.g. 1.51.0]
- - Extension Version [e.g. 1.7.0]
+**Environment**
+ - OS: [e.g. macOS, Windows, Linux]
+ - VS Code version: [e.g. 1.125.0]
+ - SFTPresso version: [e.g. 1.31.1]
 
-**Extension Logs from Startup** - *required*
-  1.  Open User Settings.
-
-      * On Windows/Linux - File > Preferences > Settings
-      * On macOS - Code > Preferences > Settings
-  2. Set `sftp.debug` to `true` and reload vscode.
-  3. Reproduce the problem, get the logs from View > Output > sftp.
+**Extension logs from startup** — *required*
+1. Open Settings (`File > Preferences > Settings` on Windows/Linux, `Code > Preferences > Settings` on macOS).
+2. Set `sftp.debug` to `true` and reload VS Code.
+3. Reproduce the problem, then grab the logs from `View > Output`, **sftp** channel.

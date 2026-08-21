@@ -14,7 +14,7 @@
 ## Table of Contents
 
 1. [Overview](#1-overview)
-   - [Primary purposes](#primary-purposes)
+   - [What people mostly use it for](#what-people-mostly-use-it-for)
    - [Key features](#key-features)
 2. [Installation and Setup](#2-installation-and-setup)
    - [Installing the extension](#installing-the-extension)
@@ -70,14 +70,11 @@
 
 ## 1. Overview
 
-SFTPresso lets you add, edit, or delete files in a local directory and have those changes sync to a remote server directory over **SFTP (SSH)** or **FTP/FTPS**. The most basic setup requires only a few lines of configuration, while a wide array of options covers advanced needs — multiple servers, switchable profiles, SSH connection hopping, file watchers, and atomic uploads.
+SFTPresso syncs a local folder to a remote server directory over **SFTP (SSH)** or **FTP/FTPS**, so you can edit in a normal local environment and have the changes show up on a web server, staging box, or embedded device — on save, on demand, or continuously. A minimal setup is a handful of lines of JSON; from there the options go as deep as multi-server, multi-profile, bastion-hop setups need.
 
-### Primary purposes
+### What people mostly use it for
 
-- **Remote deployment while editing locally** — keep a familiar local editor and environment and mirror your work to a web server, staging box, or embedded device on every save.
-- **Remote file management** — browse, view, edit, create, and delete files on the server directly from the SFTP sidebar without leaving VS Code.
-- **Directory synchronization** — one-shot or continuous sync in either (or both) directions, with fine-grained control over deletes, creates, and overwrites.
-- **Multi-environment workflows** — one config with named profiles (e.g. `dev`, `prod`) or several configs mapped to different subfolders of the same workspace.
+Most of the time that's deploying while editing locally — same editor, same shortcuts, changes mirrored to the server on save. But the Remote Explorer also works fine as a file manager on its own (browse, edit, create, delete, no separate FTP client needed), the sync commands handle one-shot or continuous two-way sync with real control over deletes/creates/overwrites, and profiles or multiple configs cover running the same workspace against several environments — `dev`/`staging`/`prod`, or a few servers mapped to different subfolders.
 
 ### Key features
 
@@ -131,22 +128,16 @@ To build the VSIX yourself:
 
 ```sh
 git clone https://github.com/jmwerk/SFTPresso.git
-cd vscode-sftp
+cd SFTPresso
 npm install          # also applies bundled patches via patch-package
 npm run package      # produces sftpresso-<version>.vsix via vsce
 ```
 
 ### Legacy extension detection
 
-SFTPresso is a fork, and the extensions it forked from — `sftp` from `@liximomo` and `vscode-sftp` from `@Natizyskunk` — register commands under the same `sftp.*` namespace. If both are enabled at once, VS Code resolves the collision unpredictably: `SFTP: Upload` might silently run the other extension's handler against the same `sftp.json`, with different behavior and none of SFTPresso's fixes, and the resulting bug reports are effectively unreproducible.
+SFTPresso is a fork, and the two projects it descends from — `sftp` (`@liximomo`) and `vscode-sftp` (`@Natizyskunk`) — happen to register commands under that same `sftp.*` namespace. Enable one of them alongside SFTPresso and VS Code has to pick one to actually run `SFTP: Upload`; which one it picks isn't something you control, and the resulting bugs are a nightmare to reproduce since half the time it isn't even this extension's code that ran.
 
-On startup, SFTPresso checks whether either legacy extension is installed **and enabled** (an installed-but-disabled copy is invisible to this check and never triggers it) and, if so, shows one notification with three choices:
-
-- **Disable the Other** — disables the conflicting extension via VS Code's own Extensions view action.
-- **Show Me** — reveals the conflicting extension in the Extensions view so you can look before deciding.
-- **Don't Show Again** — suppresses the prompt for this workspace only, in case the two are meant to coexist there.
-
-Nothing is ever disabled automatically. The suppression is workspace-scoped, since the right answer can differ per project.
+So on startup, SFTPresso checks whether either older extension is installed *and enabled* (disabled doesn't count) and, if so, shows one notification: **Disable the Other**, **Show Me** (just reveals it in the Extensions view first), or **Don't Show Again** for this workspace. Nothing gets disabled without you clicking something — and the dismissal only applies to that one workspace, in case you've genuinely got a reason to run both somewhere.
 
 ### First-time setup
 
@@ -183,7 +174,7 @@ Notes:
 
 Run **`SFTP: Test Connection`** from the Command Palette, or click the **Test Connection** CodeLens shown at the top of `sftp.json`. It connects using the active profile's settings and reports success or failure with an actionable message (see [SSH connection error messages](#ssh-connection-error-messages)).
 
-A **connection-status indicator** in the status bar reflects the live state of the remote connection at a glance: a plug icon when idle, a spinner while connecting or reconnecting, an active-VM icon when connected, and an error icon (with a highlighted background) when a connection fails. Because connections reconnect lazily on the next operation, this makes silent reconnects and authentication failures visible. Clicking it runs **`SFTP: Test Connection`**.
+There's also a **connection-status indicator** in the status bar — a plug icon when idle, a spinner while (re)connecting, an active-VM icon when connected, and a highlighted error icon when it fails. Connections reconnect lazily on the next operation, so without this you'd never actually see a reconnect fail; click the icon to run `SFTP: Test Connection`.
 
 ### Storing passwords securely
 
@@ -194,25 +185,23 @@ Instead of writing `password` into `sftp.json` (which is plain text), you can ke
 - Already have a plaintext `password` in `sftp.json`? Run **`SFTP: Migrate Plaintext Password`** (or click **Migrate Password** on the warning) to move it into secret storage and strip the `password` key from the file in one step — comments and formatting are preserved, and you're asked to confirm first.
 - Run **`SFTP: Clear Password`** to delete a saved password (for example after it changed on the server).
 
-Saved passwords are keyed by `protocol://username@host:port`, so each server/user pair is stored independently (configs and profiles that point at the same server share one saved password). A saved password is only used when the config provides no other authentication — configs that set `password`, `privateKeyPath`, `agent`, or `interactiveAuth` behave exactly as before. If `sftp.json` still contains a plaintext `password`, the extension logs a one-time reminder in the output channel and offers a **Migrate Password** button to fix it.
+Saved passwords are keyed by `protocol://username@host:port` — so any config or profile pointing at the same server/user shares one, and it's only used when nothing else in the config already provides auth (`password`, `privateKeyPath`, `agent`, `interactiveAuth` all still work exactly as before). Still got a plaintext `password` sitting in `sftp.json`? You'll get a one-time reminder in the output channel with a Migrate Password button.
 
 ### Host key verification
 
-Every SFTP connection now checks the server's SSH host key before handing over your credentials, the same way `ssh`, `scp`, and every other SSH client does. Without that check, a server that answers on the right address is trusted on its say-so — which is exactly what a man-in-the-middle needs.
+SFTPresso checks the server's SSH host key before handing over your credentials — same as `ssh` or `scp` would. Without that, anything answering on the right IP gets trusted by default, which is exactly the gap a man-in-the-middle needs.
 
-**Where keys come from.** Your own `~/.ssh/known_hosts` (and `known_hosts2`, plus `/etc/ssh/ssh_known_hosts` on macOS and Linux) is consulted first, so a host you have already accepted with `ssh` is trusted here too and never prompts. Hashed entries — what `HashKnownHosts yes`, the default on most distributions, writes — are matched, as are wildcards, `!` negations, `@revoked`, and `[host]:port` entries for non-default ports.
+It looks in your own `~/.ssh/known_hosts` first (plus `known_hosts2` and `/etc/ssh/ssh_known_hosts`), so a host you've already accepted with plain `ssh` is trusted here too, no extra prompt — hashed entries, wildcards, `!` negations, `@revoked`, `[host]:port`, all of it works the way you'd expect. Keys you accept from inside SFTPresso itself go into a `known_hosts` file of its own (same format, in the extension's global storage) rather than touching yours — your real `known_hosts` stays something only your ssh client writes to.
 
-Keys you accept **in SFTPresso** are written to a `known_hosts` file of the extension's own, inside its global storage directory. It is in exactly the same format, so you can read or edit it with the usual tools. Your `~/.ssh/known_hosts` is never appended to — that file belongs to your ssh client.
+What happens on connect depends on [`strictHostKeyChecking`](#stricthostkeychecking) (default `"accept-new"`):
 
-**What happens when.** Governed by [`strictHostKeyChecking`](#stricthostkeychecking), which defaults to `"accept-new"`:
+- **First time seeing a host** — trusted and remembered silently by default. Set `"ask"` if you'd rather see a modal first, with the fingerprint in the same `SHA256:…` form `ssh-keygen -lf` prints, and a choice of Connect Once / Connect and Remember / cancel.
+- **Key matches what's stored** — connects, no fuss.
+- **Key changed** — connection refused, flat out, with both fingerprints shown and where the old one came from. There's deliberately no "connect anyway" button here — a changed key means either the server got rebuilt or something worse is happening, and those two shouldn't be one click apart. If you're sure it's legitimate, run **`SFTP: Forget Host Key`** and connect again.
 
-- **First sight of a host.** Under the default the key is trusted and remembered silently. Set `"ask"` to be shown a modal first, with the host, port, key type, and the `SHA256:…` fingerprint in the same form `ssh-keygen -lf` prints — so you can compare it against the server character for character — and the choice of **Connect Once**, **Connect and Remember**, or cancel.
-- **A key that matches.** Connects silently.
-- **A key that changed.** The connection is **refused**, with an alarm naming both fingerprints and where the stored one came from. There is deliberately no button to proceed: a changed key is either a server rebuild or an attack, and those two should not be one click apart. Once you have confirmed the change is legitimate, run **`SFTP: Forget Host Key`** and connect again.
+**`SFTP: Show Host Key Fingerprint`** shows what's stored for a host and where it came from; **`SFTP: Forget Host Key`** clears it (asking first, with the file and line, if it'd mean touching a file your own ssh client maintains).
 
-**Commands.** **`SFTP: Show Host Key Fingerprint`** shows what is stored for a remote and which file each entry came from. **`SFTP: Forget Host Key`** removes those entries; if any live in a file maintained by your ssh client, it names the file and line and asks you to confirm before touching it.
-
-> ⚠️ **Upgrading from 1.29.0 or earlier.** Host keys were not checked at all before, so nothing you connect to today is in SFTPresso's own store. With the default `"accept-new"` every existing config keeps connecting exactly as it did — the first connection after upgrading learns the key — but from then on a *changed* key stops the connection instead of being accepted silently. If your `~/.ssh/known_hosts` already holds a **stale** entry for a server (one you have been ignoring in `ssh` too), that connection will now fail; run **`SFTP: Forget Host Key`**, or fix the entry with `ssh-keygen -R`.
+> ⚠️ **Coming from 1.29.0 or earlier?** Host keys weren't checked at all before this, so SFTPresso's store starts empty regardless of what you've already connected to. With the default `"accept-new"` nothing changes for existing configs — the first connection after upgrading just learns the key — but a key that *changes* after that now stops the connection instead of sailing through. One snag: if `~/.ssh/known_hosts` already has a stale entry you've been ignoring, that connection will start failing here too. Run `SFTP: Forget Host Key` or `ssh-keygen -R` to clear it.
 
 ---
 
@@ -227,16 +216,16 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Config` | `sftp.config` | Create a new `sftp.json` for the workspace — via a guided quick-setup wizard or a starter template — or open the existing one. See [First-time setup](#first-time-setup). |
 | `SFTP: Set Profile` | `sftp.setProfile` | Switch the active [profile](#profiles-dev--prod). |
 | `SFTP: Test Connection` | `sftp.testConnection` | Connect to the active profile's remote and report success/failure. Also available as a CodeLens on `sftp.json`. |
-| `SFTP: Disconnect` | `sftp.disconnect` | Close every pooled connection and drop it, so the next command reconnects from scratch. Every config and every [profile](#profiles), not just the active one, and it reports how many were actually open. The manual escape hatch for a connection that has stopped responding — [`operationTimeout`](#operationtimeout) should catch that on its own, but this saves you a window reload when something slips through. |
+| `SFTP: Disconnect` | `sftp.disconnect` | Drop every pooled connection (all configs/profiles, not just the active one) so the next command reconnects fresh. Manual escape hatch for a stuck connection — [`operationTimeout`](#operationtimeout) usually catches that on its own, but this is faster than reloading the window when it doesn't. |
 | `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). The status bar shows a `$(cloud-upload)` indicator while it's on. |
 | Add to Ignore | `sftp.addToIgnore` | File-explorer context menu command. Appends the right-clicked file or folder's workspace-relative path to the active config's [`ignore`](#ignore) array in `sftp.json` (folders as `path/**`), preserving comments and formatting; a no-op if the entry is already listed. |
 | `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal auto-logged-in to the server. Extra CLI flags can be added via [`sshCustomParams`](#sshcustomparams). |
 | `SFTP: Save Password` | `sftp.savePassword` | Store a password for a remote in VS Code's secret storage (OS keychain). See [Storing passwords securely](#storing-passwords-securely). |
-| `SFTP: Migrate Plaintext Password` | `sftp.migratePassword` | Move a plaintext `password` from `sftp.json` (top-level or in a profile) into secret storage, then remove the `password` key via a `jsonc-parser` edit (comments and formatting preserved); confirms before writing. Also offered as a **Migrate Password** button on the plaintext-password warning. See [Storing passwords securely](#storing-passwords-securely). |
+| `SFTP: Migrate Plaintext Password` | `sftp.migratePassword` | Move a plaintext `password` out of `sftp.json` into secret storage and strip the key (comments/formatting preserved, confirms first). Same thing the **Migrate Password** button on the plaintext warning does. See [Storing passwords securely](#storing-passwords-securely). |
 | `SFTP: Clear Password` | `sftp.clearPassword` | Remove a saved password from secret storage. |
-| `SFTP: Show Host Key Fingerprint` | `sftp.showHostKey` | Show the SSH host key(s) stored for a remote — fingerprint, key type, and which known_hosts file each came from — with a button to copy the fingerprints. See [Host key verification](#host-key-verification). |
-| `SFTP: Forget Host Key` | `sftp.forgetHostKey` | Remove the stored SSH host key(s) for a remote, so the next connection treats it as a new host. This is what unblocks a connection refused because the server's key changed. Entries in files maintained by your ssh client (`~/.ssh/known_hosts`) are only removed after a confirmation naming the file and line. |
-| `SFTP: Run Remote Command` | `sftp.runRemoteCommand` | Run a command on the remote over the existing SSH connection — no re-authentication. Offers [`remoteCommands`](#remotecommands) as a quick pick, or prompts for a command to type. Always confirms the resolved command and host before running it, since this executes on whatever server the active config points at. Output streams into the SFTP output channel and the exit code is reported when it finishes; a command that runs past [`remoteCommandTimeout`](#remotecommandtimeout) is killed and reported as timed out. FTP configs get an error instead of attempting the command. |
+| `SFTP: Show Host Key Fingerprint` | `sftp.showHostKey` | Show the stored host key(s) for a remote — fingerprint, type, source file — with a copy button. See [Host key verification](#host-key-verification). |
+| `SFTP: Forget Host Key` | `sftp.forgetHostKey` | Clear the stored host key(s) for a remote, so the next connection is treated as new. What you run when a connection's refused because the server's key changed. Removing an entry from your own `~/.ssh/known_hosts` asks for confirmation first, naming the file and line. |
+| `SFTP: Run Remote Command` | `sftp.runRemoteCommand` | Run a command on the remote over the existing SSH connection, no re-auth. Pick from [`remoteCommands`](#remotecommands) or type one — either way you confirm the resolved command and host before it runs, since it executes on whatever server the active config points at. Output streams to the SFTP output channel; a command past [`remoteCommandTimeout`](#remotecommandtimeout) gets killed and reported as timed out. FTP configs just get an error instead. |
 
 ### Upload commands
 
@@ -505,15 +494,15 @@ All four are off unless set explicitly — an omitted key has never done anythin
 > `Sync Both Directions` honors only `skipCreate` and `ignoreExisting`.
 
 #### syncConfirm
-Show a dry-run preview before a [Sync command](#sync-commands) runs. The extension walks the local/remote diff, computes exactly what the sync would do — respecting [`syncOption`](#syncoption) — and shows a modal summary such as *"Sync Local → Remote: 3 uploads, 1 overwrite, 2 deletions. Proceed?"* with the affected files listed. **Cancel** leaves everything untouched; **Proceed** runs the sync unchanged. If nothing differs, an info message is shown and no sync runs.
+Get a dry-run preview before a [Sync command](#sync-commands) actually runs — something like *"Sync Local → Remote: 3 uploads, 1 overwrite, 2 deletions. Proceed?"*, with the files listed, and Cancel/Proceed to decide. Nothing happens until you click Proceed; if there's nothing to sync, you just get a quick "nothing to do" message instead.
 
 | Key | Type | Default |
 | --- | --- | --- |
 | `syncConfirm` | boolean | `true` when [`syncOption.delete`](#syncoption) is enabled, otherwise `false` |
 
-The default is deliberately conservative: syncs that can delete files on the destination prompt by default, while non-destructive syncs don't. Set it explicitly to always (or never) confirm.
+Default's conservative on purpose — a sync that can delete things asks first, one that can't doesn't bother you. Set it explicitly if you want the opposite either way.
 
-If a directory can't be read while the preview is being built, it is listed as `! could not read:` and the summary says so up front — the plan below it is built only from what could be read, and is not the whole picture. The sync itself will fail on that directory rather than acting on the gap.
+One caveat: if a directory can't be read while building the preview, it shows up as `! could not read:` and the summary says so up front — the rest of the preview is only as complete as what it could actually see.
 
 ```json
 {
@@ -535,14 +524,9 @@ Guard against uploads that would silently overwrite someone else's work. Before 
 }
 ```
 
-This is not just a local-vs-remote timestamp comparison. After each transfer of a file, the extension records what the remote looked like at that moment, and compares the remote against *that*. It matters because once you edit a file locally, your local copy is the newest one — so a plain timestamp check would call the upload safe even when a teammate changed the remote in the meantime. Until a file has a recorded baseline (nothing has been transferred yet this workspace), the check falls back to flagging a remote that is newer than your local copy.
+It's smarter than a plain timestamp check, which matters because your local copy is always "newest" the moment you edit it — a naive check would wave through an upload even if a teammate changed the remote five minutes ago. So instead, after every transfer SFTPresso remembers what the remote looked like at that moment, and compares against *that* baseline rather than just "is remote newer than local right now." No baseline yet (nothing transferred this workspace) falls back to just checking whether the remote is newer than local.
 
-Scope and caveats:
-
-- Applies to **single-file uploads**, including [`uploadOnSave`](#uploadonsave). Folder uploads and the [Sync commands](#sync-commands) are not checked — a folder upload would mean prompting per file mid-transfer; use [`syncConfirm`](#syncconfirm) to review a whole tree before it runs.
-- Enabling it costs one extra `stat` round-trip per file transfer (to read the remote back). It is off by default partly for that reason.
-- Baselines are remembered per workspace. Uploading the same file from a **second machine** leaves the first machine's baseline stale, so the next upload there may prompt once; choose **Overwrite** and it re-syncs.
-- On FTP servers that cannot set a file's modification time (no `MFMT`), the remote mtime is the upload time rather than your file's, which makes conflicts likelier to be reported. See [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) if local and remote clocks disagree.
+A few things to know: it only covers single-file uploads (including `uploadOnSave`) — folder uploads and [Sync](#sync-commands) skip it, since prompting mid-batch doesn't really work; use [`syncConfirm`](#syncconfirm) there instead. It costs one extra round-trip per upload, which is part of why it's off by default. Baselines are per-workspace, so uploading from a second machine can trigger one stale-baseline prompt — just choose Overwrite and it's back in sync. And on FTP servers without `MFMT` support, the remote's mtime is just "whenever it was uploaded," which makes conflicts get flagged more often than they should — see [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) if that's biting you.
 
 #### ignore
 Files/folders excluded from transfers and sync. Gitignore-style patterns (wildcards with `*`), relative to the config's [`context`](#context). Bypass with the [Force commands](#force-alt-commands).
@@ -574,7 +558,7 @@ Path to an ignore file (e.g. `.gitignore`-style list) — absolute, or relative 
 ```
 
 #### maxFileSize
-Caps individual file size (in megabytes) during a **batch** transfer — a folder upload/download or a [Sync](#sync-commands). A file over the limit is left out of the transfer rather than started, and reported afterward in a summary notification naming the count and the largest one (full list in the SFTP output), the same way [`syncOption.delete`](#syncoption) reports what it removed. Never applies to an explicitly-requested single-file transfer — right-click one file and choose Upload/Download and it always goes, regardless of size. `0` or unset disables the cap.
+Caps file size (MB) for a **batch** transfer — folder upload/download or [Sync](#sync-commands). Anything over the limit just gets skipped, with a summary afterward naming the count and the largest offender (full list in the output channel). This exists because someone's project has a stray database dump or video file in it, and nobody wants to find that out an hour into a folder upload. Doesn't apply if you explicitly right-click one file and upload/download it — that always goes through regardless of size. `0` or unset means no cap.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -585,9 +569,9 @@ Caps individual file size (in megabytes) during a **batch** transfer — a folde
 ```
 
 #### watcher
-Watches for file changes made **outside** the VS Code editor (build output, `git checkout`, external tools) and reacts automatically. See [Two-way automatic sync](#two-way-automatic-sync-with-the-watcher).
+Watches for changes made outside VS Code itself — build output, `git checkout`, some other tool writing to disk — and reacts automatically. See [Two-way automatic sync](#two-way-automatic-sync-with-the-watcher) for a full example.
 
-A [profile](#profiles) may override `watcher` to change what is watched — or to switch watching off entirely with `"files": false` — for that profile alone. The watcher is rebuilt when you switch profile, and the profile's [`ignore`](#ignore) rules apply to it, so an ignored path is dropped at the watcher rather than further down the transfer path.
+A [profile](#profiles) can override this — even turn it off entirely with `"files": false` — just for that profile. Switching profiles rebuilds the watcher, and the profile's own [`ignore`](#ignore) rules apply to it too.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -694,9 +678,9 @@ Reference a connection defined in User Settings under `remotefs.remote` instead 
 | `remote` | string |
 
 #### retry
-Automatically re-runs a transfer that failed with a transient error — a dropped or reset connection, a timeout, a closed SSH channel, or an FTP 4xx reply. Failures that would fail the same way every time (permission denied, file not found, FTP 5xx) are never retried.
+Re-runs a transfer automatically when it fails for a transient reason — dropped/reset connection, timeout, closed SSH channel, FTP 4xx. Things that'll just fail the same way again (permission denied, file not found, FTP 5xx) don't get retried — no point.
 
-Each retry waits `delay × 2ⁿ` milliseconds, capped at 15 seconds — with the defaults that's 2s, then 4s. Set `attempts` to `0` to turn retrying off.
+Backoff doubles each attempt (`delay × 2ⁿ`, capped at 15s) — so the defaults give you 2s, then 4s. `attempts: 0` turns it off entirely.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -717,11 +701,11 @@ Each retry waits `delay × 2ⁿ` milliseconds, capped at 15 seconds — with the
 ```
 
 #### idleTimeout
-Guards against servers that close an idle connection without saying so. Many shared hosts do this after a few minutes — the extension keeps handing out the pooled connection, and the next upload waits on a socket that will never answer, so it hangs until the window is reloaded.
+Some shared hosts quietly close an idle connection after a few minutes without telling anyone. SFTPresso would otherwise keep handing that connection out of its pool, and your next upload just hangs on a socket that's never going to answer — until you reload the window.
 
-With `idleTimeout` set, a connection that has gone unused for that many milliseconds is checked with a cheap round-trip (an SFTP `realpath`, an FTP `NOOP`) before it is handed out again. If the server answers, the connection is reused as before. If it refuses — or doesn't answer within [`connectTimeout`](#connecttimeout) — the connection is dropped and a fresh one is opened for you.
+Set `idleTimeout` and a connection that's been sitting unused that long gets a cheap health check (SFTP `realpath`, FTP `NOOP`) before it's reused. Answers fine → reused as normal. Doesn't answer → dropped, and a fresh connection opens instead.
 
-Set it a little under whatever your host allows. If it drops connections after 5 minutes, `240000` (4 minutes) leaves margin.
+Set it a bit under whatever your host's actual limit is — if it drops connections at 5 minutes, `240000` (4 min) gives some margin.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -734,7 +718,7 @@ Set it a little under whatever your host allows. If it drops connections after 5
 }
 ```
 
-When the check passes there is nothing to see — a healthy server answers instantly and the operation carries on unchanged — so a working `idleTimeout` looks exactly like one that isn't wired up. To confirm it's active, turn on the `sftp.debug` setting and watch the **SFTP** output channel:
+When the check passes it's invisible — a healthy server just answers and things carry on, so a working `idleTimeout` looks identical to one that isn't doing anything. To actually confirm it's active, turn on `sftp.debug` and watch the **SFTP** output channel:
 
 ```
 [debug] probing connection after 301204ms idle (timeout 10000ms)
@@ -747,14 +731,14 @@ A reconnect is reported at info level, so that line appears whether or not `sftp
 [info] reconnecting: idle connection did not answer in 10000ms (idle for 301204ms)
 ```
 
-> ℹ️ The check happens when the connection is *reused*, not on a timer, so it can never interrupt a transfer that is still running — a long upload keeps the connection busy and healthy, and a live connection simply answers the probe. The trade-off is that the socket stays open while idle rather than being closed proactively; if your host counts concurrent connections rather than dropping idle ones, this option won't help with that.
+> ℹ️ It only checks on reuse, not on a timer, so it can't interrupt a transfer that's still running. The trade-off: the socket stays open while idle instead of being closed proactively, so if your host counts concurrent connections rather than killing idle ones, this won't help with that.
 
 #### stallTimeout
-Covers the other half of the problem [`idleTimeout`](#idletimeout) solves. `idleTimeout` catches a connection that died *between* operations; `stallTimeout` catches one that dies *during* a transfer, where there is no error to react to — the bytes simply stop and the upload waits forever.
+`idleTimeout` catches a connection that died *between* operations. This one catches the other case — a connection that dies mid-transfer, where the bytes just stop arriving and there's no error to react to, so the upload would otherwise wait forever.
 
-With `stallTimeout` set, a transfer that goes that many milliseconds without a single byte moving is failed rather than waited on. The failure is classified the same way a dropped connection is, so [`retry`](#retry) picks it up and runs the transfer again instead of surfacing an error.
+With `stallTimeout` set, a transfer that goes that long without a single byte moving gets failed instead of left hanging — and it's classified the same as a dropped connection, so [`retry`](#retry) picks it up and tries again automatically.
 
-The clock resets on every chunk, so this measures *stalling*, not total duration — a large file crawling over a slow link keeps resetting the timer and is never interrupted. Set it well above the longest pause you'd expect from a healthy transfer; 30–60 seconds is a reasonable starting point.
+The clock resets on every chunk received, so this is measuring *stalls*, not total transfer time — a huge file crawling over a slow link keeps resetting the timer and never trips it. 30–60 seconds is a reasonable starting point.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -769,13 +753,13 @@ The clock resets on every chunk, so this measures *stalling*, not total duration
 ```
 
 #### operationTimeout
-Covers the third way a connection can go quiet, and the only one of the three that is on by default.
+The third way a connection can go quiet, and the only one of the three that's on by default.
 
-[`idleTimeout`](#idletimeout) catches a connection that died between operations and [`stallTimeout`](#stalltimeout) catches one that died mid-transfer. Neither covers the requests that surround a transfer — the `mkdir` that creates the target directory, the directory listing that drives a sync, a `stat`, a rename, a delete. A server can leave the SSH transport up, answering keepalives perfectly happily, while the SFTP subsystem behind it stops reading its channel; every request after that is queued locally and nothing is ever answered. There is no error to react to, so the command simply never finishes.
+`idleTimeout` and `stallTimeout` cover the connection dying between operations or mid-transfer. What's left is everything around a transfer — the `mkdir`, the directory listing behind a sync, a `stat`, a rename. A server can keep the SSH transport up and answer keepalives just fine while the SFTP subsystem behind it stops reading its channel — every request just queues up locally with nothing ever answering back, and there's no error to catch.
 
-With `operationTimeout` set, any single request that goes unanswered for that many milliseconds is failed with `ETIMEDOUT` and the connection is dropped, so the next command opens a fresh one instead of inheriting a dead one. The failure is classified as retryable, so [`retry`](#retry) applies.
+`operationTimeout` fails any single request that goes unanswered that long with `ETIMEDOUT` and drops the connection, so the next command starts fresh instead of inheriting a dead one — and since that failure is retryable, [`retry`](#retry) picks it up.
 
-This measures one round trip, not a whole operation. Transfers are not affected — `get` and `put` can take as long as the file takes, and are governed by `stallTimeout` instead. Neither are operations built out of several requests: an `ensureDir` that has to create four directories gets four separate deadlines, not one.
+It's one round trip, not a whole operation — transfers aren't affected (that's `stallTimeout`'s job), and a multi-step operation like `ensureDir` creating four directories gets four separate deadlines rather than one shared one.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -796,7 +780,7 @@ A timeout is reported at warn level, so the line appears whether or not `sftp.de
 
 > ℹ️ SFTP only. FTP is already covered by [`connectTimeout`](#connecttimeout), which the FTP client applies as an idle timeout on both the control and data sockets. Setting `operationTimeout` on an FTP config is accepted and ignored.
 
-> ⚠️ Unlike the two options above, this one defaults on. A request that has gone a full minute without a reply is not slow, it's lost, and the alternative is an extension that hangs until you reload the window. If you have a genuinely slow server and see spurious timeouts, raise it rather than turning it off — `0` restores the old behaviour of waiting indefinitely.
+> ⚠️ Unlike the two above, this one's on by default — a full minute with no reply isn't "slow," it's lost, and the alternative is an extension stuck until you reload the window. Got a genuinely slow server tripping this by accident? Raise the number rather than disabling it; `0` goes back to waiting forever.
 
 #### remoteCommands
 Labeled shell commands offered by [`SFTP: Run Remote Command`](#configuration-and-connection-commands) as a quick pick, instead of a blank prompt every time. Each command runs over the existing pooled SSH connection.
@@ -946,9 +930,7 @@ Six directives are read:
 
 Except for `HostName`, a value you set in `sftp.json` wins — the ssh config only fills in what you left out. `ConnectTimeout` and `ServerAliveInterval` are ignored, with a warning in the output channel, if their value isn't a number of seconds.
 
-> ℹ️ **Fixed in 1.30.1.** `ServerAliveInterval` and `ConnectTimeout` were read from your ssh config and then dropped: they were mapped onto option names the SSH client does not have, so neither had any effect. If you rely on either, they start working with this release — a `ServerAliveInterval` far below the previous 30-second default means noticeably more keepalive traffic.
-
-> ℹ️ **Fixed.** Resolution used to be a literal string match against `Host` — a config using a wildcard `Host *.example.com` pattern or a `Match` block, both ordinary `ssh_config(5)` syntax, contributed nothing at all, silently. Both are now resolved correctly.
+> ℹ️ Both `ServerAliveInterval` and wildcard/`Match`-style `Host` entries are read correctly as of 1.30.1 — earlier versions parsed them and then quietly threw the values away. If you're setting a short `ServerAliveInterval` for the first time on an upgrade, expect more keepalive traffic than before; that's this taking effect, not a bug.
 
 #### sshCustomParams
 Extra parameters appended to the `ssh` command used by `SFTP: Open SSH in Terminal`.
@@ -995,7 +977,7 @@ A key marked `@revoked` in a known_hosts file is refused under every value, as i
 > ℹ️ SFTP only. Setting it on an FTP config is accepted and ignored.
 
 #### keepaliveInterval
-How often, in milliseconds, an SSH-level keepalive packet is sent to the server. Guards against links that silently drop an idle connection — a NAT or firewall that closes an unused mapping, or a host that reaps connections it hasn't heard from — leaving the next operation to hang against a socket nothing will ever answer on.
+How often an SSH keepalive packet goes out, in milliseconds. Mainly there for NATs/firewalls that silently drop an unused mapping, or hosts that reap connections that have gone quiet — without this, the next operation just hangs against a socket nobody's listening on anymore.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -1266,7 +1248,7 @@ Keep `uploadOnSave` **false** here — the watcher already covers saves when wat
 
 ### Renaming and moving files on the remote
 
-Renaming or moving something used to mean a full re-upload — for a large directory, of everything inside it. Renaming/moving is now a single remote `rename()` call, regardless of size, in two places:
+Used to be that renaming or moving something meant a full re-upload — of everything inside it, if it was a directory. Now it's just a single remote `rename()` call regardless of size, in three places:
 
 **From the Remote Explorer.** Right-click a file or folder and choose **Rename**. Type a new name — including a path with `/` to move it into a subfolder — and confirm. The move is refused (with a clear message, nothing is touched) if the destination already exists, falls outside [`remotePath`](#remotepath), or would move a folder into itself.
 
@@ -1285,12 +1267,12 @@ Renaming or moving something used to mean a full re-upload — for a large direc
 }
 ```
 
-A few things worth knowing:
+Worth knowing:
 
-- It only fires for renames VS Code itself reports (its Explorer, or any tool that goes through VS Code's file-rename API). A rename made by an external tool that writes straight to disk still looks like a delete-and-create to the watcher, the same as before.
-- A move that crosses into a **different** configured root (a workspace with more than one `sftp.json` context) can't be a single remote rename — there's nowhere on that remote for the old path's `rename()` to reach. It falls back to a normal upload of the file at its new local path, followed by deleting the old remote path, so the two sides never disagree about the file's existence.
-- Any other rename failure — a source the watcher never got around to uploading in the first place, a permissions error, a dropped connection — falls back the same way: upload the new path, *then* delete the old one, never the other order. Whatever else happens, the only remote copy is never removed before its replacement exists.
-- The default is `false`. Turning it on doesn't change what `autoUpload`/`autoDelete` do for anything other than renames.
+- Only fires for renames VS Code itself reports — its Explorer, or anything going through VS Code's rename API. An external tool writing straight to disk still looks like a delete-and-create, same as always.
+- Moving something into a *different* configured root can't be a single rename (there's nothing on that remote for the old path to reach), so it falls back to upload-then-delete instead — new path first, old path removed after, never the other order.
+- Same fallback for any other rename failure — permissions, a dropped connection, whatever. The remote copy is never deleted before its replacement actually exists.
+- Off by default, and only affects renames — doesn't change what `autoUpload`/`autoDelete` do otherwise.
 
 ### Uploading a folder's contents without the folder itself
 
@@ -1381,16 +1363,18 @@ A directory that couldn't be listed on either side is reported as **Could not re
 
 ## 6. Best Practices
 
-- **Don't commit credentials.** `password` and `passphrase` are stored in plain text in `sftp.json`. Prefer key-based auth ([`privateKeyPath`](#privatekeypath) or [`agent`](#agent)), keep passwords in [secret storage](#storing-passwords-securely) via `SFTP: Save Password`, set `"passphrase": true` for a prompt instead of a stored string, and add `.vscode/sftp.json` to `.gitignore` if it contains secrets.
-- **Ignore what you don't deploy.** Add `/.git`, `/.vscode`, `node_modules`, build caches, and OS junk (`.DS_Store`) to [`ignore`](#ignore) — transfers get faster and you avoid clobbering the server with noise. Use the [Force commands](#force-alt-commands) for one-off exceptions.
-- **Set `maxFileSize` before running a folder upload/download or Sync on an unfamiliar project.** A stray database dump, video asset, or `.iso` in the tree otherwise transfers along with everything else, and the first sign of it is the transfer still running long after you expected it to finish. See [`maxFileSize`](#maxfilesize).
-- **Protect live sites with atomic uploads.** Enable [`useTempFile`](#usetempfile) (plus [`openSsh`](#openssh) on OpenSSH servers) so a visitor never receives a half-uploaded file.
-- **Pick one auto-upload mechanism.** Use either [`uploadOnSave`](#uploadonsave) or a broad [`watcher`](#watcher) (`"**/*"` with `autoUpload`), not both — doubling up causes redundant transfers.
-- **Be careful with `syncOption.delete` and `watcher.autoDelete`.** They remove files on the destination. Leave [`syncConfirm`](#syncconfirm) on (its default when `delete` is enabled) to preview and confirm deletions before they happen, or run a [Compare Folders](#comparing-folders-with-the-remote) first if you're unsure what a sync will do.
-- **Set `remoteTimeOffsetInHours` when clocks differ** — otherwise timestamp-based sync may copy in the wrong direction (see [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours)).
-- **Tune `concurrency` down for picky servers.** Shared hosts often cap concurrent SFTP operations; `"concurrency": 1–3` trades speed for reliability.
-- **Verify early.** After editing `sftp.json`, run [`SFTP: Test Connection`](#verifying-your-connection) rather than discovering an auth typo mid-upload.
-- **Use profiles for environments** rather than juggling multiple config files — and remember the [`… To All Profiles`](#upload-commands) commands when a release must land everywhere.
+A few habits that'll save you a bad afternoon:
+
+- `password`/`passphrase` sit in `sftp.json` as plain text, so don't commit that file if it has either — put it in `.gitignore`, and use [secret storage](#storing-passwords-securely) or key-based auth ([`privateKeyPath`](#privatekeypath)/[`agent`](#agent)) instead where you can.
+- Add the obvious noise to [`ignore`](#ignore) — `/.git`, `/.vscode`, `node_modules`, build caches, `.DS_Store`. Faster transfers, and you're not cluttering the server with things it doesn't need. The [Force commands](#force-alt-commands) cover the rare exception.
+- Before running a folder upload/Sync on a project you don't fully know, set [`maxFileSize`](#maxfilesize) — otherwise the first sign of that stray database dump or `.iso` in the tree is the transfer still running twenty minutes later.
+- On a live site, turn on [`useTempFile`](#usetempfile) (and `openSsh` if the server supports it) so nobody ever loads a half-written file mid-deploy.
+- Don't run [`uploadOnSave`](#uploadonsave) and a broad `watcher` (`"**/*"` + `autoUpload`) at the same time — that's just double uploads for no reason, pick one.
+- `syncOption.delete` and `watcher.autoDelete` actually remove things on the other end, so keep [`syncConfirm`](#syncconfirm) on (it already defaults on whenever `delete` is) and run [Compare Folders](#comparing-folders-with-the-remote) first if you're not sure what a sync is about to do.
+- If the server's clock is off, set [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) — otherwise timestamp-based sync can end up copying in the wrong direction.
+- Shared hosts often choke on too many simultaneous SFTP operations; dropping `concurrency` to 1–3 trades some speed for not getting rate-limited.
+- After touching `sftp.json`, just run `SFTP: Test Connection` — cheaper than finding the typo mid-upload.
+- Profiles beat juggling several config files for dev/staging/prod, and don't forget the `… To All Profiles` commands exist for the day a release needs to land everywhere at once.
 
 ---
 
@@ -1496,14 +1480,13 @@ After deleting a remote file, the tree may not update — manually refresh the p
 
 ### Known issues fixed in this fork
 
-For historical context (these are already fixed on `develop`):
+All fixed on `develop` now, kept here mostly for anyone who hits an old bug report and wonders if it's still true:
 
-- **`TypeError: isDate is not a function`** from `ssh2/lib/protocol/SFTP.js` on upload/download — Node removed `util.isDate`, which `ssh2@1.13.0` still used. Fixed via `patches/ssh2+1.13.0.patch`, applied automatically by `patch-package` on `npm install`.
-- Compile errors on `develop` (missing command-constant imports, `vscode-uri` default-export mismatch, `string`/`URI` type mismatch) — fixed; `npm run compile` succeeds.
-- Test-suite breakage under Jest 28+ and `memfs` stream-close bugs — fixed; all suites pass.
-- **Two different remotes sharing one connection** — the pooled-connection cache keyed entries by concatenating config values with no separators or key names, so configs differing only in an object-valued option (`hop`, `algorithms`, `secureOptions`) collided. Two profiles reaching the same host through different bastions reused a single connection and could transfer to the wrong server. Fixed in 1.26.3: the cache key is a digest of a canonical, key-sorted, type-tagged serialization of the connection options.
-- **[`limitOpenFilesOnRemote`](#limitopenfilesonremote) broke every connection that set it** — the file-descriptor throttle reached into `sftp._stream`, an `ssh2` 0.8 internal that no longer exists since the 1.x upgrade, so enabling the option threw `Cannot read properties of undefined (reading 'open')` at connect time. Fixed in 1.26.3.
-- **Deletions from `syncOption.delete` were fired without being awaited** — they raced the transfers into the same tree and their failures were discarded, so a sync could report success while leaving files on the remote. Fixed in 1.26.3.
+- `TypeError: isDate is not a function` on upload/download — a Node/`ssh2` incompatibility, patched via `patch-package`.
+- Compile errors and Jest/`memfs` breakage that used to hit a fresh checkout — gone, `npm run compile` and `npm test` both pass cleanly now.
+- Two remotes could end up sharing one pooled connection if their configs differed only in something like `hop` or `algorithms` — occasionally sent a transfer to the wrong server. Fixed in 1.26.3 by hashing the connection options properly instead of just concatenating them.
+- `limitOpenFilesOnRemote` broke every connection that set it, throwing at connect time — an internal `ssh2` API it depended on had been removed in the 1.x upgrade. Fixed in 1.26.3.
+- `syncOption.delete` fired its deletions without waiting for them, so a sync could report success while files were actually still sitting on the remote. Fixed in 1.26.3.
 
 ---
 

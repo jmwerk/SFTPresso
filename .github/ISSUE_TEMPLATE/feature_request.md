@@ -7,18 +7,18 @@ assignees: ''
 
 ---
 
-**Is this a similar or duplicate feature request?**
-- [ ] I don't know. I will go check it.
-- [ ] No.
+**Checked for a duplicate request?**
+- [ ] Yes, I searched existing issues first.
+- [ ] Not yet — checking now.
 
-**Is your feature request related to a problem? Please describe.**
+**Is this related to a problem? Please describe.**
 A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
 
 **Describe the solution you'd like**
-A clear and concise description of what you want to happen.
+What do you want to happen?
 
 **Describe alternatives you've considered**
-A clear and concise description of any alternative solutions or features you've considered.
+Any alternative solutions or workarounds you've tried.
 
-**Does this project help you?**
-- [x] Yes. SFTP IS AWESOME!
+**Anything else?**
+Extra context, screenshots, or links that help explain the request.

@@ -1,116 +1,116 @@
 # Security Policy
 
-SFTPresso is a VS Code extension that moves files over SFTP (SSH) and FTP/FTPS. It
-handles server credentials and writes to remote filesystems, so security reports are
-taken seriously. Thanks for helping keep it safe.
+SFTPresso moves files over SFTP (SSH) and FTP/FTPS and handles your server credentials
+along the way, so I take security reports seriously. Thanks in advance for the help.
 
 ## Reporting a vulnerability
 
-**Please do not open a public issue for a security problem.**
+**Please don't open a public issue for a security problem.**
 
-Report privately through GitHub:
+Report it privately through GitHub instead:
 
-1. Go to <https://github.com/jmwerk/SFTPresso/security/advisories/new>
-2. Or open the repository's **Security** tab → **Report a vulnerability**
+1. Go to <https://github.com/jmwerk/SFTPresso/security/advisories/new>, or
+2. Open the repo's **Security** tab → **Report a vulnerability**.
 
-If GitHub private reporting is unavailable to you, email
-**j.m.werkheiser@gmail.com** with `SFTPresso security` in the subject line.
+If private reporting isn't available to you for some reason, email
+**j.m.werkheiser+SFTPresso@gmail.com** with `SFTPresso security` in the subject.
 
-A useful report includes:
+It helps a lot if you include:
 
-- Affected version (shown next to SFTPresso in the Extensions view)
-- VS Code version and operating system
-- Protocol and configuration involved (`sftp` / `ftp` / FTPS, hopping, profiles) —
-  with credentials and hostnames redacted
-- Steps to reproduce, and what an attacker gains
-- Any relevant output from the **SFTP** output channel (again, redacted)
+- The affected version (next to SFTPresso in the Extensions view)
+- Your VS Code version and OS
+- The protocol/config involved (`sftp` / `ftp` / FTPS, hopping, profiles) — with
+  credentials and hostnames redacted
+- Steps to reproduce, and what an attacker actually gains from it
+- Anything relevant from the **SFTP** output channel (redacted, same as above)
 
 ### What to expect
 
-SFTPresso is maintained by one person, so timelines are best-effort rather than
-contractual:
+I maintain this project alone, so treat these as best-effort targets, not an SLA:
 
 | Stage | Target |
 | --- | --- |
-| Acknowledgement of your report | within 5 days |
-| Initial assessment and severity call | within 14 days |
-| Fix released for accepted reports | as soon as practical, severity-dependent |
+| I acknowledge your report | within 5 days |
+| Initial assessment / severity call | within 14 days |
+| Fix released, if accepted | as soon as I reasonably can, depending on severity |
 
-Fixes ship in a normal release to the [VS Code Marketplace][marketplace] and
-[Open VSX][openvsx], accompanied by a [GitHub Security Advisory][advisories] and a
-`CHANGELOG.md` entry. You will be credited in the advisory unless you ask otherwise.
-Please give the fix a chance to ship before disclosing publicly.
+Fixes go out as a normal release to the [VS Code Marketplace][marketplace] and
+[Open VSX][openvsx], along with a [GitHub Security Advisory][advisories] and a
+`CHANGELOG.md` entry. You'll be credited in the advisory unless you'd rather not be.
+If you can, please hold off on public disclosure until the fix has shipped.
 
 ## Supported versions
 
-Only the latest published release receives security fixes. There are no long-term
-support branches — updates arrive automatically through the Marketplace or Open VSX,
-so staying current is the supported path.
+Only the current release gets security fixes — there's no long-term-support branch.
+Updates arrive automatically through the Marketplace or Open VSX, so staying current
+is really the only supported path:
 
 | Version | Supported |
 | --- | --- |
-| Latest release (1.28.x) | ✅ |
-| Any earlier SFTPresso release | ❌ — upgrade |
-| `vscode-sftp` from `@Natizyskunk` or `@liximomo` | ❌ — separate projects, report upstream |
+| Whatever's currently published | ✅ |
+| Any older SFTPresso release | ❌ — please upgrade |
+| `vscode-sftp` from `@Natizyskunk` or `@liximomo` | ❌ — different project, report it upstream |
 
 ## Scope
 
 **In scope**
 
-- Credential handling: password storage, key and passphrase handling, secrets
-  reaching logs, the output channel, telemetry, or error messages
-- Code execution or file writes outside the configured local/remote paths, including
-  path traversal via remote filenames during download or sync
-- Weakening of transport security (SSH or TLS) beyond what the user configured
-- Vulnerable dependencies that are actually reachable from extension code
+- Credential handling — password storage, key/passphrase handling, secrets leaking
+  into logs, the output channel, telemetry, or error messages
+- Code execution or writes outside the local/remote paths you configured, including
+  path traversal via a remote filename during download or sync
+- Weakening SSH/TLS transport security below what you actually configured
+- A vulnerable dependency that's genuinely reachable from the extension's own code
 - Anything in the release pipeline that could ship a tampered `.vsix`
 
 **Out of scope**
 
-- Vulnerabilities in the remote SFTP/FTP server you connect to
-- The throwaway credentials, certificates, and SSH keys under `test/integration/` —
-  these are test-only by design and never used outside the Docker compose stack
-- Findings that require an attacker who already has code execution or filesystem
-  access as your user (they can read `sftp.json` and your SSH keys directly)
-- Reports produced solely by automated scanners with no demonstrated impact
-- Missing hardening that VS Code itself governs (extension sandboxing, marketplace
-  trust model)
+- Vulnerabilities in the remote SFTP/FTP server you're connecting to — that's not this
+  project
+- The throwaway credentials and SSH keys under `test/integration/` — test-only, never
+  used outside the Docker compose stack
+- Anything that requires an attacker who already has code execution or filesystem
+  access as you — at that point they can just read `sftp.json` and your SSH keys
+  directly
+- Scanner output with no demonstrated impact
+- Hardening that's really VS Code's job (extension sandboxing, the marketplace trust
+  model)
 
-## Security model, and what it asks of you
+## How this is designed, and what that asks of you
 
-Understanding these boundaries will tell you whether a behavior is a bug or the
-documented design:
+A few things worth understanding up front, since they explain whether something you've
+noticed is a bug or just how this is built:
 
-- **Configuration lives in your workspace.** `.vscode/sftp.json` is a plain file in
-  your project. If it contains a `password`, `privateKeyPath`, or `passphrase`,
-  anything that can read your workspace — including a commit — can read those.
-  Add `.vscode/sftp.json` to `.gitignore` if the file holds secrets.
-- **Prefer the OS keychain.** Leave `password` out of `sftp.json` and let SFTPresso
-  prompt you; it stores the password in VS Code's `SecretStorage` (backed by the OS
-  keychain) under a `protocol://username@host:port` key. `SFTP: Save Password`,
-  `SFTP: Clear Password`, and `SFTP: Migrate Plaintext Password` manage those
-  entries. Keychain storage is the recommended configuration.
-- **Private keys are read from disk by path.** SFTPresso reads the file at
-  `privateKeyPath` at connect time; protecting that file's permissions is yours to do.
-- **SSH host keys are not pinned or checked against `known_hosts`.** SFTPresso, like
-  the upstream project it forks, does not verify the server's host key, so it does
-  not detect a machine-in-the-middle on a first or changed connection. This is a
-  known limitation of the current design rather than a new finding — reports that
-  restate it are welcome as feature requests, and hardening here is planned work.
-- **FTP is unencrypted.** Use `"secure": true` for FTPS if the server supports it;
-  plain `ftp` sends credentials and file contents in the clear by protocol design.
-- **`sftp.json` is executed as configuration, not code.** It is parsed as JSONC.
-  Treat an `sftp.json` from an untrusted repository the way you would any untrusted
-  workspace file: review it before connecting, since it directs where your files go.
+- **Your config lives in your workspace.** `.vscode/sftp.json` is a plain file in your
+  project. If it has a `password`, `privateKeyPath`, or `passphrase` in it, anything
+  that can read the workspace — including a commit — can read those too. If the file
+  holds secrets, put it in `.gitignore`.
+- **The OS keychain is the better option.** Leave `password` out of `sftp.json` and let
+  SFTPresso prompt you for it — it'll store the password in VS Code's `SecretStorage`
+  (backed by your OS keychain), keyed by `protocol://username@host:port`.
+  `SFTP: Save Password`, `SFTP: Clear Password`, and `SFTP: Migrate Plaintext Password`
+  manage those entries, and I'd recommend using them over a plaintext password.
+- **Private keys are read from disk by path**, at connect time. Keeping that file's
+  permissions locked down is on you.
+- **SSH host keys are checked.** Every connection is verified against your own
+  `~/.ssh/known_hosts` (or SFTPresso's own store, for keys you've only accepted here) —
+  see [Host key verification](https://github.com/jmwerk/SFTPresso/wiki#host-key-verification)
+  in the wiki for exactly how that works and what `strictHostKeyChecking` changes about
+  it.
+- **FTP is unencrypted, by protocol.** Set `"secure": true` for FTPS if your server
+  supports it — plain `ftp` sends credentials and file contents in the clear no matter
+  what this extension does.
+- **`sftp.json` is config, not code, but treat it like any other untrusted file.** It's
+  parsed as JSONC, not executed — but it does decide where your files go, so review one
+  from a repo you don't trust before connecting, the same as you would any other
+  workspace file.
 
-## Ongoing security practices
+## Ongoing practices
 
-- [CodeQL][codeql] analysis runs on every push and pull request to `develop`, plus
-  weekly on a schedule.
-- Dependabot opens weekly update pull requests for npm dependencies and GitHub
-  Actions.
-- Unit tests run on every push; the FTP/SFTP integration suite runs the real client
-  layers against Docker-hosted servers in CI.
+- [CodeQL][codeql] runs on every push and PR to `develop`, plus weekly on a schedule.
+- Dependabot opens weekly update PRs for npm dependencies and GitHub Actions.
+- Unit tests run on every push, and the FTP/SFTP integration suite runs the real
+  client code against Docker-hosted servers in CI.
 
 [marketplace]: https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso
 [openvsx]: https://open-vsx.org/extension/jmwerk/sftpresso
