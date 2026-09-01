@@ -995,7 +995,7 @@
     "@types/fs-extra": "^9.0.13",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.2.0",
-    "@types/vscode": "~1.125.0",
+    "@types/vscode": "~1.134.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
     "eslint": "^10.9.0",
