@@ -1008,7 +1008,7 @@
   },
   "dependencies": {
     "async": "^3.2.6",
-    "basic-ftp": "^6.2.0",
+    "basic-ftp": "^6.2.1",
     "fs-extra": "^11.2.0",
     "ignore": "^7.0.6",
     "joi": "^18.2.5",
