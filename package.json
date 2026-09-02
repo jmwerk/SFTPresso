@@ -6,7 +6,7 @@
   "publisher": "jmwerk",
   "author": "Joe Werkheiser <j.m.werkheiser@gmail.com> (https://github.com/jmwerk)",
   "engines": {
-    "vscode": "^1.125.0",
+    "vscode": "^1.134.0",
     "node": ">=22"
   },
   "bugs": {
