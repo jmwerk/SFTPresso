@@ -1,3 +1,7 @@
+## 1.33.2 - 2026-09-01
+
+* Fix : `engines.vscode` was still `^1.125.0` after `@types/vscode` moved to `~1.134.0` in 1.33.1, and `vsce` refuses to package an extension whose declared `@types/vscode` exceeds its `engines.vscode` ceiling — 1.33.1's own packaging step failed before a VSIX or GitHub Release was ever produced, so nothing shipped under that tag. `engines.vscode` now reads `^1.134.0` to match.
+
 ## 1.33.1 - 2026-09-01
 
 * Fix : `joi` (18.2.3 → 18.2.5) closes two prototype-injection issues in schema message handling and `rename()` — a crafted `sftp.json` could otherwise reach `Object.prototype` through either path during config validation.
