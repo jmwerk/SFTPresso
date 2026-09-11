@@ -155,7 +155,7 @@
           },
           "enableDragAndDrop": {
             "type": "boolean",
-            "description": "Allow dragging a file or folder onto another folder in the Remote Explorer to move it there with a single server-side rename. Refuses to overwrite an existing item at the destination, and refuses drags between different configurations. Off unless set.",
+            "description": "Allow dragging a file or folder onto another folder in the Remote Explorer to move it there with a single server-side rename, and allow dragging files in from Finder/Explorer/your file manager to upload them. Refuses to overwrite an existing item at the destination, and refuses drags between different configurations. Off unless set.",
             "default": false
           }
         }

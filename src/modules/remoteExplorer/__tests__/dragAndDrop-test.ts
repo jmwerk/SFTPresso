@@ -3,7 +3,7 @@
 // needs to carry enough identity for a fake findRoot to look the owning root
 // up by; the real findRoot derives that from the query string instead, but
 // that's the treeDataProvider's concern, not this function's.
-import { planDrop } from '../dragAndDrop';
+import { planDrop, planExternalDrop } from '../dragAndDrop';
 import { ExplorerItem, ExplorerRoot } from '../treeDataProvider';
 
 interface FakeUri {
@@ -152,5 +152,82 @@ describe('planDrop', () => {
     // once the folder's own rename has already invalidated their source paths
     expect(plan!.moves).toEqual([{ item: folder, newRemotePath: '/srv/www/dest/foo' }]);
     expect(plan!.skipped).toEqual([]);
+  });
+});
+
+describe('planExternalDrop', () => {
+  test('no target means nothing to drop onto', () => {
+    const root = makeRoot(1, '/srv/www');
+
+    expect(planExternalDrop(undefined, 'file:///Users/joe/a.txt', findRootFactory([root]))).toBeNull();
+  });
+
+  test('a file is not a valid drop target', () => {
+    const root = makeRoot(1, '/srv/www');
+    const targetFile = makeItem(1, '/srv/www/b.txt');
+
+    expect(
+      planExternalDrop(targetFile, 'file:///Users/joe/a.txt', findRootFactory([root]))
+    ).toBeNull();
+  });
+
+  test('refuses to plan anything when the destination config has drag and drop disabled', () => {
+    const root = makeRoot(1, '/srv/www', false);
+    const destDir = makeItem(1, '/srv/www/sub', true);
+
+    expect(
+      planExternalDrop(destDir, 'file:///Users/joe/a.txt', findRootFactory([root]))
+    ).toBeNull();
+  });
+
+  test('plans an upload of a single dropped file', () => {
+    const root = makeRoot(1, '/srv/www');
+    const destDir = makeItem(1, '/srv/www/sub', true);
+
+    const plan = planExternalDrop(destDir, 'file:///Users/joe/a.txt', findRootFactory([root]));
+
+    expect(plan).toEqual({ destDirPath: '/srv/www/sub', localPaths: ['/Users/joe/a.txt'] });
+  });
+
+  test('plans an upload of every file in a multi-file drop', () => {
+    const root = makeRoot(1, '/srv/www');
+    const destDir = makeItem(1, '/srv/www/sub', true);
+    const raw = 'file:///Users/joe/a.txt\r\nfile:///Users/joe/b.txt\r\n';
+
+    const plan = planExternalDrop(destDir, raw, findRootFactory([root]));
+
+    expect(plan).toEqual({
+      destDirPath: '/srv/www/sub',
+      localPaths: ['/Users/joe/a.txt', '/Users/joe/b.txt'],
+    });
+  });
+
+  test('ignores blank lines and uri-list comments', () => {
+    const root = makeRoot(1, '/srv/www');
+    const destDir = makeItem(1, '/srv/www/sub', true);
+    const raw = '# a comment\r\n\r\nfile:///Users/joe/a.txt\r\n';
+
+    const plan = planExternalDrop(destDir, raw, findRootFactory([root]));
+
+    expect(plan).toEqual({ destDirPath: '/srv/www/sub', localPaths: ['/Users/joe/a.txt'] });
+  });
+
+  test('drops a non-file uri with nothing local to upload', () => {
+    const root = makeRoot(1, '/srv/www');
+    const destDir = makeItem(1, '/srv/www/sub', true);
+
+    const plan = planExternalDrop(destDir, 'https://example.com/a.txt', findRootFactory([root]));
+
+    expect(plan).toBeNull();
+  });
+
+  test('mixing a file uri with a non-file uri only plans the file', () => {
+    const root = makeRoot(1, '/srv/www');
+    const destDir = makeItem(1, '/srv/www/sub', true);
+    const raw = 'https://example.com/a.txt\r\nfile:///Users/joe/a.txt';
+
+    const plan = planExternalDrop(destDir, raw, findRootFactory([root]));
+
+    expect(plan).toEqual({ destDirPath: '/srv/www/sub', localPaths: ['/Users/joe/a.txt'] });
   });
 });

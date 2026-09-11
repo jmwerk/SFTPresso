@@ -12,6 +12,7 @@ import commandMigratePassword from './commandMigratePassword';
 import commandOpenSshConnection from './commandOpenSshConnection';
 import commandRemoteExplorerClearFilter from './commandRemoteExplorerClearFilter';
 import commandRemoteExplorerFilter from './commandRemoteExplorerFilter';
+import commandRemoteExplorerUploadHere from './commandRemoteExplorerUploadHere';
 import commandRenameRemote from './commandRenameRemote';
 import commandRetryTransfer from './commandRetryTransfer';
 import commandRunRemoteCommand from './commandRunRemoteCommand';
@@ -71,6 +72,7 @@ export default {
   commandOpenSshConnection,
   commandRemoteExplorerClearFilter,
   commandRemoteExplorerFilter,
+  commandRemoteExplorerUploadHere,
   commandRenameRemote,
   commandRetryTransfer,
   commandRunRemoteCommand,
