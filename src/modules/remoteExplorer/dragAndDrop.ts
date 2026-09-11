@@ -1,13 +1,19 @@
+import * as path from 'path';
+import { fileURLToPath } from 'url';
 import * as vscode from 'vscode';
-import { upath, Resource } from '../../core';
+import { upath, Resource, UResource } from '../../core';
 import { isRemotePathAtOrUnder, reportError } from '../../helper';
 import { showWarningMessage } from '../../host';
-import { handleCtxFromUri, renameRemote } from '../../fileHandlers';
+import { handleCtxFromUri, renameRemote, upload } from '../../fileHandlers';
 import { ExplorerItem, ExplorerRoot } from './treeDataProvider';
 
 // Must be application/vnd.code.tree.<view id, lowercased> for VS Code to
 // treat it as this view's own drag data.
 export const REMOTE_EXPLORER_MIME_TYPE = 'application/vnd.code.tree.remoteexplorer';
+
+// What the OS (Finder, Explorer, most Linux file managers) puts on the
+// clipboard/drag payload when dragging real files in -- see RFC 2483.
+export const EXTERNAL_FILE_MIME_TYPE = 'text/uri-list';
 
 export interface PlannedMove {
   item: ExplorerItem;
@@ -105,9 +111,60 @@ function describe(item: ExplorerItem): string {
   return upath.basename(item.resource.fsPath);
 }
 
+// `file:` URIs only -- a drop can also carry `http:`/other schemes (e.g.
+// dragging a link), which there's nothing local to upload for.
+function toLocalPath(uri: string): string | null {
+  if (!/^file:/i.test(uri)) {
+    return null;
+  }
+  try {
+    return fileURLToPath(uri);
+  } catch {
+    return null;
+  }
+}
+
+export interface ExternalDropPlan {
+  destDirPath: string;
+  localPaths: string[];
+}
+
+/**
+ * Works out what a drop of external files (dragged in from Finder/Explorer/
+ * whatever the OS calls it) onto `target` should upload. Pure function of its
+ * arguments -- no vscode or network calls -- so it can be tested directly.
+ */
+export function planExternalDrop(
+  target: ExplorerItem | undefined,
+  rawUriList: string,
+  findRoot: (uri: Resource['uri']) => ExplorerRoot | null | undefined
+): ExternalDropPlan | null {
+  if (!target || !target.isDirectory) {
+    return null;
+  }
+
+  const destRoot = findRoot(target.resource.uri);
+  if (!destRoot || !destRoot.explorerContext.config.remoteExplorer.enableDragAndDrop) {
+    return null;
+  }
+
+  const localPaths = rawUriList
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line && !line.startsWith('#'))
+    .map(toLocalPath)
+    .filter((p): p is string => !!p);
+
+  if (!localPaths.length) {
+    return null;
+  }
+
+  return { destDirPath: target.resource.fsPath, localPaths };
+}
+
 export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDropController<ExplorerItem> {
   readonly dragMimeTypes = [REMOTE_EXPLORER_MIME_TYPE];
-  readonly dropMimeTypes = [REMOTE_EXPLORER_MIME_TYPE];
+  readonly dropMimeTypes = [REMOTE_EXPLORER_MIME_TYPE, EXTERNAL_FILE_MIME_TYPE];
 
   constructor(
     private readonly _findRoot: (uri: Resource['uri']) => ExplorerRoot | null | undefined,
@@ -131,11 +188,25 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
   }
 
   async handleDrop(target: ExplorerItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
-    const transferItem = dataTransfer.get(REMOTE_EXPLORER_MIME_TYPE);
-    if (!transferItem) {
+    // A drag out of this same view carries both mime types on some platforms
+    // (VS Code adds text/uri-list itself for tree items with a resourceUri),
+    // so the internal move must win over treating it as an upload.
+    const internalItem = dataTransfer.get(REMOTE_EXPLORER_MIME_TYPE);
+    if (internalItem) {
+      await this._handleInternalDrop(target, internalItem);
       return;
     }
 
+    const externalItem = dataTransfer.get(EXTERNAL_FILE_MIME_TYPE);
+    if (externalItem) {
+      await this._handleExternalDrop(target, externalItem);
+    }
+  }
+
+  private async _handleInternalDrop(
+    target: ExplorerItem | undefined,
+    transferItem: vscode.DataTransferItem
+  ): Promise<void> {
     const sources: ExplorerItem[] = transferItem.value;
     if (!sources || !sources.length) {
       return;
@@ -183,4 +254,56 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
 
     this._refresh(target!);
   }
+
+  private async _handleExternalDrop(
+    target: ExplorerItem | undefined,
+    transferItem: vscode.DataTransferItem
+  ): Promise<void> {
+    const raw = await transferItem.asString();
+    const plan = planExternalDrop(target, raw, this._findRoot);
+    if (!plan) {
+      return;
+    }
+
+    // planExternalDrop already confirmed target/findRoot agree, so this is safe.
+    const destRoot = this._findRoot(target!.resource.uri)!;
+    await uploadLocalPaths(destRoot, plan.destDirPath, plan.localPaths);
+  }
+}
+
+/**
+ * Uploads each of `localPaths` (files or folders, anywhere on disk -- not
+ * necessarily under any configured local workspace) into `destDirPath` on
+ * `destRoot`'s server, preserving each one's own basename. Shared by the
+ * external drag-and-drop above and the "Upload Here" command, which both
+ * reduce to "upload these arbitrary local paths into this remote directory".
+ * Each upload is independent -- one failure is reported and doesn't stop the
+ * rest.
+ */
+export async function uploadLocalPaths(
+  destRoot: ExplorerRoot,
+  destDirPath: string,
+  localPaths: readonly string[]
+): Promise<void> {
+  const { fileService, config, id } = destRoot.explorerContext;
+
+  await Promise.all(
+    localPaths.map(async localPath => {
+      const targetResource = UResource.from(vscode.Uri.file(localPath), {
+        localBasePath: path.dirname(localPath),
+        remoteBasePath: destDirPath,
+        remoteId: id,
+        remote: { host: config.host, port: config.port },
+      });
+
+      try {
+        await upload({ fileService, config, target: targetResource }, { ignore: null });
+      } catch (err) {
+        reportError(
+          err instanceof Error ? err : new Error(String(err)),
+          `when uploading '${path.basename(localPath)}'`
+        );
+      }
+    })
+  );
 }

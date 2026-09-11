@@ -406,6 +406,11 @@
         "icon": "$(clear-all)"
       },
       {
+        "command": "sftp.remoteExplorer.uploadHere",
+        "title": "Upload File Here",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.toggleOutput",
         "title": "Toggle Output Panel",
         "category": "SFTP"
@@ -603,6 +608,10 @@
         },
         {
           "command": "sftp.create.file",
+          "when": "false"
+        },
+        {
+          "command": "sftp.remoteExplorer.uploadHere",
           "when": "false"
         },
         {
@@ -804,6 +813,11 @@
           "group": "3_trans@1",
           "alt": "sftp.forceUpload",
           "when": "sftp.enabled && viewItem != file"
+        },
+        {
+          "command": "sftp.remoteExplorer.uploadHere",
+          "group": "3_trans@2",
+          "when": "view == remoteExplorer && viewItem != file"
         },
         {
           "command": "sftp.upload.file",

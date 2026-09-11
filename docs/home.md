@@ -277,6 +277,7 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Rename | `sftp.rename.remote` | Rename or move the selected file/folder **on the remote** (Remote Explorer context menu) — a single `rename()` call regardless of size, no re-upload. A name containing `/` moves the item. Refuses to overwrite an existing destination or move the item outside `remotePath` or into itself. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). |
 | Delete | `sftp.delete.remote` | Delete the selected file/folder **on the remote** (Remote Explorer context menu). |
 | Create Folder / Create File | `sftp.create.folder` / `sftp.create.file` | Create a remote folder or file from the Remote Explorer. |
+| Upload File Here | `sftp.remoteExplorer.uploadHere` | Right-click a folder (or a connection root) in the Remote Explorer and pick local files/folders to upload directly into it, via the OS file picker — no local workspace mapping needed. See [Using the Remote Explorer](#using-the-remote-explorer). |
 | Edit in Local | `sftp.remoteExplorer.editInLocal` | Download the remote file into the workspace so it can be edited (Remote Explorer opens files read-only by default). |
 | View Content | `sftp.viewContent` | Open a read-only view of a remote file. |
 | Reveal in Explorer | `sftp.revealInExplorer` | Jump from a remote file to its local counterpart in the file explorer. |
@@ -623,7 +624,7 @@ Tunes the [Remote Explorer](#using-the-remote-explorer) view.
 | --- | --- | --- |
 | `remoteExplorer.filesExclude` | string[] | Patterns for files/folders to hide in the Remote Explorer. |
 | `remoteExplorer.order` | number | Sort position of this config among Remote Explorer roots (default `0`). |
-| `remoteExplorer.enableDragAndDrop` | boolean | Allow dragging an item onto a folder in the Remote Explorer to move it there with a single server-side rename. Default `false`. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote). |
+| `remoteExplorer.enableDragAndDrop` | boolean | Allow dragging an item onto a folder in the Remote Explorer to move it there with a single server-side rename, and allow dragging files in from your OS file manager to upload them. Default `false`. See [Renaming and moving files](#renaming-and-moving-files-on-the-remote) and [Using the Remote Explorer](#using-the-remote-explorer). |
 
 ```json
 {
@@ -1352,6 +1353,8 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 - **Multi-select** works like the regular explorer: hold `Ctrl`/`Cmd` or `Shift` while clicking to select several files/folders, then upload or download them all at once.
 - Create, rename/move, and delete remote files/folders from the context menu ([file commands](#remote-explorer-and-file-commands)) — rename/move is a single remote operation regardless of size, see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 - **Drag a file or folder onto another folder** in the tree to move it there, once [`remoteExplorer.enableDragAndDrop`](#remoteexplorer) is turned on (off by default) — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
+- **Drag files in from Finder/Explorer/your file manager** and drop them onto a folder in the tree to upload them there, under the same [`remoteExplorer.enableDragAndDrop`](#remoteexplorer) setting. Dropping a folder uploads it and everything inside it.
+- Prefer not to drag? Right-click a folder (or connection root) and choose **Upload File Here** to pick local files/folders through the OS file picker instead — this one works regardless of `remoteExplorer.enableDragAndDrop`.
 - Hide noise (e.g. `node_modules`) with [`remoteExplorer.filesExclude`](#remoteexplorer), and control root ordering with `remoteExplorer.order`.
 - **Filter** the tree with **`SFTP: Filter Remote Explorer`** (funnel icon in the view title) — typing live-narrows the tree to matching names and the folders leading to them, even inside folders you haven't opened yet. **`SFTP: Clear Filter`** resets it, and the view title shows the active query while it's on. Substring match only for now. VS Code's own `workbench.list.keyboardNavigation: filter` setting is a handy complement for searching within a folder you've already expanded.
 - After a **delete**, manually refresh the parent folder if the tree doesn't update on its own (known issue).
