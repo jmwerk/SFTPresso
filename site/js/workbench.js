@@ -168,83 +168,145 @@
   }
 
   // ------------------------------------------------------------------ syntax highlighting
+  // Every highlighter returns an array of lines, each a list of
+  // { cls, text, doc? } tokens. Tokens are rendered with DOM APIs (never
+  // innerHTML), so the source text is only ever treated as text.
   function highlightJsonc(source, withDocs) {
     const lines = source.split('\n');
     let depth = 0;
     let inBlock = false;
     const out = [];
     for (const line of lines) {
-      let html = '';
+      const toks = [];
       let i = 0;
       while (i < line.length) {
         const rest = line.slice(i);
         let m;
         if (inBlock) {
           const end = rest.indexOf('*/');
-          if (end === -1) { html += `<span class="tok-comment">${escapeHtml(rest)}</span>`; i = line.length; }
-          else { html += `<span class="tok-comment">${escapeHtml(rest.slice(0, end + 2))}</span>`; i += end + 2; inBlock = false; }
+          if (end === -1) { toks.push({ cls: 'tok-comment', text: rest }); i = line.length; }
+          else { toks.push({ cls: 'tok-comment', text: rest.slice(0, end + 2) }); i += end + 2; inBlock = false; }
           continue;
         }
-        if (rest.startsWith('//')) { html += `<span class="tok-comment">${escapeHtml(rest)}</span>`; break; }
+        if (rest.startsWith('//')) { toks.push({ cls: 'tok-comment', text: rest }); break; }
         if (rest.startsWith('/*')) { inBlock = true; continue; }
         if ((m = /^"(?:[^"\\]|\\.)*"/.exec(rest))) {
           const isKey = /^\s*:/.test(rest.slice(m[0].length));
           const raw = m[0].slice(1, -1);
           if (isKey) {
             const doc = withDocs && OPTION_DOCS[raw];
-            html += doc
-              ? `<span class="tok-key has-doc" data-doc="${escapeHtml(raw)}">${escapeHtml(m[0])}</span>`
-              : `<span class="tok-key">${escapeHtml(m[0])}</span>`;
+            toks.push(doc ? { cls: 'tok-key has-doc', text: m[0], doc: raw } : { cls: 'tok-key', text: m[0] });
           } else {
-            html += `<span class="tok-str">${escapeHtml(m[0])}</span>`;
+            toks.push({ cls: 'tok-str', text: m[0] });
           }
           i += m[0].length; continue;
         }
-        if ((m = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(rest))) { html += `<span class="tok-num">${m[0]}</span>`; i += m[0].length; continue; }
-        if ((m = /^(?:true|false|null)\b/.exec(rest))) { html += `<span class="tok-kw">${m[0]}</span>`; i += m[0].length; continue; }
+        if ((m = /^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(rest))) { toks.push({ cls: 'tok-num', text: m[0] }); i += m[0].length; continue; }
+        if ((m = /^(?:true|false|null)\b/.exec(rest))) { toks.push({ cls: 'tok-kw', text: m[0] }); i += m[0].length; continue; }
         const ch = rest[0];
-        if (ch === '{' || ch === '[') { html += `<span class="tok-b${depth % 3}">${ch}</span>`; depth++; i++; continue; }
-        if (ch === '}' || ch === ']') { depth = Math.max(0, depth - 1); html += `<span class="tok-b${depth % 3}">${ch}</span>`; i++; continue; }
-        if (ch === ':' || ch === ',') { html += `<span class="tok-punct">${ch}</span>`; i++; continue; }
-        html += escapeHtml(ch); i++;
+        if (ch === '{' || ch === '[') { toks.push({ cls: `tok-b${depth % 3}`, text: ch }); depth++; i++; continue; }
+        if (ch === '}' || ch === ']') { depth = Math.max(0, depth - 1); toks.push({ cls: `tok-b${depth % 3}`, text: ch }); i++; continue; }
+        if (ch === ':' || ch === ',') { toks.push({ cls: 'tok-punct', text: ch }); i++; continue; }
+        toks.push({ cls: '', text: ch }); i++;
       }
-      out.push(html);
+      out.push(toks);
     }
     return out;
   }
   function highlightHtml(source) {
-    return source.split('\n').map((line) => escapeHtml(line)
-      .replace(/(&lt;\/?)([a-zA-Z][\w-]*)([^&]*?)(\/?&gt;)/g, (all, open, tag, attrs, close) => {
-        const a = attrs.replace(/([\w-]+)(=)(&quot;.*?&quot;|'.*?')/g, '<span class="tok-attr">$1</span>$2<span class="tok-str">$3</span>');
-        return `<span class="tok-punct">${open}</span><span class="tok-tag">${tag}</span>${a}<span class="tok-punct">${close}</span>`;
-      })
-      .replace(/(&lt;!DOCTYPE[^&]*&gt;)/g, '<span class="tok-comment">$1</span>'));
+    return source.split('\n').map((line) => {
+      const toks = [];
+      let i = 0;
+      while (i < line.length) {
+        const rest = line.slice(i);
+        let m;
+        if ((m = /^<!DOCTYPE[^>]*>/i.exec(rest))) { toks.push({ cls: 'tok-comment', text: m[0] }); i += m[0].length; continue; }
+        if ((m = /^(<\/?)([a-zA-Z][\w-]*)/.exec(rest))) {
+          toks.push({ cls: 'tok-punct', text: m[1] });
+          toks.push({ cls: 'tok-tag', text: m[2] });
+          i += m[0].length;
+          while (i < line.length) {
+            const r = line.slice(i);
+            let a;
+            if ((a = /^\/?>/.exec(r))) { toks.push({ cls: 'tok-punct', text: a[0] }); i += a[0].length; break; }
+            if ((a = /^\s+/.exec(r))) { toks.push({ cls: '', text: a[0] }); i += a[0].length; continue; }
+            if ((a = /^([\w-]+)(=)("[^"]*"|'[^']*')/.exec(r))) {
+              toks.push({ cls: 'tok-attr', text: a[1] }, { cls: 'tok-punct', text: a[2] }, { cls: 'tok-str', text: a[3] });
+              i += a[0].length; continue;
+            }
+            if ((a = /^[\w-]+/.exec(r))) { toks.push({ cls: 'tok-attr', text: a[0] }); i += a[0].length; continue; }
+            toks.push({ cls: '', text: r[0] }); i++;
+          }
+          continue;
+        }
+        const next = rest.indexOf('<', 1);
+        const text = next === -1 ? rest : rest.slice(0, next);
+        toks.push({ cls: '', text });
+        i += text.length;
+      }
+      return toks;
+    });
   }
   function highlightCss(source) {
     return source.split('\n').map((line) => {
-      const e = escapeHtml(line);
-      if (/\{\s*$/.test(line)) return `<span class="tok-sel">${e.replace(/\{\s*$/, '')}</span><span class="tok-b0">{</span>`;
-      if (/^\s*\}/.test(line)) return `<span class="tok-b0">}</span>`;
-      return e.replace(/^(\s*)([\w-]+)(\s*:\s*)(.*?)(;?)$/, (all, ws, prop, colon, val, semi) => `${ws}<span class="tok-prop">${prop}</span>${colon}<span class="tok-str">${val}</span>${semi}`);
+      let m;
+      if ((m = /^(.*?)(\{\s*)$/.exec(line))) return [{ cls: 'tok-sel', text: m[1] }, { cls: 'tok-b0', text: m[2] }];
+      if (/^\s*\}/.test(line)) return [{ cls: 'tok-b0', text: line }];
+      if ((m = /^(\s*)([\w-]+)(\s*:\s*)(.*?)(;?)$/.exec(line))) {
+        return [{ cls: '', text: m[1] }, { cls: 'tok-prop', text: m[2] }, { cls: '', text: m[3] }, { cls: 'tok-str', text: m[4] }, { cls: '', text: m[5] }];
+      }
+      return [{ cls: '', text: line }];
     });
   }
   function highlightShell(source) {
     return source.split('\n').map((line) => {
-      const e = escapeHtml(line);
-      return e.replace(/(#.*)$/, '<span class="tok-comment">$1</span>').replace(/^(\$\s)/, '<span class="term-dim">$1</span>');
+      const toks = [];
+      let rest = line;
+      const m = /^\$\s/.exec(rest);
+      if (m) { toks.push({ cls: 'term-dim', text: m[0] }); rest = rest.slice(m[0].length); }
+      const h = rest.indexOf('#');
+      if (h === -1) toks.push({ cls: '', text: rest });
+      else toks.push({ cls: '', text: rest.slice(0, h) }, { cls: 'tok-comment', text: rest.slice(h) });
+      return toks;
+    });
+  }
+  function highlightPlain(source) {
+    return source.split('\n').map((line) => [{ cls: '', text: line }]);
+  }
+  function appendTokens(target, toks) {
+    toks.forEach((tok) => {
+      if (!tok.text) return;
+      if (!tok.cls) { target.appendChild(document.createTextNode(tok.text)); return; }
+      const span = document.createElement('span');
+      span.className = tok.cls;
+      span.textContent = tok.text;
+      if (tok.doc) span.dataset.doc = tok.doc;
+      target.appendChild(span);
     });
   }
   function renderCodeEditor(container) {
     const pre = $('.code-source', container);
     if (!pre) return;
     const lang = container.dataset.lang;
-    let source = pre.textContent.replace(/\n$/, '');
+    let source = (pre.dataset.source || pre.textContent).replace(/\n$/, '');
     if (container.closest('[data-file="sftp.json"]')) {
       source = source.replace(/"uploadOnSave": (true|false)/, `"uploadOnSave": ${state.uploadOnSave}`);
       source = source.replace(/"defaultProfile": "[^"]*"/, `"defaultProfile": "${state.profile}"`);
     }
-    const lines = lang === 'jsonc' ? highlightJsonc(source, true) : lang === 'html' ? highlightHtml(source) : lang === 'css' ? highlightCss(source) : source.split('\n').map(escapeHtml);
-    pre.innerHTML = lines.map((html, i) => `<div class="code-line${i === 0 ? ' active' : ''}"><span class="line-number">${i + 1}</span><span class="line-content">${html || ' '}</span></div>`).join('');
+    const lines = lang === 'jsonc' ? highlightJsonc(source, true) : lang === 'html' ? highlightHtml(source) : lang === 'css' ? highlightCss(source) : highlightPlain(source);
+    pre.textContent = '';
+    lines.forEach((toks, i) => {
+      const row = document.createElement('div');
+      row.className = i === 0 ? 'code-line active' : 'code-line';
+      const num = document.createElement('span');
+      num.className = 'line-number';
+      num.textContent = String(i + 1);
+      const content = document.createElement('span');
+      content.className = 'line-content';
+      if (toks.length) appendTokens(content, toks); else content.textContent = ' ';
+      row.append(num, content);
+      pre.appendChild(row);
+    });
     pre.dataset.source = source;
   }
   function renderCodeBlocks(root) {
@@ -253,7 +315,12 @@
       const src = code.textContent;
       const lang = pre.dataset.lang;
       const lines = lang === 'jsonc' ? highlightJsonc(src, false) : lang === 'sh' ? highlightShell(src) : null;
-      if (lines) code.innerHTML = lines.join('\n');
+      if (!lines) return;
+      code.textContent = '';
+      lines.forEach((toks, i) => {
+        if (i) code.appendChild(document.createTextNode('\n'));
+        appendTokens(code, toks);
+      });
     });
   }
 
@@ -372,7 +439,14 @@
       const li = document.createElement('li');
       li.className = 'tree-item file';
       const depth = h.tagName === 'H1' ? 0 : 1;
-      li.innerHTML = `<div class="tree-row" style="--depth:${depth}"><span class="tree-label">${escapeHtml(h.textContent.trim())}</span></div>`;
+      const row = document.createElement('div');
+      row.className = 'tree-row';
+      row.style.setProperty('--depth', String(depth));
+      const label = document.createElement('span');
+      label.className = 'tree-label';
+      label.textContent = h.textContent.trim();
+      row.appendChild(label);
+      li.appendChild(row);
       li.addEventListener('click', () => { h.scrollIntoView({ block: 'start' }); });
       outline.appendChild(li);
     });
@@ -536,23 +610,41 @@
   $('#site-search').addEventListener('input', (e) => {
     const q = e.target.value.trim().toLowerCase();
     const results = $('#search-results');
-    if (q.length < 2) { results.innerHTML = '<p class="search-hint">Type at least two characters.</p>'; return; }
+    results.textContent = '';
+    const hint = (cls, text) => { const p = document.createElement('p'); p.className = cls; p.textContent = text; return p; };
+    if (q.length < 2) { results.appendChild(hint('search-hint', 'Type at least two characters.')); return; }
     let total = 0;
-    const html = buildSearchIndex().map(({ id, blocks }) => {
+    const frag = document.createDocumentFragment();
+    buildSearchIndex().forEach(({ id, blocks }) => {
       const matches = blocks.filter((b) => b.toLowerCase().includes(q)).slice(0, 6);
-      if (!matches.length) return '';
+      if (!matches.length) return;
       total += matches.length;
-      const rows = matches.map((m) => {
+      const f = FILES[id];
+      const head = document.createElement('div');
+      head.className = 'search-file';
+      head.innerHTML = `<svg class="icon twistie" style="transform:rotate(90deg)"><use href="#i-chevron-right"/></svg><span class="file-icon ${f.icon}"></span><span></span><span class="count"></span>`;
+      head.children[2].textContent = f.label;
+      head.children[3].textContent = String(matches.length);
+      frag.appendChild(head);
+      matches.forEach((m) => {
         const idx = m.toLowerCase().indexOf(q);
         const start = Math.max(0, idx - 30);
-        const snippet = (start > 0 ? '…' : '') + m.slice(start, idx) + '<mark>' + m.slice(idx, idx + q.length) + '</mark>' + m.slice(idx + q.length, idx + q.length + 80);
-        return `<button class="search-match" data-file="${id}" title="${escapeHtml(m.slice(0, 200))}">${snippet}</button>`;
-      }).join('');
-      const f = FILES[id];
-      return `<div class="search-file"><svg class="icon twistie" style="transform:rotate(90deg)"><use href="#i-chevron-right"/></svg><span class="file-icon ${f.icon}"></span><span>${f.label}</span><span class="count">${matches.length}</span></div>${rows}`;
-    }).join('');
-    results.innerHTML = html || '<p class="search-none">No results found.</p>';
-    if (total) results.insertAdjacentHTML('afterbegin', `<p class="search-hint">${total} result${total === 1 ? '' : 's'}</p>`);
+        const b = document.createElement('button');
+        b.className = 'search-match';
+        b.dataset.file = id;
+        b.title = m.slice(0, 200);
+        if (start > 0) b.append('…');
+        b.append(m.slice(start, idx));
+        const mark = document.createElement('mark');
+        mark.textContent = m.slice(idx, idx + q.length);
+        b.appendChild(mark);
+        b.append(m.slice(idx + q.length, idx + q.length + 80));
+        frag.appendChild(b);
+      });
+    });
+    if (!total) { results.appendChild(hint('search-none', 'No results found.')); return; }
+    results.appendChild(hint('search-hint', `${total} result${total === 1 ? '' : 's'}`));
+    results.appendChild(frag);
   });
 
   // ------------------------------------------------------------------ panel
