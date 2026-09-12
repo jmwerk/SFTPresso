@@ -289,7 +289,7 @@
     if (!pre) return;
     const lang = container.dataset.lang;
     let source = (pre.dataset.source || pre.textContent).replace(/\n$/, '');
-    if (container.closest('[data-file="sftp.json"]')) {
+    if (container.closest('[data-editor="sftp.json"]')) {
       source = source.replace(/"uploadOnSave": (true|false)/, `"uploadOnSave": ${state.uploadOnSave}`);
       source = source.replace(/"defaultProfile": "[^"]*"/, `"defaultProfile": "${state.profile}"`);
     }
@@ -364,7 +364,7 @@
     const tpl = document.getElementById(`editor-${id}`);
     const el = document.createElement('div');
     el.className = 'editor-instance';
-    el.dataset.file = id;
+    el.dataset.editor = id;
     el.hidden = true;
     if (tpl) el.appendChild(tpl.content.cloneNode(true));
     $$('.code-editor', el).forEach(renderCodeEditor);
@@ -1309,6 +1309,10 @@
   document.addEventListener('click', (e) => {
     const t = e.target.closest('[data-file], [data-command], [data-open-url], [data-panel-open], [data-view-open], [data-action], [data-copy], [data-copy-source]');
     if (!t || t.closest('.tree-item') || t.closest('.ext-card') && !t.dataset.file) return;
+    // A real link that merely sits inside a data-* element (e.g. an <a href>
+    // in a document) must keep its default navigation.
+    const link = e.target.closest('a[href]');
+    if (link && link !== t) return;
     if (t.dataset.file && !t.closest('.search-match')) { e.preventDefault(); openFile(t.dataset.file, { anchor: t.dataset.anchor }); return; }
     if (t.classList.contains('search-match')) { openFile(t.dataset.file); if (window.matchMedia('(max-width: 900px)').matches) workbench.classList.add('sidebar-hidden'); return; }
     if (t.dataset.command) { e.stopPropagation(); runCommand(t.dataset.command); return; }
