@@ -1,8 +1,11 @@
 name: Deploy site
 
 # Publishes the landing page under site/ to GitHub Pages at
-# https://jmwerk.github.io/SFTPresso/. The first run enables Pages
-# with "GitHub Actions" as the source; later runs just redeploy.
+# https://jmwerk.github.io/SFTPresso/.
+#
+# One-time setup: Settings → Pages → Build and deployment → Source must
+# be "GitHub Actions". The workflow token cannot create the Pages site
+# itself (the API returns "Resource not accessible by integration").
 
 on:
   push:
@@ -34,10 +37,6 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
-        with:
-          # Creates the Pages site (source: GitHub Actions) on first run,
-          # so no manual step is needed under Settings → Pages.
-          enablement: true
 
       - name: Upload site
         uses: actions/upload-pages-artifact@v4
