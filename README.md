@@ -11,6 +11,7 @@ Sync files between a local folder and a remote server over **SFTP (SSH)** or **F
 
 ![SFTPresso Remote Explorer showing a remote file tree alongside the Transfers view](assets/showcase/remote-explorer.png)
 
+- **Website:** https://jmwerk.github.io/SFTPresso/
 - **Install:** [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso) · [Open VSX](https://open-vsx.org/extension/jmwerk/sftpresso) — see [Installation](#installation)
 - **Docs:** [project wiki](https://github.com/jmwerk/SFTPresso/wiki)
 - **Repository:** https://github.com/jmwerk/SFTPresso
