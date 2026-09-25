@@ -1017,7 +1017,7 @@
     "memfs": "4.68.1",
     "patch-package": "^8.0.1",
     "ts-jest": "^29.4.12",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.68.0"
   },
   "dependencies": {
