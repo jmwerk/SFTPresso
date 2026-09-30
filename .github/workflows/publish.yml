@@ -51,12 +51,13 @@ jobs:
         run: npx @vscode/vsce package --out sftpresso-${{ steps.tag.outputs.tag }}.vsix
 
       # Publish the exact same .vsix to both registries so the artifacts match.
+      # --skip-duplicate lets a re-run finish a half-done publish instead of failing on step one.
       - name: Publish to VS Code Marketplace
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
-        run: npx @vscode/vsce publish --packagePath sftpresso-${{ steps.tag.outputs.tag }}.vsix
+        run: npx @vscode/vsce publish --packagePath sftpresso-${{ steps.tag.outputs.tag }}.vsix --skip-duplicate
 
       - name: Publish to Open VSX
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
-        run: npx ovsx publish sftpresso-${{ steps.tag.outputs.tag }}.vsix -p "$OVSX_PAT"
+        run: npx ovsx publish sftpresso-${{ steps.tag.outputs.tag }}.vsix -p "$OVSX_PAT" --skip-duplicate
