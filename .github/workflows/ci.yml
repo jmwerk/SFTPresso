@@ -39,6 +39,10 @@ jobs:
       - name: Test
         run: npm test
 
+      # Catches manifest errors (e.g. @types/vscode ahead of engines.vscode) before release
+      - name: Package
+        run: npx @vscode/vsce package --out "$RUNNER_TEMP/sftpresso.vsix"
+
   integration-tests:
     runs-on: ubuntu-latest
 
