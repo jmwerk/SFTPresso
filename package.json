@@ -6,7 +6,7 @@
   "publisher": "jmwerk",
   "author": "Joe Werkheiser <j.m.werkheiser@gmail.com> (https://github.com/jmwerk)",
   "engines": {
-    "vscode": "^1.134.0",
+    "vscode": "^1.138.0",
     "node": ">=22"
   },
   "bugs": {
@@ -1009,7 +1009,7 @@
     "@types/fs-extra": "^9.0.13",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.2.0",
-    "@types/vscode": "~1.134.0",
+    "@types/vscode": "~1.138.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
     "eslint": "^10.9.0",
