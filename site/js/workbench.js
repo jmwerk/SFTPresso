@@ -674,7 +674,7 @@
       script: [
         { cmd: 'code --install-extension jmwerk.sftpresso' },
         { out: 'Installing extensions...', cls: 'term-dim' },
-        { out: "Extension 'jmwerk.sftpresso' v1.34.0 was successfully installed.", cls: 'term-ok' },
+        { out: "Extension 'jmwerk.sftpresso' v1.34.1 was successfully installed.", cls: 'term-ok' },
         { cmd: 'code .' },
         { out: '# Then run  SFTP: Config  from the Command Palette (Ctrl+Shift+P) to create .vscode/sftp.json', cls: 'term-dim' },
       ],
@@ -688,16 +688,16 @@
         { cmd: 'npm install', comment: '# also applies bundled patches via patch-package' },
         { out: 'added 812 packages in 9s', cls: 'term-dim' },
         { cmd: 'npm run package', comment: '# produces sftpresso-<version>.vsix via vsce' },
-        { out: ' DONE  Packaged: sftpresso-1.34.0.vsix', cls: 'term-ok' },
-        { cmd: 'code --install-extension sftpresso-1.34.0.vsix' },
-        { out: "Extension 'sftpresso-1.34.0.vsix' was successfully installed.", cls: 'term-ok' },
+        { out: ' DONE  Packaged: sftpresso-1.34.1.vsix', cls: 'term-ok' },
+        { cmd: 'code --install-extension sftpresso-1.34.1.vsix' },
+        { out: "Extension 'sftpresso-1.34.1.vsix' was successfully installed.", cls: 'term-ok' },
       ],
     },
     codium: {
       title: 'zsh — VSCodium / Open VSX', icon: '#i-terminal',
       script: [
         { cmd: 'codium --install-extension jmwerk.sftpresso' },
-        { out: "Extension 'jmwerk.sftpresso' v1.34.0 was successfully installed.", cls: 'term-ok' },
+        { out: "Extension 'jmwerk.sftpresso' v1.34.1 was successfully installed.", cls: 'term-ok' },
         { out: '# VSCodium, Gitpod, Eclipse Theia and friends resolve this through Open VSX:', cls: 'term-dim' },
         { out: '# https://open-vsx.org/extension/jmwerk/sftpresso', cls: 'term-info' },
       ],
@@ -1402,7 +1402,7 @@
 
   // ------------------------------------------------------------------ boot
   function boot() {
-    logOutput('info', 'SFTPresso 1.34.0 activated — workspace contains .vscode/sftp.json');
+    logOutput('info', 'SFTPresso 1.34.1 activated — workspace contains .vscode/sftp.json');
     logOutput('info', 'config "Acme Widgets" loaded — profiles: staging, prod (active: staging)');
     logOutput('debug', 'known_hosts: 14 entries read from ~/.ssh/known_hosts, 0 from extension store');
     logOutput('debug', 'watcher: watching dist/**/* (autoUpload, autoRename)');
