@@ -2511,6 +2511,35 @@ html[data-theme="light"] .badge-v {
   }
 }
 
+.term-live {
+  display: flex;
+}
+
+.term-ps {
+  flex: none;
+  white-space: pre;
+}
+
+.term-busy .term-ps {
+  display: none;
+}
+
+.term-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--fg);
+  caret-color: var(--fg);
+  font: inherit;
+}
+
+.term-input:focus-visible {
+  outline: 0;
+}
+
 .term-copy {
   display: inline-flex;
   align-items: center;

@@ -13,6 +13,7 @@
   const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
   const MOD = isMac ? '⌘' : 'Ctrl';
+  const VERSION = '1.34.1';
 
   // ------------------------------------------------------------------ files
   const FILES = {
@@ -667,20 +668,20 @@
   }
   $$('.panel-tab').forEach((b) => b.addEventListener('click', () => showPanel(b.dataset.panel)));
 
-  // Terminals
+  // Terminals: an intro script, then a live prompt on a simulated in-browser shell.
   const TERMINALS = {
     install: {
-      title: 'bash — install', icon: '#i-terminal',
+      title: 'bash — install', icon: '#i-terminal', cwd: '/Users/me/projects/acme',
       script: [
         { cmd: 'code --install-extension jmwerk.sftpresso' },
         { out: 'Installing extensions...', cls: 'term-dim' },
-        { out: "Extension 'jmwerk.sftpresso' v1.34.1 was successfully installed.", cls: 'term-ok' },
+        { out: `Extension 'jmwerk.sftpresso' v${VERSION} was successfully installed.`, cls: 'term-ok' },
         { cmd: 'code .' },
         { out: '# Then run  SFTP: Config  from the Command Palette (Ctrl+Shift+P) to create .vscode/sftp.json', cls: 'term-dim' },
       ],
     },
     vsix: {
-      title: 'bash — build from source', icon: '#i-terminal',
+      title: 'bash — build from source', icon: '#i-terminal', cwd: '/Users/me/src',
       script: [
         { cmd: 'git clone https://github.com/jmwerk/SFTPresso.git' },
         { out: "Cloning into 'SFTPresso'...", cls: 'term-dim' },
@@ -688,23 +689,22 @@
         { cmd: 'npm install', comment: '# also applies bundled patches via patch-package' },
         { out: 'added 812 packages in 9s', cls: 'term-dim' },
         { cmd: 'npm run package', comment: '# produces sftpresso-<version>.vsix via vsce' },
-        { out: ' DONE  Packaged: sftpresso-1.34.1.vsix', cls: 'term-ok' },
-        { cmd: 'code --install-extension sftpresso-1.34.1.vsix' },
-        { out: "Extension 'sftpresso-1.34.1.vsix' was successfully installed.", cls: 'term-ok' },
+        { out: ` DONE  Packaged: sftpresso-${VERSION}.vsix`, cls: 'term-ok' },
+        { cmd: `code --install-extension sftpresso-${VERSION}.vsix` },
+        { out: `Extension 'sftpresso-${VERSION}.vsix' was successfully installed.`, cls: 'term-ok' },
       ],
     },
     codium: {
-      title: 'zsh — VSCodium / Open VSX', icon: '#i-terminal',
+      title: 'zsh — VSCodium / Open VSX', icon: '#i-terminal', cwd: '/Users/me/projects/acme',
       script: [
         { cmd: 'codium --install-extension jmwerk.sftpresso' },
-        { out: "Extension 'jmwerk.sftpresso' v1.34.1 was successfully installed.", cls: 'term-ok' },
+        { out: `Extension 'jmwerk.sftpresso' v${VERSION} was successfully installed.`, cls: 'term-ok' },
         { out: '# VSCodium, Gitpod, Eclipse Theia and friends resolve this through Open VSX:', cls: 'term-dim' },
         { out: '# https://open-vsx.org/extension/jmwerk/sftpresso', cls: 'term-info' },
       ],
     },
     ssh: {
-      title: 'ssh — acme.example.com', icon: '#i-remote',
-      prompt: 'deploy@acme:/var/www/acme$ ',
+      title: 'ssh — acme.example.com', icon: '#i-remote', remote: true, cwd: '/var/www/acme',
       script: [
         { out: '# "SFTP: Open SSH in Terminal" opens a terminal already logged in to the active profile:', cls: 'term-dim' },
         { out: 'Last login: Fri Sep 11 09:41:02 2026 from 203.0.113.7', cls: 'term-dim' },
@@ -714,6 +714,492 @@
       ],
     },
   };
+
+  // Pretend file trees; a file's `src` is a FILES id (read from its template) or literal text.
+  const dir = (children) => ({ type: 'dir', children });
+  const file = (size, src) => ({ type: 'file', size, src });
+  const LOCAL_HOME = '/Users/me';
+  const REMOTE_HOME = '/home/deploy';
+  const docFiles = () => ({
+    'commands.md': file(9_800, 'commands.md'),
+    'features.md': file(14_200, 'features.md'),
+    'quick-start.md': file(4_100, 'quick-start.md'),
+    'security.md': file(6_300, 'security.md'),
+    'workflows.md': file(7_700, 'workflows.md'),
+  });
+  const LOCAL_FS = dir({
+    Users: dir({
+      me: dir({
+        '.ssh': dir({
+          config: file(142, { text: 'Host acme\n  HostName acme.example.com\n  User deploy\n  IdentityFile ~/.ssh/id_ed25519' }),
+          id_ed25519: file(411, { text: 'cat: refusing to print a private key, even a pretend one.' }),
+          'id_ed25519.pub': file(96, { text: 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ0gYgwZ3Vm8Qm0eGQ me@workstation' }),
+        }),
+        projects: dir({
+          acme: dir({
+            '.vscode': dir({ 'sftp.json': file(1_890, 'sftp.json') }),
+            docs: dir(docFiles()),
+            'CHANGELOG.md': file(48_600, 'CHANGELOG.md'),
+            LICENSE: file(1_070, 'LICENSE'),
+            'README.md': file(5_400, 'README.md'),
+          }),
+        }),
+        src: dir({
+          SFTPresso: dir({
+            docs: dir(docFiles()),
+            node_modules: dir({}),
+            src: dir({ 'extension.ts': file(3_900, { text: "import * as vscode from 'vscode';\n// …the real source lives at https://github.com/jmwerk/SFTPresso/tree/develop/src" }) }),
+            'CHANGELOG.md': file(48_600, 'CHANGELOG.md'),
+            LICENSE: file(1_070, 'LICENSE'),
+            'README.md': file(5_400, 'README.md'),
+            'package.json': file(31_000, { text: `{\n  "name": "sftpresso",\n  "displayName": "SFTPresso",\n  "version": "${VERSION}",\n  "publisher": "jmwerk",\n  "engines": { "vscode": "^1.138.0", "node": ">=22" },\n  …\n}` }),
+          }),
+        }),
+      }),
+    }),
+  });
+  const REMOTE_FS = dir({
+    home: dir({ deploy: dir({ '.bashrc': file(3_771, { text: '# ~/.bashrc: executed by bash(1) for non-login shells.' }) }) }),
+    var: dir({
+      www: dir({
+        acme: dir({
+          '.htaccess': file(410, { text: 'RewriteEngine On\nRewriteCond %{HTTPS} off\nRewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]' }),
+          '.vscode': dir({ 'sftp.json': file(1_890, 'sftp.json') }),
+          assets: dir({ img: dir({ 'hero.webp': file(612_000, { binary: true }), 'logo.svg': file(4_090, { text: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">…</svg>' }) }) }),
+          css: dir({ 'style.css': file(18_400, 'remote:style.css') }),
+          src: dir({ 'app.js': file(84_200, { text: "document.addEventListener('DOMContentLoaded', () => {\n  // …\n});" }) }),
+          'index.html': file(6_120, 'remote:index.html'),
+          'README.md': file(3_200, { text: '# Acme Widgets\n\nDeployed with SFTPresso.' }),
+        }),
+      }),
+    }),
+  });
+
+  const shells = {};
+  const shellFor = (id) => shells[id] || (shells[id] = {
+    remote: !!TERMINALS[id].remote, cwd: TERMINALS[id].cwd, history: [], histIdx: 0, queue: [], busy: false, input: null, fast: false, skipNow: null,
+  });
+  const fsOf = (sh) => (sh.remote ? REMOTE_FS : LOCAL_FS);
+  const homeOf = (sh) => (sh.remote ? REMOTE_HOME : LOCAL_HOME);
+  function resolvePath(sh, p) {
+    let path = p || '~';
+    if (path === '~' || path.startsWith('~/')) path = homeOf(sh) + path.slice(1);
+    else if (!path.startsWith('/')) path = `${sh.cwd}/${path}`;
+    const parts = [];
+    path.split('/').forEach((seg) => {
+      if (!seg || seg === '.') return;
+      if (seg === '..') parts.pop();
+      else parts.push(seg);
+    });
+    return '/' + parts.join('/');
+  }
+  function lookup(sh, path) {
+    let node = fsOf(sh);
+    for (const seg of path.split('/').filter(Boolean)) {
+      if (node.type !== 'dir' || !node.children[seg]) return null;
+      node = node.children[seg];
+    }
+    return node;
+  }
+  function displayPath(sh, path = sh.cwd) {
+    const home = homeOf(sh);
+    return path === home ? '~' : path.startsWith(home + '/') ? '~' + path.slice(home.length) : path;
+  }
+  function termPrompt(id) {
+    const sh = shellFor(id);
+    const where = displayPath(sh);
+    if (sh.remote) return `<span class="term-prompt">deploy@acme:</span><span class="term-path">${escapeHtml(where)}</span><span class="term-prompt">$</span> `;
+    const [head, rest] = where.startsWith('~') ? ['~', where.slice(1)] : ['', where];
+    return `<span class="term-prompt">${head}</span><span class="term-path">${escapeHtml(rest)}</span> <span class="term-prompt">$</span> `;
+  }
+
+  // Text for `cat`: code files print their source, documents a plain-text rendering of the page.
+  function fileText(node) {
+    if (node.src.binary) return null;
+    if (node.src.text) return node.src.text;
+    const tpl = $(`#editor-${CSS.escape(node.src)}`);
+    if (!tpl) return '';
+    const source = $('.code-source', tpl.content);
+    if (source) {
+      let text = source.textContent.replace(/\n$/, '');
+      if (node.src === 'sftp.json') {
+        text = text.replace(/"uploadOnSave": (true|false)/, `"uploadOnSave": ${state.uploadOnSave}`)
+          .replace(/"defaultProfile": "[^"]*"/, `"defaultProfile": "${state.profile}"`);
+      }
+      return text;
+    }
+    const lines = [];
+    $$('h1, h2, h3, p, li, pre', tpl.content).forEach((b) => {
+      if (b.closest('li') && b.tagName !== 'LI') return;
+      const text = b.textContent.replace(/\s+/g, ' ').trim();
+      if (!text) return;
+      const prefix = { H1: '# ', H2: '## ', H3: '### ', LI: '- ' }[b.tagName] || '';
+      if (/^H/.test(b.tagName) && lines.length) lines.push('');
+      lines.push(prefix + text);
+    });
+    return lines.join('\n');
+  }
+
+  const LOCAL_COMMANDS = ['cat', 'cd', 'clear', 'code', 'codium', 'date', 'echo', 'exit', 'git', 'help', 'history', 'hostname', 'ls', 'npm', 'pwd', 'sftp', 'ssh', 'uname', 'whoami'];
+  const REMOTE_COMMANDS = ['cat', 'cd', 'clear', 'date', 'df', 'echo', 'exit', 'help', 'history', 'hostname', 'ls', 'php', 'pwd', 'sudo', 'systemctl', 'uname', 'uptime', 'whoami'];
+  const WRITE_COMMANDS = ['rm', 'mv', 'cp', 'touch', 'mkdir', 'rmdir', 'chmod', 'nano', 'vi', 'vim'];
+  const SFTP_ACTIONS = {
+    config: ['sftp.config', 'open .vscode/sftp.json'],
+    test: ['sftp.testConnection', 'connect with the active profile'],
+    upload: ['sftp.upload.project', 'upload the project, or one file: sftp upload index.html'],
+    changed: ['sftp.upload.changedFiles', 'upload files changed since the last commit'],
+    download: ['sftp.download.project', 'download everything under remotePath'],
+    sync: ['sftp.sync.localToRemote', 'preview and run Sync Local → Remote'],
+    profile: ['sftp.setProfile', 'show or switch the profile: sftp profile prod'],
+    disconnect: ['sftp.disconnect', 'drop pooled connections'],
+    cancel: ['sftp.cancelAllTransfer', 'cancel in-flight transfers'],
+  };
+
+  const appendLine = (el, line) => el.insertBefore(line, $(':scope > .term-live', el));
+  function print(el, text, cls) {
+    String(text).split('\n').forEach((t) => {
+      const line = document.createElement('div');
+      line.className = 'term-line';
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = t;
+      line.appendChild(span);
+      appendLine(el, line);
+    });
+  }
+  function clearTerminal(el) {
+    Array.from(el.children).forEach((c) => { if (!c.classList.contains('term-live')) c.remove(); });
+  }
+  function printParts(el, parts) {
+    const line = document.createElement('div');
+    line.className = 'term-line';
+    parts.forEach(([text, cls], i) => {
+      if (i) line.append('  ');
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = text;
+      line.appendChild(span);
+    });
+    appendLine(el, line);
+  }
+  const fmtSize = (n) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` : n >= 1_000 ? `${Math.round(n / 1_000)}K` : String(n));
+
+  const byName = (a, b) => (a.toLowerCase() < b.toLowerCase() ? -1 : 1);
+  function listDir(el, sh, args) {
+    const flags = args.filter((a) => a.startsWith('-')).join('');
+    const targets = args.filter((a) => !a.startsWith('-'));
+    const all = flags.includes('a');
+    const long = flags.includes('l');
+    (targets.length ? targets : ['.']).forEach((target, i) => {
+      const node = lookup(sh, resolvePath(sh, target));
+      if (!node) { print(el, `ls: ${target}: No such file or directory`, 'term-warn'); return; }
+      if (targets.length > 1) print(el, `${i ? '\n' : ''}${target}:`);
+      const entries = node.type === 'dir'
+        ? Object.keys(node.children).sort(byName).filter((n) => all || !n.startsWith('.')).map((n) => [n, node.children[n]])
+        : [[target, node]];
+      if (!entries.length) return;
+      if (long) {
+        entries.forEach(([name, n]) => printParts(el, [
+          [`${n.type === 'dir' ? 'drwxr-xr-x' : '-rw-r--r--'}  ${sh.remote ? 'deploy www-data' : 'me    staff  '}  ${fmtSize(n.type === 'dir' ? 4096 : n.size).padStart(5)}  Sep 30 09:41`, 'term-dim'],
+          [name, n.type === 'dir' ? 'term-path' : ''],
+        ]));
+      } else {
+        printParts(el, entries.map(([name, n]) => [name, n.type === 'dir' ? 'term-path' : '']));
+      }
+    });
+  }
+
+  function splitArgs(line) {
+    const out = [];
+    line.replace(/"([^"]*)"|'([^']*)'|(\S+)/g, (m, dq, sq, word) => { out.push(dq ?? sq ?? word); return m; });
+    return out;
+  }
+
+  async function runShell(id, line) {
+    const sh = shellFor(id);
+    const el = $(`.terminal[data-terminal="${id}"]`);
+    const shellName = TERMINALS[id].title.split(' ')[0] === 'zsh' && !sh.remote ? 'zsh' : 'bash';
+    if (/[|<>;&]/.test(line.replace(/"[^"]*"|'[^']*'/g, ''))) {
+      print(el, 'demo shell: pipes, redirection, and chaining are not supported here', 'term-warn');
+      return;
+    }
+    let args = splitArgs(line);
+    let sudo = false;
+    if (args[0] === 'sudo' && sh.remote) { sudo = true; args = args.slice(1); }
+    const [cmd, ...rest] = args;
+    if (!cmd) return;
+    const known = sh.remote ? REMOTE_COMMANDS : LOCAL_COMMANDS;
+
+    if (WRITE_COMMANDS.includes(cmd)) {
+      print(el, `${cmd}: this demo's file system is read-only — nothing here touches a real disk or server`, 'term-warn');
+      return;
+    }
+    if (!known.includes(cmd)) {
+      const hint = !sh.remote && REMOTE_COMMANDS.includes(cmd) ? ' (that one works on the server — try: ssh acme)' : '';
+      print(el, `${shellName}: ${cmd}: command not found${hint}`, 'term-warn');
+      return;
+    }
+
+    switch (cmd) {
+      case 'help': {
+        print(el, 'This terminal is a simulation that runs in your browser. Try:', 'term-dim');
+        const rows = sh.remote
+          ? [['ls -la', 'list files on the server'], ['cat index.html', 'print a file'], ['sudo systemctl reload php8.3-fpm', 'reload PHP'], ['php artisan cache:clear', 'clear the app cache'], ['uptime, df -h', 'server health'], ['exit', 'back to your machine']]
+          : [['ls, cd, cat, pwd', 'look around the workspace'], ['code README.md', 'open a file in the editor'], ['sftp', 'run SFTPresso commands (a demo shortcut)'], ['ssh acme', 'log in to the demo server'], ['git status, npm run package', 'a few project commands'], ['clear, history', 'Ctrl+L clears, ↑/↓ recall, Tab completes']];
+        rows.forEach(([c, d]) => printParts(el, [[c.padEnd(30), 'term-info'], [d, 'term-dim']]));
+        return;
+      }
+      case 'clear': clearTerminal(el); return;
+      case 'pwd': print(el, sh.cwd); return;
+      case 'whoami': print(el, sh.remote ? 'deploy' : 'me'); return;
+      case 'hostname': print(el, sh.remote ? 'acme' : 'workstation'); return;
+      case 'date': print(el, new Date().toString().replace(/ \(.*\)$/, '')); return;
+      case 'uname': print(el, rest.includes('-a') ? (sh.remote ? 'Linux acme 6.8.0-45-generic #45-Ubuntu SMP x86_64 GNU/Linux' : `${isMac ? 'Darwin' : 'Linux'} workstation`) : (sh.remote || !isMac ? 'Linux' : 'Darwin')); return;
+      case 'echo': print(el, rest.join(' ').replace(/\$(HOME|USER|PWD)\b/g, (m, v) => ({ HOME: homeOf(sh), USER: sh.remote ? 'deploy' : 'me', PWD: sh.cwd }[v]))); return;
+      case 'history': sh.history.forEach((h, i) => print(el, `${String(i + 1).padStart(5)}  ${h}`)); return;
+      case 'ls': listDir(el, sh, rest); return;
+      case 'cd': {
+        const path = resolvePath(sh, rest[0]);
+        const node = lookup(sh, path);
+        if (!node) print(el, `cd: no such file or directory: ${rest[0]}`, 'term-warn');
+        else if (node.type !== 'dir') print(el, `cd: not a directory: ${rest[0]}`, 'term-warn');
+        else sh.cwd = path;
+        return;
+      }
+      case 'cat': {
+        if (!rest.length) { print(el, 'usage: cat <file>', 'term-dim'); return; }
+        rest.forEach((target) => {
+          const node = lookup(sh, resolvePath(sh, target));
+          if (!node) print(el, `cat: ${target}: No such file or directory`, 'term-warn');
+          else if (node.type === 'dir') print(el, `cat: ${target}: Is a directory`, 'term-warn');
+          else {
+            const text = fileText(node);
+            if (text === null) print(el, `cat: ${target}: binary file (${fmtSize(node.size)}B) not shown`, 'term-dim');
+            else {
+              const lines = text.split('\n');
+              print(el, lines.slice(0, 40).join('\n'));
+              if (lines.length > 40) print(el, `… ${lines.length - 40} more lines${sh.remote ? '' : ` — run: code ${target}`}`, 'term-dim');
+            }
+          }
+        });
+        return;
+      }
+      case 'exit':
+        if (sh.remote) {
+          print(el, 'logout\nConnection to acme.example.com closed.', 'term-dim');
+          Object.assign(sh, { remote: false, cwd: sh.localCwd || `${LOCAL_HOME}/projects/acme` });
+        } else print(el, `exit: this demo terminal stays open — hide the panel with ${MOD}+\``, 'term-dim');
+        return;
+      case 'code':
+      case 'codium': {
+        if (rest[0] === '--install-extension') {
+          const ext = rest[1] || '';
+          if (!/sftpresso/i.test(ext)) { print(el, `Extension '${ext}' not found.`, 'term-warn'); return; }
+          print(el, 'Installing extensions...', 'term-dim');
+          await sleep(400);
+          print(el, `Extension '${ext}' v${VERSION} was successfully installed.`, 'term-ok');
+          return;
+        }
+        if (!rest.length || rest[0] === '.') { print(el, '# this window already has the acme folder open', 'term-dim'); return; }
+        const node = lookup(sh, resolvePath(sh, rest[0]));
+        if (node && node.type === 'file' && typeof node.src === 'string' && FILES[node.src]) openFile(node.src);
+        else if (node && node.type === 'dir') print(el, `# ${rest[0]} is a folder — it's already in the Explorer`, 'term-dim');
+        else if (node) print(el, `# ${rest[0]} isn't one of the files this demo can open — try: code README.md`, 'term-dim');
+        else print(el, `${cmd}: ${rest[0]}: no such file in this demo workspace`, 'term-warn');
+        return;
+      }
+      case 'sftp': {
+        const [action, arg] = rest;
+        if (!action || !SFTP_ACTIONS[action]) {
+          if (action && /[@.]/.test(action)) print(el, "# this is the demo's shortcut to SFTPresso commands, not the OpenSSH sftp client", 'term-dim');
+          else if (action) print(el, `sftp: unknown action '${action}'`, 'term-warn');
+          print(el, 'usage: sftp <action>   — runs the matching SFTPresso command (in VS Code: the Command Palette)', 'term-dim');
+          Object.entries(SFTP_ACTIONS).forEach(([name, [, desc]]) => printParts(el, [[`  ${name.padEnd(11)}`, 'term-info'], [desc, 'term-dim']]));
+          return;
+        }
+        const [commandId] = SFTP_ACTIONS[action];
+        if (action === 'profile' && arg) {
+          if (!['staging', 'prod'].includes(arg)) { print(el, `sftp: no profile named '${arg}' (staging, prod)`, 'term-warn'); return; }
+          setProfile(arg);
+          print(el, `active profile: ${arg} (${activeHost()})`, 'term-ok');
+          return;
+        }
+        if (action === 'profile') { print(el, `active profile: ${state.profile} (${activeHost()}) — switch with: sftp profile prod`); return; }
+        if (action === 'upload' && arg) {
+          const node = lookup(sh, resolvePath(sh, arg));
+          if (!node || node.type !== 'file') { print(el, `sftp: ${arg}: no such file`, 'term-warn'); return; }
+          print(el, `→ SFTP: Upload File (${arg})`, 'term-dim');
+          startTransfers([{ name: arg.replace(/^\.\//, ''), size: node.size }], 'upload');
+          return;
+        }
+        print(el, `→ ${COMMANDS.find((c) => c.id === commandId).label}`, 'term-dim');
+        runCommand(commandId);
+        return;
+      }
+      case 'ssh': {
+        const target = (rest.find((a) => !a.startsWith('-')) || '').replace(/^[^@]*@/, '');
+        if (!target) { print(el, 'usage: ssh [user@]hostname   — try: ssh acme', 'term-dim'); return; }
+        if (!['acme', 'acme.example.com', 'staging.example.com'].includes(target)) {
+          print(el, `ssh: Could not resolve hostname ${target}: nodename nor servname provided, or not known`, 'term-warn');
+          return;
+        }
+        await sleep(300);
+        print(el, `Last login: ${new Date().toDateString()} from 203.0.113.7`, 'term-dim');
+        Object.assign(sh, { remote: true, localCwd: sh.cwd, cwd: '/var/www/acme' });
+        return;
+      }
+      case 'git': {
+        const sub = rest[0];
+        if (sub === 'status') print(el, 'On branch develop\nYour branch is up to date with \'origin/develop\'.\n\nnothing to commit, working tree clean');
+        else if (sub === 'log') printParts(el, [['a1c9e02', 'term-warn'], ['chore(release): ' + VERSION]]);
+        else if (sub === 'branch') print(el, '* develop', 'term-ok');
+        else if (sub === 'clone') print(el, "Cloning into 'SFTPresso'...\n# already cloned — it's in ~/src/SFTPresso", 'term-dim');
+        else print(el, 'demo: only git status, log, branch, and clone are simulated here', 'term-dim');
+        return;
+      }
+      case 'npm': {
+        const sub = rest.join(' ');
+        if (sub === 'install' || sub === 'i' || sub === 'ci') { await sleep(500); print(el, 'added 812 packages in 9s', 'term-dim'); }
+        else if (sub === 'run package') { await sleep(700); print(el, ` DONE  Packaged: sftpresso-${VERSION}.vsix`, 'term-ok'); }
+        else print(el, 'demo: only npm install and npm run package are simulated here', 'term-dim');
+        return;
+      }
+      case 'uptime': print(el, ' 09:41:07 up 41 days,  3:12,  1 user,  load average: 0.08, 0.05, 0.01'); return;
+      case 'df': print(el, 'Filesystem      Size  Used Avail Use% Mounted on\n/dev/vda1        80G   23G   54G  30% /'); return;
+      case 'php':
+        if (rest.join(' ') === 'artisan cache:clear') print(el, '   INFO  Application cache cleared successfully.', 'term-info');
+        else print(el, 'demo: only php artisan cache:clear is simulated here', 'term-dim');
+        return;
+      case 'systemctl': {
+        const [verb, unit = ''] = rest;
+        if (verb === 'status') {
+          print(el, `● ${unit || 'php8.3-fpm'}.service`, 'term-ok');
+          print(el, '     Active: active (running) since Wed 2026-08-20 06:29:11 UTC; 41 days ago', 'term-dim');
+        } else if (['reload', 'restart'].includes(verb)) {
+          if (!sudo) print(el, `Failed to ${verb} ${unit}.service: Access denied — try: sudo systemctl ${verb} ${unit}`, 'term-warn');
+        } else print(el, 'demo: only systemctl status, reload, and restart are simulated here', 'term-dim');
+        return;
+      }
+      case 'sudo': print(el, 'usage: sudo <command>', 'term-dim'); return;
+      default: print(el, `${shellName}: ${cmd}: command not found`, 'term-warn');
+    }
+  }
+
+  function completeInput(id) {
+    const sh = shellFor(id);
+    const input = sh.input;
+    const value = input.value;
+    const m = value.match(/(\S*)$/);
+    const word = m[1];
+    const isCommand = !value.slice(0, value.length - word.length).trim();
+    let options;
+    let dirPart = '';
+    if (isCommand) options = (sh.remote ? REMOTE_COMMANDS : LOCAL_COMMANDS).filter((c) => c.startsWith(word)).map((c) => [c, false]);
+    else {
+      const slash = word.lastIndexOf('/');
+      dirPart = slash === -1 ? '' : word.slice(0, slash + 1);
+      const base = word.slice(slash + 1);
+      const node = lookup(sh, resolvePath(sh, dirPart || '.'));
+      if (!node || node.type !== 'dir') return;
+      options = Object.keys(node.children).filter((n) => n.startsWith(base) && (base.startsWith('.') || !n.startsWith('.'))).sort(byName).map((n) => [n, node.children[n].type === 'dir']);
+    }
+    if (!options.length) return;
+    const stem = value.slice(0, value.length - word.length) + dirPart;
+    if (options.length === 1) {
+      const [name, isDir] = options[0];
+      input.value = stem + name + (isDir ? '/' : ' ');
+      return;
+    }
+    let prefix = options[0][0];
+    options.forEach(([n]) => { while (!n.startsWith(prefix)) prefix = prefix.slice(0, -1); });
+    if (stem + prefix !== value) { input.value = stem + prefix; return; }
+    const el = $(`.terminal[data-terminal="${id}"]`);
+    const live = input.closest('.term-line');
+    const listLine = document.createElement('div');
+    el.insertBefore(listLine, live);
+    printParts(listLine, options.map(([n, isDir]) => [n + (isDir ? '/' : ''), isDir ? 'term-path' : '']));
+  }
+
+  function echoCommand(id, text) {
+    const line = document.createElement('div');
+    line.className = 'term-line';
+    line.innerHTML = termPrompt(id);
+    const cmd = document.createElement('span');
+    cmd.className = 'term-cmd';
+    cmd.textContent = text;
+    line.appendChild(cmd);
+    appendLine($(`.terminal[data-terminal="${id}"]`, terminalInstances), line);
+  }
+  // One live input line per terminal stays at the bottom; its prompt hides while commands run.
+  function showPrompt(id, { focus = false } = {}) {
+    const sh = shellFor(id);
+    const el = $(`.terminal[data-terminal="${id}"]`, terminalInstances);
+    if (!sh.input) {
+      const line = document.createElement('div');
+      line.className = 'term-line term-live';
+      line.innerHTML = '<span class="term-ps"></span>';
+      const input = document.createElement('input');
+      input.className = 'term-input';
+      input.type = 'text';
+      input.spellcheck = false;
+      input.autocomplete = 'off';
+      input.setAttribute('autocapitalize', 'off');
+      input.setAttribute('aria-label', `${TERMINALS[id].title} — type a command, or help`);
+      input.addEventListener('keydown', (e) => onTermKey(id, e));
+      line.appendChild(input);
+      el.appendChild(line);
+      sh.input = input;
+    }
+    const live = sh.input.parentElement;
+    $('.term-ps', live).innerHTML = termPrompt(id);
+    live.classList.toggle('term-busy', !!sh.busy);
+    sh.histIdx = sh.history.length;
+    el.scrollTop = el.scrollHeight;
+    if (focus) sh.input.focus({ preventScroll: true });
+  }
+  async function drainQueue(id) {
+    const sh = shellFor(id);
+    const el = $(`.terminal[data-terminal="${id}"]`, terminalInstances);
+    sh.busy = true;
+    while (sh.queue.length) {
+      const value = sh.queue.shift();
+      echoCommand(id, value);
+      showPrompt(id);
+      if (value.trim()) {
+        sh.history.push(value.trim());
+        await runShell(id, value.trim());
+      }
+      el.scrollTop = el.scrollHeight;
+    }
+    sh.busy = false;
+    showPrompt(id);
+  }
+  function onTermKey(id, e) {
+    const sh = shellFor(id);
+    const input = e.currentTarget;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sh.queue.push(input.value);
+      input.value = '';
+      if (!sh.busy) drainQueue(id);
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      if (!sh.busy) completeInput(id);
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      sh.histIdx = Math.max(0, Math.min(sh.history.length, sh.histIdx + (e.key === 'ArrowUp' ? -1 : 1)));
+      input.value = sh.history[sh.histIdx] || '';
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'c' && input.selectionStart === input.selectionEnd) {
+      e.preventDefault();
+      if (!sh.busy) echoCommand(id, `${input.value}^C`);
+      input.value = '';
+      showPrompt(id);
+    } else if (e.ctrlKey && e.key.toLowerCase() === 'l') {
+      e.preventDefault();
+      clearTerminal($(`.terminal[data-terminal="${id}"]`, terminalInstances));
+    }
+  }
+
   const terminalInstances = $('#terminal-instances');
   const terminalTabs = $('#terminal-tabs');
   Object.entries(TERMINALS).forEach(([id, t]) => {
@@ -722,28 +1208,34 @@
     tab.dataset.terminal = id;
     tab.setAttribute('role', 'tab');
     tab.innerHTML = `<svg class="icon"><use href="${t.icon}"/></svg><span>${t.title}</span>`;
-    tab.addEventListener('click', () => startTerminal(id));
+    tab.addEventListener('click', () => startTerminal(id, { focus: true }));
     terminalTabs.appendChild(tab);
     const el = document.createElement('div');
     el.className = 'terminal';
     el.dataset.terminal = id;
     el.setAttribute('role', 'log');
+    // A click (not a text selection) focuses the prompt, or fast-forwards the intro while it plays.
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('button') || String(getSelection())) return;
+      const sh = shellFor(id);
+      if (sh.input) sh.input.focus({ preventScroll: true });
+      else if (sh.skipNow) sh.skipNow();
+    });
     terminalInstances.appendChild(el);
   });
-  function termPrompt(id) {
-    const t = TERMINALS[id];
-    if (t.prompt) return `<span class="term-prompt">${escapeHtml(t.prompt)}</span>`;
-    return `<span class="term-prompt">~</span><span class="term-path">/projects/acme</span> <span class="term-prompt">$</span> `;
-  }
-  async function startTerminal(id) {
+  async function startTerminal(id, { focus = false } = {}) {
     state.activeTerminal = id;
     $$('.terminal-tab').forEach((b) => b.classList.toggle('active', b.dataset.terminal === id));
     $$('.terminal').forEach((v) => v.classList.toggle('active', v.dataset.terminal === id));
-    if (state.terminals[id]) return;
+    const sh = shellFor(id);
+    if (state.terminals[id]) { if (focus && sh.input) sh.input.focus({ preventScroll: true }); return; }
     state.terminals[id] = true;
     const el = $(`.terminal[data-terminal="${id}"]`);
     const t = TERMINALS[id];
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // Racing the skip promise lets a click fast-forward even while timers are throttled.
+    const skipped = new Promise((resolve) => { sh.skipNow = () => { sh.fast = true; resolve(); }; });
+    const pause = (ms) => (reduced || sh.fast ? null : Promise.race([sleep(ms), skipped]));
     for (const step of t.script) {
       const line = document.createElement('div');
       line.className = 'term-line';
@@ -756,11 +1248,15 @@
         const cursor = document.createElement('span');
         cursor.className = 'term-cursor';
         line.appendChild(cursor);
-        if (reduced) cmdSpan.textContent = step.cmd;
+        if (reduced || sh.fast) cmdSpan.textContent = step.cmd;
         else {
-          await sleep(200);
-          for (const ch of step.cmd) { cmdSpan.textContent += ch; await sleep(18 + Math.random() * 30); }
-          await sleep(150);
+          await pause(200);
+          for (const ch of step.cmd) {
+            if (sh.fast) { cmdSpan.textContent = step.cmd; break; }
+            cmdSpan.textContent += ch;
+            await pause(18 + Math.random() * 30);
+          }
+          await pause(150);
         }
         cursor.remove();
         if (step.comment) line.insertAdjacentHTML('beforeend', `  <span class="term-dim">${escapeHtml(step.comment)}</span>`);
@@ -769,16 +1265,18 @@
         copy.innerHTML = '<svg class="icon"><use href="#i-copy"/></svg>Copy';
         copy.addEventListener('click', () => copyText(step.cmd, copy));
         line.appendChild(copy);
+        if (step.cmd.startsWith('cd ')) {
+          const path = resolvePath(sh, step.cmd.slice(3));
+          if (lookup(sh, path)) sh.cwd = path;
+        }
       } else {
         line.innerHTML = `<span class="${step.cls || ''}">${escapeHtml(step.out)}</span>`;
-        if (!reduced) await sleep(120);
+        await pause(120);
       }
       el.scrollTop = el.scrollHeight;
     }
-    const tail = document.createElement('div');
-    tail.className = 'term-line';
-    tail.innerHTML = termPrompt(id) + '<span class="term-cursor"></span>';
-    el.appendChild(tail);
+    print(el, '# This terminal is interactive (and simulated) — type help to see what it can do.', 'term-dim');
+    showPrompt(id, { focus: (focus || sh.fast) && state.activeTerminal === id });
   }
   async function copyText(text, button) {
     try {
@@ -1402,7 +1900,7 @@
 
   // ------------------------------------------------------------------ boot
   function boot() {
-    logOutput('info', 'SFTPresso 1.34.1 activated — workspace contains .vscode/sftp.json');
+    logOutput('info', `SFTPresso ${VERSION} activated — workspace contains .vscode/sftp.json`);
     logOutput('info', 'config "Acme Widgets" loaded — profiles: staging, prod (active: staging)');
     logOutput('debug', 'known_hosts: 14 entries read from ~/.ssh/known_hosts, 0 from extension store');
     logOutput('debug', 'watcher: watching dist/**/* (autoUpload, autoRename)');
