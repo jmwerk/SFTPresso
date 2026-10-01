@@ -36,6 +36,9 @@ interface WalkContext {
   // filesystems
   limiter: Limiter;
   token?: CompareCancellationToken;
+  // the config's ignore/ignoreFile rules; matching entries are never transferred
+  // or deleted by a sync, so they are not part of the comparison either
+  ignore?: ((fsPath: string) => boolean) | null;
 }
 
 export interface CompareResult {
@@ -129,6 +132,11 @@ async function walk(
     const remoteEntry = remoteTable[name];
     const relativePath = relativeDir ? `${relativeDir}/${name}` : name;
 
+    // both paths resolve to the same workspace-relative path, so either one will do
+    if (ctx.ignore && ctx.ignore((localEntry || remoteEntry).fspath)) {
+      continue;
+    }
+
     if (localEntry && remoteEntry) {
       if (localEntry.type === FileType.Directory && remoteEntry.type === FileType.Directory) {
         subDirs.push({
@@ -199,6 +207,7 @@ export async function compareFolders(
     remoteFs,
     limiter: createLimiter(ctx.config.concurrency || DEFAULT_WALK_CONCURRENCY),
     token,
+    ignore: ctx.config.ignore,
   };
   await walk(walkCtx, localFsPath, remoteFsPath, '', results);
   // `results` now arrives in completion order rather than depth-first order, so
