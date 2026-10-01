@@ -1,6 +1,7 @@
 import upath from '../../core/upath';
 import FileSystem, { FileEntry, FileStats, FileType } from '../../core/fs/fileSystem';
 import { compareFolders, CompareResult } from '../compareFolders';
+import Ignore from '../../core/ignore';
 
 const tick = () => new Promise(resolve => setTimeout(resolve, 0));
 
@@ -472,5 +473,65 @@ describe('compareFolders — cancellation', () => {
     // root-level entries are still classified (all four top dirs are dirs, so
     // nothing but directories live at the root)
     expect(results).toHaveLength(0);
+  });
+});
+
+describe('compareFolders — ignore rules', () => {
+  // mirrors FileService._createIgnoreFn: either side's path maps to one relative path
+  function ignoreFor(patterns: string[]) {
+    const rules = Ignore.from(patterns);
+    return (fsPath: string) => {
+      const relative = fsPath.replace(/^\/(local|remote)\/?/, '');
+      return relative !== '' && rules.ignores(relative);
+    };
+  }
+
+  function ignoredTrees(meter = new Meter()) {
+    const localFs = new FakeFs(meter, false)
+      .addDir('/local')
+      .addFile('/local/kept.txt')
+      .addFile('/local/local.log')
+      .addFile('/local/both.log', { size: 1 })
+      .addDir('/local/node_modules')
+      .addDir('/local/node_modules/pkg')
+      .addFile('/local/node_modules/pkg/index.js');
+    const remoteFs = new FakeFs(meter, false)
+      .addDir('/remote')
+      .addFile('/remote/remote.log')
+      .addFile('/remote/both.log', { size: 2 })
+      .addDir('/remote/node_modules')
+      .addFile('/remote/node_modules/stale.js');
+    return { localFs, remoteFs };
+  }
+
+  test('ignored entries are left out on either side', async () => {
+    const { localFs, remoteFs } = ignoredTrees();
+    const ctx = contextFor(localFs, remoteFs, 4);
+    ctx.config.ignore = ignoreFor(['*.log', 'node_modules']);
+
+    const results = await compareFolders(ctx);
+
+    expect(results.map(r => [r.relativePath, r.status])).toEqual([['kept.txt', 'localOnly']]);
+  });
+
+  test('an ignored directory is not descended into', async () => {
+    const { localFs, remoteFs } = ignoredTrees();
+    const ctx = contextFor(localFs, remoteFs, 4);
+    ctx.config.ignore = ignoreFor(['node_modules']);
+
+    await compareFolders(ctx);
+
+    expect(localFs.listed).not.toContain('/local/node_modules');
+    expect(remoteFs.listed).not.toContain('/remote/node_modules');
+  });
+
+  test('without ignore rules everything is compared', async () => {
+    const { localFs, remoteFs } = ignoredTrees();
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4));
+
+    expect(results.map(r => r.relativePath)).toEqual(
+      expect.arrayContaining(['both.log', 'local.log', 'remote.log', 'node_modules/stale.js'])
+    );
   });
 });
