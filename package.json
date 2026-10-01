@@ -1028,7 +1028,7 @@
     "joi": "^18.2.9",
     "jsonc-parser": "^3.3.1",
     "lodash.debounce": "^4.0.8",
-    "lru-cache": "^11.5.2",
+    "lru-cache": "^11.5.3",
     "ssh-config": "^5.3.0",
     "ssh2": "^1.17.0",
     "tmp": "^0.2.1",
