@@ -200,9 +200,9 @@
             <button class="pane-header" aria-expanded="false"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="pane-title">Timeline</span></button>
             <div class="pane-body">
               <ul class="tree timeline">
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.34.1</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.34.0</span><span class="tree-desc">19d</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(remoteExplorer): upload local files by drag-and-drop</span><span class="tree-desc">20d</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.34.2</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">fix(sync): exclude ignored files from sync preview</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.34.1</span><span class="tree-desc">1d</span></li>
               </ul>
             </div>
           </div>
@@ -261,7 +261,7 @@
                 <button class="ext-card" data-file="extension">
                   <img src="assets/icon.png" alt="" width="42" height="42">
                   <span class="ext-card-body">
-                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.34.1</span></span>
+                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.34.2</span></span>
                     <span class="ext-card-desc">Sync files over SFTP, FTP/FTPS, or SSH from VS Code</span>
                     <span class="ext-card-footer"><span class="ext-card-publisher">jmwerk</span><span class="btn btn-primary btn-xs">Install</span></span>
                   </span>
@@ -408,7 +408,7 @@
       <button class="status-item hide-narrow">UTF-8</button>
       <button class="status-item hide-narrow">LF</button>
       <button class="status-item" id="status-language">Markdown</button>
-      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.34.1</span></button>
+      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.34.2</span></button>
       <button class="status-item" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       <button class="status-item" id="status-bell" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
     </div>
@@ -448,7 +448,7 @@
           <a class="btn btn-lg" href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener"><svg class="icon"><use href="#i-github"/></svg> GitHub</a>
         </div>
         <div class="hero-badges">
-          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.34.1</span></span>
+          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.34.2</span></span>
           <span class="badge"><span class="badge-k">license</span><span class="badge-v badge-blue">MIT</span></span>
           <span class="badge"><span class="badge-k">vscode</span><span class="badge-v">^1.138</span></span>
           <span class="badge"><span class="badge-k">CI</span><span class="badge-v badge-green">passing</span></span>
@@ -816,6 +816,10 @@
     <h1>Changelog</h1>
     <p class="lede">Recent highlights. The <a href="https://github.com/jmwerk/SFTPresso/blob/develop/CHANGELOG.md" target="_blank" rel="noopener">full changelog</a> goes back to the very first release, and each tag is published to the Marketplace and Open VSX automatically.</p>
 
+    <div class="release"><h2>1.34.2 <small>2026-10-01</small></h2>
+      <ul>
+        <li><span class="tag tag-fix">Fix</span> The <code>syncConfirm</code> preview and <strong>Compare Folders</strong> no longer list files matched by <code>ignore</code> / <code>ignoreFile</code>, so the preview matches what the sync actually does.</li>
+      </ul></div>
     <div class="release"><h2>1.34.1 <small>2026-09-30</small></h2>
       <ul>
         <li><span class="tag tag-fix">Fix</span> <code>joi</code> closes another prototype-injection path in config validation; dev-only <code>undici</code>, <code>brace-expansion</code>, and <code>markdown-it</code> security updates. Now requires VS Code 1.138 or later.</li>
@@ -960,7 +964,7 @@ SOFTWARE.</div>
         <div class="ext-meta">
           <a href="https://marketplace.visualstudio.com/publishers/jmwerk" target="_blank" rel="noopener">jmwerk</a>
           <span class="ext-meta-sep">|</span>
-          <span title="Version">v1.34.1</span>
+          <span title="Version">v1.34.2</span>
           <span class="ext-meta-sep">|</span>
           <span>MIT</span>
           <span class="ext-meta-sep">|</span>
@@ -1010,7 +1014,7 @@ SOFTWARE.</div>
         <h3>Tags</h3>
         <p class="chips"><span class="chip">sftp</span><span class="chip">ftp</span><span class="chip">ftps</span><span class="chip">ssh</span><span class="chip">sync</span><span class="chip">deploy</span><span class="chip">upload</span><span class="chip">remote explorer</span></p>
         <h3>More info</h3>
-        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.34.1</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
+        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.34.2</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
       </aside>
     </div>
   </article>
