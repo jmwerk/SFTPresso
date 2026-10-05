@@ -72,10 +72,11 @@ export async function activate(context: vscode.ExtensionContext) {
   setContextValue('enabled', true);
   app.sftpBarItem.show();
   app.connectionBarItem.show();
-  context.subscriptions.push(app.connectionBarItem);
+  context.subscriptions.push(app.connectionBarItem, app.uploadOnSaveBarItem);
   let lastProfile = app.state.profile;
   app.state.subscribe(state => {
     setContextValue('hasProfiles', state.availableProfiles.length > 0);
+    app.uploadOnSaveBarItem.update(state.uploadOnSave);
     if (state.profile !== lastProfile) {
       lastProfile = state.profile;
       // the active profile decides which config a service resolves to

@@ -19,11 +19,15 @@ export default class StatusBarItem {
   private status: Status = Status.ok;
 
   // id and itemName identify the item in the status bar's hide/show menu
-  constructor(id: string, itemName: string, name, tooltip, command) {
+  constructor(id: string, itemName: string, priority: number, name, tooltip, command) {
     this._name = name;
     this._tooltip = tooltip;
     this._command = command;
-    this.statusBarItem = vscode.window.createStatusBarItem(id, vscode.StatusBarAlignment.Left);
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      id,
+      vscode.StatusBarAlignment.Left,
+      priority
+    );
     this.statusBarItem.name = itemName;
     this.statusBarItem.command = this.command;
     this.reset = this.reset.bind(this);

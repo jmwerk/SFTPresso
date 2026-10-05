@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { COMMAND_TEST_CONNECTION } from '../constants';
+import { STATUS_PRIORITY } from './statusBarPriority';
 
 export enum ConnectionState {
   Idle = 'idle',
@@ -65,7 +66,8 @@ export default class ConnectionStatusBar {
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
       'sftpresso.connection',
-      vscode.StatusBarAlignment.Left
+      vscode.StatusBarAlignment.Left,
+      STATUS_PRIORITY.connection
     );
     this.statusBarItem.name = 'SFTPresso Connection';
     this.statusBarItem.command = COMMAND_TEST_CONNECTION;

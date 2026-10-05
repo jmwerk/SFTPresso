@@ -217,7 +217,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Set Profile` | `sftp.setProfile` | Switch the active [profile](#profiles-dev--prod). |
 | `SFTP: Test Connection` | `sftp.testConnection` | Connect to the active profile's remote and report success/failure. Also available as a CodeLens on `sftp.json`. |
 | `SFTP: Disconnect` | `sftp.disconnect` | Drop every pooled connection (all configs/profiles, not just the active one) so the next command reconnects fresh. Manual escape hatch for a stuck connection — [`operationTimeout`](#operationtimeout) usually catches that on its own, but this is faster than reloading the window when it doesn't. |
-| `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). The status bar shows a `$(cloud-upload)` indicator while it's on. |
+| `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). Also available as the `$(cloud-upload)` status bar button, which is dimmed while it's off. |
 | Add to Ignore | `sftp.addToIgnore` | File-explorer context menu command. Appends the right-clicked file or folder's workspace-relative path to the active config's [`ignore`](#ignore) array in `sftp.json` (folders as `path/**`), preserving comments and formatting; a no-op if the entry is already listed. |
 | `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal auto-logged-in to the server. Extra CLI flags can be added via [`sshCustomParams`](#sshcustomparams). |
 | `SFTP: Save Password` | `sftp.savePassword` | Store a password for a remote in VS Code's secret storage (OS keychain). See [Storing passwords securely](#storing-passwords-securely). |
@@ -433,7 +433,7 @@ Octal permissions applied to newly created remote directories.
 ```
 
 #### uploadOnSave
-Upload the file on every VS Code save. See the [Upload on save](#upload-on-save) workflow. You can flip this without editing JSON via **`SFTP: Toggle Upload on Save`**; the status bar shows a `$(cloud-upload)` indicator while it's on.
+Upload the file on every VS Code save. See the [Upload on save](#upload-on-save) workflow. You can flip this without editing JSON via **`SFTP: Toggle Upload on Save`** or by clicking the `$(cloud-upload)` button in the status bar, which is dimmed while it's off.
 
 | Key | Type | Default |
 | --- | --- | --- |
