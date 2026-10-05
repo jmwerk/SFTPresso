@@ -90,6 +90,8 @@
     filter: '',
     panelTab: 'terminal',
     terminals: {},
+    demoBatch: null,
+    demoToast: null,
   };
 
   // ------------------------------------------------------------------ theme
@@ -131,6 +133,7 @@
     const { type = 'info', source = 'SFTPresso', actions = [], timeout = 6000, progress = false } = opts;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
+    if (type === 'error') toast.setAttribute('role', 'alert');
     const iconId = type === 'error' ? '#i-error' : type === 'warning' ? '#i-warning' : '#i-info';
     toast.innerHTML = `
       <div class="toast-main">
@@ -339,13 +342,23 @@
       tab.className = 'tab' + (id === state.active ? ' active' : '');
       tab.setAttribute('role', 'tab');
       tab.setAttribute('aria-selected', id === state.active);
+      tab.tabIndex = id === state.active ? 0 : -1;
       tab.dataset.tab = id;
       tab.title = f.path.join('/');
       const iconHtml = f.icon === 'fi-ext' ? '<img src="assets/icon.png" alt="" width="16" height="16">' : `<span class="file-icon ${f.icon}"></span>`;
-      tab.innerHTML = `${iconHtml}<span class="tab-label">${f.readonly ? `<em>${f.label}</em>` : f.label}</span><button class="tab-close" aria-label="Close ${f.label}"><svg class="icon"><use href="#i-close"/></svg></button>`;
+      tab.innerHTML = `${iconHtml}<span class="tab-label">${f.readonly ? `<em>${f.label}</em>` : f.label}</span><button class="tab-close" tabindex="-1" aria-label="Close ${f.label}"><svg class="icon"><use href="#i-close"/></svg></button>`;
       tab.addEventListener('click', (e) => { if (!e.target.closest('.tab-close')) activateFile(id); });
       tab.addEventListener('auxclick', (e) => { if (e.button === 1) { e.preventDefault(); closeFile(id); } });
       $('.tab-close', tab).addEventListener('click', (e) => { e.stopPropagation(); closeFile(id); });
+      tab.addEventListener('keydown', (e) => {
+        const i = state.tabs.indexOf(id);
+        const go = (j) => { const next = state.tabs[(j + state.tabs.length) % state.tabs.length]; activateFile(next); $(`.tab[data-tab="${CSS.escape(next)}"]`, tabsEl)?.focus(); };
+        if (e.key === 'ArrowRight') { e.preventDefault(); go(i + 1); }
+        else if (e.key === 'ArrowLeft') { e.preventDefault(); go(i - 1); }
+        else if (e.key === 'Home') { e.preventDefault(); go(0); }
+        else if (e.key === 'End') { e.preventDefault(); go(state.tabs.length - 1); }
+        else if (e.key === 'Delete') { e.preventDefault(); closeFile(id); $('.tab.active', tabsEl)?.focus(); }
+      });
       tabsEl.appendChild(tab);
     });
     const activeTab = $('.tab.active', tabsEl);
@@ -519,8 +532,8 @@
   // Pane headers
   document.addEventListener('click', (e) => {
     const header = e.target.closest('.pane-header');
-    if (!header || e.target.closest('.pane-actions')) return;
-    const pane = header.parentElement;
+    if (!header) return;
+    const pane = header.closest('.pane');
     pane.classList.toggle('expanded');
     header.setAttribute('aria-expanded', pane.classList.contains('expanded'));
   });
@@ -549,6 +562,14 @@
       }
     }
   });
+  $$('.icon-btn[aria-label="New File"], .icon-btn[aria-label="New Folder"], .icon-btn[aria-label="Refresh Explorer"]').forEach((b) => b.addEventListener('click', () => {
+    notify(`<strong>${escapeHtml(b.getAttribute('aria-label'))}</strong> works on your local workspace in VS Code. This demo's files are read-only.`, { timeout: 4000 });
+  }));
+  // Inline row action: a hover shortcut for the context menu's Download Folder (Shift+F10 on keyboard).
+  $$('#remote-tree .row-actions .icon-btn[title="Download Folder"]').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation();
+    startTransfers(demoFilesFor(b.closest('.tree-item').dataset.name), 'download');
+  }));
   // Collapse-all buttons
   $$('.icon-btn[title="Collapse Folders in Explorer"], .icon-btn[title="Collapse All"]').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -589,6 +610,51 @@
       { label: 'Rename', run: demo('Rename') },
     ];
     openMenu(items, { x: e.clientX, y: e.clientY });
+  });
+
+  // Keyboard model for [role=tree]: one tab stop per tree, arrows move, as in VS Code.
+  const treeRow = (item) => item.querySelector(':scope > .tree-row');
+  function visibleTreeItems(tree) {
+    return $$('[role="treeitem"]', tree).filter((li) => treeRow(li) && treeRow(li).offsetParent !== null);
+  }
+  function syncTreeTabStop(tree) {
+    const all = $$('[role="treeitem"]', tree);
+    // A tree in a hidden view has no visible rows yet; fall back so it still gets a tab stop.
+    const items = visibleTreeItems(tree).length ? visibleTreeItems(tree) : all;
+    const current = items.find((li) => li.tabIndex === 0) || items.find((li) => li.classList.contains('selected')) || items[0];
+    all.forEach((li) => { li.tabIndex = li === current ? 0 : -1; });
+  }
+  function focusTreeItem(tree, li) {
+    if (!li) return;
+    $$('[role="treeitem"]', tree).forEach((x) => { x.tabIndex = x === li ? 0 : -1; });
+    li.focus();
+  }
+  $$('[role="tree"]').forEach((tree) => {
+    syncTreeTabStop(tree);
+    new MutationObserver(() => { if (!tree.contains(document.activeElement)) syncTreeTabStop(tree); }).observe(tree, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+    tree.addEventListener('keydown', (e) => {
+      const li = e.target.closest('[role="treeitem"]');
+      if (!li || e.target !== li) return;
+      const items = visibleTreeItems(tree);
+      const i = items.indexOf(li);
+      const isFolder = li.classList.contains('folder');
+      const expanded = li.classList.contains('expanded');
+      const toggle = () => { li.classList.toggle('expanded'); li.setAttribute('aria-expanded', li.classList.contains('expanded')); };
+      let handled = true;
+      if (e.key === 'ArrowDown') focusTreeItem(tree, items[i + 1]);
+      else if (e.key === 'ArrowUp') focusTreeItem(tree, items[i - 1]);
+      else if (e.key === 'Home') focusTreeItem(tree, items[0]);
+      else if (e.key === 'End') focusTreeItem(tree, items[items.length - 1]);
+      else if (e.key === 'ArrowRight') { if (isFolder && !expanded) toggle(); else if (isFolder) focusTreeItem(tree, visibleTreeItems(tree)[i + 1]); }
+      else if (e.key === 'ArrowLeft') { if (isFolder && expanded) toggle(); else focusTreeItem(tree, li.parentElement.closest('[role="treeitem"]')); }
+      else if (e.key === 'Enter' || e.key === ' ') treeRow(li).click();
+      else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+        const r = treeRow(li).getBoundingClientRect();
+        treeRow(li).dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + 24, clientY: r.bottom }));
+      } else handled = false;
+      if (handled) e.preventDefault();
+    });
+    tree.addEventListener('click', (e) => { const li = e.target.closest('[role="treeitem"]'); if (li && tree.contains(li)) focusTreeItem(tree, li); });
   });
 
   // ------------------------------------------------------------------ sidebar search
@@ -1291,8 +1357,12 @@
   // ------------------------------------------------------------------ menus
   const contextMenu = $('#context-menu');
   const backdrop = $('#overlay-backdrop');
+  let menuReturnFocus = null;
   function closeMenus() {
+    const hadFocus = contextMenu.contains(document.activeElement);
     contextMenu.hidden = true;
+    if (hadFocus && menuReturnFocus && menuReturnFocus.isConnected) menuReturnFocus.focus();
+    menuReturnFocus = null;
     backdrop.hidden = true;
     $$('[data-menu].open').forEach((b) => b.classList.remove('open'));
   }
@@ -1314,7 +1384,17 @@
     const w = contextMenu.offsetWidth, h = contextMenu.offsetHeight;
     contextMenu.style.left = `${Math.max(4, Math.min(pos.x, window.innerWidth - w - 4))}px`;
     contextMenu.style.top = `${Math.max(4, Math.min(pos.y, window.innerHeight - h - 4))}px`;
+    menuReturnFocus = document.activeElement;
+    $('.menu-item:not([disabled])', contextMenu)?.focus({ preventScroll: true });
   }
+  contextMenu.addEventListener('keydown', (e) => {
+    const items = $$('.menu-item:not([disabled])', contextMenu);
+    const i = items.indexOf(document.activeElement);
+    const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key];
+    if (to === undefined) { if (e.key === 'Tab') { e.preventDefault(); closeMenus(); } return; }
+    e.preventDefault();
+    items[(to + items.length) % items.length]?.focus();
+  });
   backdrop.addEventListener('click', closeMenus);
   backdrop.addEventListener('contextmenu', (e) => { e.preventDefault(); closeMenus(); });
 
@@ -1457,6 +1537,10 @@
     { id: 'sftp.upload.project', label: 'SFTP: Upload Project', desc: 'Upload the whole project', run: () => startTransfers(demoFilesFor('project'), 'upload') },
     { id: 'sftp.upload.changedFiles', label: 'SFTP: Upload Changed Files', desc: 'Upload everything changed since the last commit', key: ['Ctrl', 'Alt', 'U'], run: () => startTransfers(demoFilesFor('changed'), 'upload') },
     { id: 'sftp.download.project', label: 'SFTP: Download Project', desc: 'Download everything under remotePath', run: () => startTransfers(demoFilesFor('project'), 'download') },
+    { id: 'sftpresso.demo', label: 'Demo: See It Work', desc: 'Download a 12-file project with live progress', run: runDemo },
+    { id: 'sftpresso.demo.failedTransfer', label: 'Demo: Failed Transfer and Retry', desc: 'One upload hits a permission error', run: demoFailedTransfer },
+    { id: 'sftpresso.demo.conflict', label: 'Demo: Upload Conflict', desc: 'conflictCheck catches a remote edit', run: demoConflict },
+    { id: 'sftpresso.demo.hostKeyChanged', label: 'Demo: Changed Host Key', desc: 'The server offers a different key', run: demoHostKeyChanged },
     { id: 'sftp.sync.localToRemote', label: 'SFTP: Sync Local -> Remote', desc: 'Copy files that differ by timestamp', run: syncPreview },
     { id: 'sftp.diff.activeFile', label: 'SFTP: Diff Active File with Remote', desc: "Open VS Code's diff view", run: () => notify('In VS Code this opens the built-in diff editor: your local file on the left, the remote copy on the right.', { timeout: 5000 }) },
     { id: 'sftp.compareFolders', label: 'SFTP: Compare Folders with Remote', desc: 'Recursive local/remote diff', run: () => openFile('features.md', { anchor: 'feat-explore' }) },
@@ -1570,6 +1654,53 @@
     const list = kind === 'changed' ? changed : kind === 'project' ? project : kind === 'assets' ? project.filter(([n]) => n.startsWith('assets/')) : project.slice(0, 5);
     return list.map(([name, size]) => ({ name, size }));
   }
+  // The hero's "See it work": the same Download Project path, with the log beside it.
+  function runDemo() {
+    if (state.transfers.some((t) => t.status === 'queued' || t.status === 'transferring')) return;
+    const files = demoFilesFor('project');
+    state.demoBatch = { total: files.length };
+    if (!window.matchMedia('(max-width: 900px)').matches) showPanel('output');
+    startTransfers(files, 'download');
+  }
+  // Failure paths, so the safety claims are visible and not just copy.
+  function demoFailedTransfer() {
+    if (state.transfers.some((t) => t.status === 'queued' || t.status === 'transferring')) return;
+    if (!window.matchMedia('(max-width: 900px)').matches) showPanel('output');
+    const files = demoFilesFor('changed');
+    files[1].failAt = 0.4;
+    files[1].error = 'Permission denied';
+    startTransfers(files, 'upload');
+  }
+  function demoConflict() {
+    const remotePath = `${state.profile === 'staging' ? '/var/www/staging' : '/var/www/acme'}/css/style.css`;
+    if (!window.matchMedia('(max-width: 900px)').matches) showPanel('output');
+    logOutput('info', `[conflict-check] remote changed since last transfer: ${remotePath}`);
+    notify('The remote copy of <code>style.css</code> changed since you last downloaded or uploaded it. Uploading will overwrite those changes.<br><span class="term-dim">Remote: 18.9 KB, modified 4 min ago · Local: 18.4 KB, modified just now</span>', {
+      type: 'warning',
+      timeout: 0,
+      actions: [
+        { label: 'Overwrite', run: () => startTransfers([{ name: 'css/style.css', size: 18_400 }], 'upload') },
+        { label: 'Open Diff', run: () => { logOutput('info', 'conflict-check: opened diff, remote left untouched'); runCommand('sftp.diff.activeFile'); } },
+      ],
+    });
+  }
+  async function demoHostKeyChanged() {
+    const host = activeHost();
+    if (!window.matchMedia('(max-width: 900px)').matches) showPanel('output');
+    setConnection('connecting');
+    logOutput('info', `[${state.profile}] connecting to sftp://deploy@${host}:22 …`);
+    await sleep(500);
+    logOutput('error', `host key ssh-ed25519 SHA256:Xb3vQ0mJp7Lr2cYwT9kNfA4eUu6iHdS1oZgR8yVqWnE does not match ~/.ssh/known_hosts:14 — connection refused`);
+    setConnection('error');
+    notify(`<strong>Remote host identification has changed</strong> for <code>${host}</code>. Someone could be intercepting the connection, or the server was rebuilt and its key regenerated.<br><span class="term-dim">Offered: SHA256:Xb3vQ0mJp7Lr2cYwT9kNfA4eUu6iHdS1oZgR8yVqWnE<br>Stored: SHA256:mAqi5TQdE7Ykq3lJMCFkR0ulQjB3AGHFKDwjPnIcpzE (known_hosts:14)</span><br>The connection was refused. If you know the key changed legitimately, run <strong>SFTP: Forget Host Key</strong> and connect again.`, {
+      type: 'error',
+      timeout: 0,
+      actions: [
+        { label: 'Learn More', run: () => openFile('security.md') },
+        { label: 'Show Log', run: () => showPanel('output') },
+      ],
+    });
+  }
   const transfersList = $('#transfers-list');
   function startTransfers(files, direction) {
     if (!files.length) return;
@@ -1577,7 +1708,7 @@
     if (!state.transfers.length) transfersList.innerHTML = '';
     const batchId = Date.now();
     files.forEach((f, i) => {
-      const t = { id: `${batchId}-${i}`, name: f.name, size: f.size, done: 0, status: 'queued', direction, speed: 0, start: 0, samples: [] };
+      const t = { id: `${batchId}-${i}`, name: f.name, size: f.size, done: 0, status: 'queued', direction, speed: 0, start: 0, samples: [], failAt: f.failAt, error: f.error };
       state.transfers.push(t);
       const li = document.createElement('li');
       li.className = 'transfer';
@@ -1621,6 +1752,8 @@
       if (!li) return;
       const pct = t.done / t.size;
       $('.transfer-bar span', li).style.width = `${pct * 100}%`;
+      // failAt is one-shot: the retry goes through, as it would once permissions are fixed.
+      if (t.failAt && pct >= t.failAt) { t.failAt = 0; failTransfer(t.id, t.error); return; }
       const eta = t.speed > 0 ? Math.max(0, Math.round((t.size - t.done) / t.speed)) : 0;
       const etaStr = `${String(Math.floor(eta / 60)).padStart(2, '0')}:${String(eta % 60).padStart(2, '0')}`;
       $('.transfer-status', li).textContent = `${Math.round(pct * 100)}% — ${formatBytes(t.done)} / ${formatBytes(t.size)} — ${formatBytes(t.speed)}/s — ETA ${etaStr}`;
@@ -1642,7 +1775,32 @@
       state.transferTimer = null;
       if (state.batchToast) { state.batchToast.dismiss(); state.batchToast = null; }
       const n = state.transfers.filter((t) => t.status === 'done').length;
-      if (n) notify(`${n} file${n === 1 ? '' : 's'} transferred. Remote Explorer refreshed.`, { timeout: 4000 });
+      const demo = state.demoBatch;
+      state.demoBatch = null;
+      const errored = state.transfers.filter((t) => t.status === 'failed' && t.error);
+      if (errored.length) {
+        notify(`${errored.length} file${errored.length === 1 ? '' : 's'} failed: <code>${escapeHtml(errored[0].name)}</code> — ${escapeHtml(errored[0].error)} on the remote.<br>Fix the permission on the server, then retry. Retry sends only the failed file${errored.length === 1 ? '' : 's'}.`, {
+          type: 'error',
+          timeout: 0,
+          actions: [
+            { label: 'Retry Failed', run: () => errored.forEach((t) => retryTransfer(t.id)) },
+            { label: 'Show Log', run: () => showPanel('output') },
+          ],
+        });
+        setConnection('connected');
+        return;
+      }
+      // Done rows leave the list after 2.5s, so n undercounts; a cancelled demo skips the pitch.
+      if (demo && !state.transfers.some((t) => t.status === 'failed')) {
+        if (state.demoToast) state.demoToast.dismiss();
+        state.demoToast = notify(`${demo.total} files came down from <strong>${activeHost()}</strong>, each with its own progress, speed, and ETA. That's SFTPresso. Point it at your own server next.`, {
+          timeout: 0,
+          actions: [
+            { label: 'Install from Marketplace', run: () => open('https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso') },
+            { label: 'Open Quick Start', run: () => openFile('quick-start.md') },
+          ],
+        });
+      } else if (n) notify(`${n} file${n === 1 ? '' : 's'} transferred. Remote Explorer refreshed.`, { timeout: 4000 });
       setConnection('connected');
     }
   }
@@ -1659,24 +1817,44 @@
     badge.textContent = remaining.length;
     if (state.batchToast) {
       state.batchToast.setProgress((total - remaining.length) / total);
-      state.batchToast.setMessage(`${remaining[0].direction === 'upload' ? 'Uploading' : 'Downloading'} ${total} files — ${total - remaining.length} done, 0 failed`);
+      state.batchToast.setMessage(`${remaining[0].direction === 'upload' ? 'Uploading' : 'Downloading'} ${total} files — ${state.transfers.filter((t) => t.status === 'done').length} done, ${state.transfers.filter((t) => t.status === 'failed').length} failed`);
     }
   }
-  function cancelTransfer(id) {
+  function cancelTransfer(id) { failTransfer(id); }
+  function failTransfer(id, error) {
     const t = state.transfers.find((x) => x.id === id);
     if (!t || t.status === 'done') return;
     t.status = 'failed';
+    t.error = error;
     const li = $(`.transfer[data-id="${id}"]`);
     if (li) {
       li.classList.add('failed');
       $('.icon', li).classList.remove('spin');
       $('use', li).setAttribute('href', '#i-error');
-      $('.transfer-status', li).textContent = 'cancelled';
+      $('.transfer-status', li).textContent = error ? `failed — ${error}` : 'cancelled';
       const actions = $('.transfer-actions', li);
-      actions.innerHTML = `<button class="icon-btn" title="Retry Transfer"><svg class="icon"><use href="#i-refresh"/></svg></button>`;
-      $('button', actions).addEventListener('click', () => { t.status = 'queued'; t.done = 0; li.classList.remove('failed'); $('use', li).setAttribute('href', '#i-clock'); $('.transfer-status', li).textContent = 'queued'; actions.innerHTML = `<button class="icon-btn" title="Cancel Transfer"><svg class="icon"><use href="#i-close"/></svg></button>`; $('button', actions).addEventListener('click', () => cancelTransfer(id)); if (!state.transferTimer) state.transferTimer = setInterval(tickTransfers, 250); });
+      actions.innerHTML = `<button class="icon-btn" title="Retry Transfer" aria-label="Retry ${escapeHtml(t.name)}"><svg class="icon"><use href="#i-refresh"/></svg></button>`;
+      $('button', actions).addEventListener('click', () => retryTransfer(id));
     }
-    logOutput('warn', `${t.name}: cancelled`);
+    if (error) logOutput('error', `${t.direction === 'upload' ? '↑' : '↓'} ${t.name}: ${error} — retry from the Transfers view`);
+    else logOutput('warn', `${t.name}: cancelled`);
+    updateTransfersStatus();
+  }
+  function retryTransfer(id) {
+    const t = state.transfers.find((x) => x.id === id);
+    if (!t || t.status !== 'failed') return;
+    t.status = 'queued'; t.done = 0; t.error = undefined;
+    const li = $(`.transfer[data-id="${id}"]`);
+    if (li) {
+      li.classList.remove('failed');
+      $('use', li).setAttribute('href', '#i-clock');
+      $('.transfer-status', li).textContent = 'queued';
+      const actions = $('.transfer-actions', li);
+      actions.innerHTML = `<button class="icon-btn" title="Cancel Transfer"><svg class="icon"><use href="#i-close"/></svg></button>`;
+      $('button', actions).addEventListener('click', () => cancelTransfer(id));
+    }
+    logOutput('info', `${t.name}: retrying`);
+    if (!state.transferTimer) state.transferTimer = setInterval(tickTransfers, 250);
   }
   function cancelAllTransfers() {
     const remaining = state.transfers.filter((t) => t.status === 'queued' || t.status === 'transferring');
@@ -1760,7 +1938,7 @@
       if (quick.onLive) quick.onLive(raw);
     } else if (raw.startsWith('>')) {
       quick.mode = 'commands';
-      const q = raw.slice(1).trim();
+      const q = raw.replace(/^>+/, '').trim();
       items = COMMANDS.map((c) => { const m = fuzzyMatch(q, c.label); return m && { ...c, html: m.html, score: m.score }; }).filter(Boolean).sort((a, b) => b.score - a.score);
     } else {
       quick.mode = 'files';
@@ -1780,7 +1958,7 @@
         <span class="quick-label">${it.html}</span>
         ${it.desc ? `<span class="quick-desc">${escapeHtml(it.desc)}</span>` : ''}
         ${it.key ? `<span class="quick-key">${it.key.map((k) => `<kbd>${k}</kbd>`).join('')}</span>` : ''}
-      </li>`).join('') : '<li class="quick-empty">No matching results</li>';
+      </li>`).join('') : `<li class="quick-empty">No matching ${quick.mode === 'commands' ? 'commands' : 'results'}. ${quick.mode === 'commands' ? 'Try <kbd>SFTP</kbd> or <kbd>Demo</kbd>.' : 'Type <kbd>&gt;</kbd> to search commands instead.'}</li>`;
     const focused = $('.quick-item.focused', quickList);
     if (focused) focused.scrollIntoView({ block: 'nearest' });
   }
@@ -1873,9 +2051,14 @@
         if (axis === 'x') workbench.style.setProperty('--sidebar-w', `${Math.max(170, Math.min(window.innerWidth * 0.6, startSize + delta))}px`);
         else workbench.style.setProperty('--panel-h', `${Math.max(120, Math.min(window.innerHeight * 0.8, startSize + delta))}px`);
       };
-      const up = () => { el.classList.remove('dragging'); el.removeEventListener('pointermove', move); el.removeEventListener('pointerup', up); };
+      // A cancelled touch or lost capture must end the drag too, or the sash stays stuck.
+      const up = () => {
+        el.classList.remove('dragging');
+        el.removeEventListener('pointermove', move);
+        ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) => el.removeEventListener(t, up));
+      };
       el.addEventListener('pointermove', move);
-      el.addEventListener('pointerup', up);
+      ['pointerup', 'pointercancel', 'lostpointercapture'].forEach((t) => el.addEventListener(t, up));
     });
   }
   initSash($('#sidebar-sash'), 'x');
@@ -1913,9 +2096,8 @@
     openFile(initialId, { silent: true, anchor: typeof initial === 'string' ? undefined : initial.anchor });
     history.replaceState({ file: initialId }, '');
 
-    const narrow = window.matchMedia('(max-width: 900px)').matches;
-    if (narrow) { workbench.classList.add('sidebar-hidden'); workbench.classList.add('panel-hidden'); }
-    else startTerminal('install');
+    // The panel starts closed (markup) so the README owns the first screen; demos open it.
+    if (window.matchMedia('(max-width: 900px)').matches) workbench.classList.add('sidebar-hidden');
 
     setConnection('idle');
     $('#status-upload-on-save').classList.toggle('is-off', !state.uploadOnSave);

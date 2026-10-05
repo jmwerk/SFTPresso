@@ -83,7 +83,7 @@
   </defs>
 </svg>
 
-<div class="workbench" id="workbench">
+<div class="workbench panel-hidden" id="workbench">
 
   <!-- ================================================================= -->
   <!-- Title bar                                                          -->
@@ -115,7 +115,7 @@
       <div class="layout-controls">
         <button class="titlebar-btn" data-action="toggle-sidebar" title="Toggle Primary Side Bar (Ctrl+B)"><svg class="icon"><use href="#i-layout-sidebar"/></svg></button>
         <button class="titlebar-btn" data-action="toggle-panel" title="Toggle Panel (Ctrl+J)"><svg class="icon"><use href="#i-layout-panel"/></svg></button>
-        <button class="titlebar-btn hide-narrow" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-layout-custom"/></svg></button>
+        <button class="titlebar-btn hide-narrow" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       </div>
       <div class="window-controls" aria-hidden="true">
         <span class="window-control"><svg viewBox="0 0 10 10"><path d="M0 5h10" stroke="currentColor"/></svg></span>
@@ -158,16 +158,18 @@
         </div>
         <div class="pane-container">
           <div class="pane expanded" data-pane="folder">
-            <button class="pane-header" aria-expanded="true">
-              <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
-              <span class="pane-title">SFTPresso</span>
+            <div class="pane-head">
+              <button class="pane-header" aria-expanded="true">
+                <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
+                <span class="pane-title">SFTPresso</span>
+              </button>
               <span class="pane-actions">
-                <span class="icon-btn" title="New File..."><svg class="icon"><use href="#i-new-file"/></svg></span>
-                <span class="icon-btn" title="New Folder..."><svg class="icon"><use href="#i-new-folder"/></svg></span>
-                <span class="icon-btn" title="Refresh Explorer"><svg class="icon"><use href="#i-refresh"/></svg></span>
-                <span class="icon-btn" title="Collapse Folders in Explorer"><svg class="icon"><use href="#i-collapse"/></svg></span>
+                <button class="icon-btn" title="New File..." aria-label="New File"><svg class="icon"><use href="#i-new-file"/></svg></button>
+                <button class="icon-btn" title="New Folder..." aria-label="New Folder"><svg class="icon"><use href="#i-new-folder"/></svg></button>
+                <button class="icon-btn" title="Refresh Explorer" aria-label="Refresh Explorer"><svg class="icon"><use href="#i-refresh"/></svg></button>
+                <button class="icon-btn" title="Collapse Folders in Explorer" aria-label="Collapse Folders in Explorer"><svg class="icon"><use href="#i-collapse"/></svg></button>
               </span>
-            </button>
+            </div>
             <div class="pane-body">
               <ul class="tree" role="tree" id="file-tree">
                 <li class="tree-item folder expanded" role="treeitem" aria-expanded="true" data-folder=".vscode">
@@ -245,6 +247,12 @@
           <p>Runs the connection test against the demo config, exactly like <strong>SFTP: Test Connection</strong> or the CodeLens at the top of <code>sftp.json</code>. Watch the <strong>Output</strong> panel and the status bar indicator.</p>
           <button class="btn btn-block" data-command="sftp.download.project"><svg class="icon"><use href="#i-loading"/></svg> Simulate a project download</button>
           <p>Queues a batch in the <strong>Transfers</strong> view with per-file progress, speed, and ETA.</p>
+          <h3 class="debug-heading">When something goes wrong</h3>
+          <button class="btn btn-block" data-command="sftpresso.demo.failedTransfer"><svg class="icon"><use href="#i-error"/></svg> Failed transfer and retry</button>
+          <button class="btn btn-block" data-command="sftpresso.demo.conflict"><svg class="icon"><use href="#i-diff"/></svg> Upload conflict</button>
+          <button class="btn btn-block" data-command="sftp.sync.localToRemote"><svg class="icon"><use href="#i-sync"/></svg> Sync with a dry-run preview</button>
+          <button class="btn btn-block" data-command="sftpresso.demo.hostKeyChanged"><svg class="icon"><use href="#i-shield"/></svg> Changed host key</button>
+          <p>Each one shows what SFTPresso does before it touches the server: retry only what failed, compare before overwriting, preview a sync, refuse a key it doesn't trust.</p>
           <p class="muted">Want the real thing? Open a folder in VS Code and run <strong>SFTP: Config</strong>.</p>
         </div>
       </section>
@@ -281,23 +289,25 @@
         <div class="sidebar-title"><span>SFTP</span></div>
         <div class="pane-container">
           <div class="pane expanded" data-pane="remote-explorer">
-            <button class="pane-header" aria-expanded="true">
-              <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
-              <span class="pane-title">Explorer</span>
-              <span class="pane-desc" id="remote-filter-label"></span>
+            <div class="pane-head">
+              <button class="pane-header" aria-expanded="true">
+                <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
+                <span class="pane-title">Explorer</span>
+                <span class="pane-desc" id="remote-filter-label"></span>
+              </button>
               <span class="pane-actions">
-                <span class="icon-btn" title="Filter Remote Explorer" data-command="sftp.remoteExplorer.filter"><svg class="icon"><use href="#i-filter"/></svg></span>
-                <span class="icon-btn" title="Refresh" data-command="sftp.remoteExplorer.refresh"><svg class="icon"><use href="#i-refresh"/></svg></span>
-                <span class="icon-btn" title="Collapse All"><svg class="icon"><use href="#i-collapse"/></svg></span>
+                <button class="icon-btn" title="Filter Remote Explorer" data-command="sftp.remoteExplorer.filter" aria-label="Filter Remote Explorer"><svg class="icon"><use href="#i-filter"/></svg></button>
+                <button class="icon-btn" title="Refresh" data-command="sftp.remoteExplorer.refresh" aria-label="Refresh"><svg class="icon"><use href="#i-refresh"/></svg></button>
+                <button class="icon-btn" title="Collapse All" aria-label="Collapse All"><svg class="icon"><use href="#i-collapse"/></svg></button>
               </span>
-            </button>
+            </div>
             <div class="pane-body">
               <ul class="tree remote-tree" role="tree" id="remote-tree">
                 <li class="tree-item folder expanded root" role="treeitem" aria-expanded="true">
-                  <div class="tree-row" style="--depth:0"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="tree-label">Acme Widgets — production</span><span class="tree-desc">sftp://acme.example.com</span></div>
+                  <div class="tree-row" style="--depth:0"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="tree-label">Acme Widgets — staging</span><span class="tree-desc">sftp://staging.example.com</span></div>
                   <ul role="group">
                     <li class="tree-item folder" role="treeitem" data-name=".vscode"><div class="tree-row" style="--depth:1"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="file-icon fi-folder-vscode"></span><span class="tree-label">.vscode</span></div><ul role="group"><li class="tree-item file" data-name="sftp.json"><div class="tree-row" style="--depth:2"><span class="file-icon fi-json"></span><span class="tree-label">sftp.json</span></div></li></ul></li>
-                    <li class="tree-item folder expanded" role="treeitem" data-name="assets"><div class="tree-row" style="--depth:1"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="file-icon fi-folder"></span><span class="tree-label">assets</span><span class="row-actions"><span class="icon-btn" title="Download Folder"><svg class="icon"><use href="#i-folder"/></svg></span></span></div>
+                    <li class="tree-item folder expanded" role="treeitem" data-name="assets"><div class="tree-row" style="--depth:1"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="file-icon fi-folder"></span><span class="tree-label">assets</span><span class="row-actions"><span class="icon-btn" title="Download Folder" aria-hidden="true"><svg class="icon"><use href="#i-folder"/></svg></span></span></div>
                       <ul role="group">
                         <li class="tree-item folder" role="treeitem" data-name="img"><div class="tree-row" style="--depth:2"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="file-icon fi-folder"></span><span class="tree-label">img</span></div><ul role="group"><li class="tree-item file" data-name="logo.svg"><div class="tree-row" style="--depth:3"><span class="file-icon fi-img"></span><span class="tree-label">logo.svg</span></div></li><li class="tree-item file" data-name="hero.webp"><div class="tree-row" style="--depth:3"><span class="file-icon fi-img"></span><span class="tree-label">hero.webp</span></div></li></ul></li>
                       </ul>
@@ -315,13 +325,15 @@
             </div>
           </div>
           <div class="pane expanded" data-pane="transfers">
-            <button class="pane-header" aria-expanded="true">
-              <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
-              <span class="pane-title">Transfers</span>
+            <div class="pane-head">
+              <button class="pane-header" aria-expanded="true">
+                <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
+                <span class="pane-title">Transfers</span>
+              </button>
               <span class="pane-actions">
-                <span class="icon-btn" title="Cancel All Transfers" data-command="sftp.cancelAllTransfer"><svg class="icon"><use href="#i-close"/></svg></span>
+                <button class="icon-btn" title="Cancel All Transfers" data-command="sftp.cancelAllTransfer" aria-label="Cancel All Transfers"><svg class="icon"><use href="#i-close"/></svg></button>
               </span>
-            </button>
+            </div>
             <div class="pane-body">
               <ul class="tree transfers" id="transfers-list">
                 <li class="transfers-empty">No transfers in progress. <button class="link-btn" data-command="sftp.download.project">Download the demo project</button> to see per-file progress, speed, and ETA.</li>
@@ -439,35 +451,31 @@
     <header class="hero">
       <img class="hero-icon" src="assets/icon.png" alt="SFTPresso icon" width="96" height="96">
       <div class="hero-text">
-        <p class="hero-kicker">Extension for Visual Studio Code · VSCodium · Open VSX</p>
         <h1>SFTPresso</h1>
-        <p class="hero-lede">Sync files over <strong>SFTP (SSH)</strong> or <strong>FTP/FTPS</strong> without leaving your editor. Upload on save, browse a Remote Explorer, diff and compare folders — the actively maintained fork of <code>vscode-sftp</code>.</p>
+        <p class="hero-lede">Sync files over <strong>SFTP (SSH)</strong> or <strong>FTP/FTPS</strong> without leaving VS Code. Upload on save, browse a Remote Explorer, diff and compare folders — the actively maintained fork of <code>vscode-sftp</code>.</p>
         <div class="hero-actions">
           <a class="btn btn-primary btn-lg" href="https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso" target="_blank" rel="noopener"><svg class="icon"><use href="#i-extensions"/></svg> Install from Marketplace</a>
-          <a class="btn btn-lg" href="https://open-vsx.org/extension/jmwerk/sftpresso" target="_blank" rel="noopener">Open VSX</a>
-          <a class="btn btn-lg" href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener"><svg class="icon"><use href="#i-github"/></svg> GitHub</a>
+          <button class="btn btn-lg" data-command="sftpresso.demo"><svg class="icon"><use href="#i-play"/></svg> See it work</button>
         </div>
+        <div class="terminal-hint">
+          <span>Or, from a terminal:</span>
+          <code class="inline-cmd" data-copy="code --install-extension jmwerk.sftpresso">code --install-extension jmwerk.sftpresso</code>
+        </div>
+        <p class="hero-alt">Also on <a href="https://open-vsx.org/extension/jmwerk/sftpresso" target="_blank" rel="noopener">Open VSX</a> for VSCodium and other VS Code–based editors. Source on <a href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener">GitHub</a>.</p>
         <div class="hero-badges">
           <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.34.2</span></span>
           <span class="badge"><span class="badge-k">license</span><span class="badge-v badge-blue">MIT</span></span>
           <span class="badge"><span class="badge-k">vscode</span><span class="badge-v">^1.138</span></span>
-          <span class="badge"><span class="badge-k">CI</span><span class="badge-v badge-green">passing</span></span>
-          <span class="badge"><span class="badge-k">publisher</span><span class="badge-v">jmwerk</span></span>
         </div>
       </div>
     </header>
 
-    <div class="terminal-hint">
-      <span>Or, from a terminal:</span>
-      <code class="inline-cmd" data-copy="code --install-extension jmwerk.sftpresso">code --install-extension jmwerk.sftpresso</code>
-      <button class="link-btn" data-panel-open="terminal">open the Terminal panel ↓</button>
-    </div>
-
     <figure class="showcase">
-      <img src="assets/remote-explorer.png" alt="SFTPresso's Remote Explorer showing a remote file tree with a context menu, the Transfers view with per-file progress, and an sftp.json config with a Test Connection CodeLens" loading="lazy">
+      <picture><source srcset="assets/remote-explorer.webp" type="image/webp"><img src="assets/remote-explorer.png" alt="SFTPresso's Remote Explorer showing a remote file tree with a context menu, the Transfers view with per-file progress, and an sftp.json config with a Test Connection CodeLens" width="1552" height="1211" loading="lazy"></picture>
       <figcaption>The Remote Explorer, the Transfers view, and an <code>sftp.json</code> with its <em>Test Connection</em> CodeLens. Every part of this page is a click-through of the same UI — try the <strong>SFTP</strong> icon in the Activity Bar.</figcaption>
     </figure>
 
+    <h2 class="visually-hidden">Highlights</h2>
     <section class="three-up">
       <div class="card">
         <svg class="icon card-icon"><use href="#i-cloud-upload"/></svg>
@@ -489,9 +497,9 @@
     <section class="doc-section">
       <h2>Why this fork</h2>
       <p>SFTPresso descends from <a href="https://github.com/liximomo/vscode-sftp" target="_blank" rel="noopener">liximomo's original SFTP plugin</a> by way of <a href="https://github.com/Natizyskunk/vscode-sftp" target="_blank" rel="noopener">Natizyskunk's vscode-sftp</a>. As of 2026 this is where fixes and features land: a migration to the <code>basic-ftp</code> client, secure password storage, a Transfers view with byte-level progress, a guided config wizard, SSH host key verification, parallel-chunk transfers, and a modern esbuild + TypeScript toolchain — every release is published to the Marketplace and Open VSX automatically.</p>
-      <div class="callout callout-info">
+      <div class="callout callout-info" id="migrating">
         <svg class="icon"><use href="#i-info"/></svg>
-        <div>Coming from the older <code>sftp</code> extension by <code>@liximomo</code> or <code>@Natizyskunk</code>? Both register the same <code>sftp.*</code> commands, so SFTPresso detects an enabled copy on startup and offers to reveal it so you can disable it.</div>
+        <div>Coming from the <code>sftp</code> extension by <code>@liximomo</code> or <code>@Natizyskunk</code>? SFTPresso reads the same <code>.vscode/sftp.json</code> and registers the same <code>sftp.*</code> commands. Only one can run at a time, so SFTPresso detects an enabled copy on startup and offers to reveal it so you can disable it.</div>
       </div>
     </section>
 
@@ -499,6 +507,7 @@
       <h2>Start here</h2>
       <ul class="link-list">
         <li><button class="doc-link" data-file="quick-start.md"><svg class="icon"><use href="#i-rocket"/></svg><span><strong>Quick start</strong><small>From an empty folder to upload-on-save in five steps.</small></span></button></li>
+        <li><button class="doc-link" data-file="README.md" data-anchor="migrating"><svg class="icon"><use href="#i-swap"/></svg><span><strong>Coming from vscode-sftp</strong><small>Same <code>sftp.json</code>, same <code>sftp.*</code> commands. Disable the old one.</small></span></button></li>
         <li><button class="doc-link" data-file="features.md"><svg class="icon"><use href="#i-sparkle"/></svg><span><strong>Features</strong><small>Everything the extension does, in one tour.</small></span></button></li>
         <li><button class="doc-link" data-file="sftp.json"><svg class="icon"><use href="#i-json"/></svg><span><strong>sftp.json</strong><small>An annotated config — hover any option for its description.</small></span></button></li>
         <li><button class="doc-link" data-file="workflows.md"><svg class="icon"><use href="#i-hop"/></svg><span><strong>Workflows</strong><small>Profiles, multi-server configs, bastion hops, two-way sync.</small></span></button></li>
@@ -545,7 +554,7 @@
       <div class="feature"><svg class="icon"><use href="#i-hop"/></svg><h3>Connection hopping</h3><p>Reach a target through one or more SSH bastions with <code>hop</code>. Every host in the chain has its own key checked.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-lock"/></svg><h3>Workspace Trust aware</h3><p><code>uploadOnSave</code>, <code>downloadOnOpen</code>, and remote commands stay off until the workspace is trusted. Manual transfers still work.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-plug"/></svg><h3>Resilient connections</h3><p>Keepalives, idle probes, stall and operation timeouts, and automatic retry with backoff — a dropped connection no longer fails a whole batch.</p></div>
-      <div class="feature"><svg class="icon"><use href="#i-hop"/></svg><h3>Profiles &amp; multi-config</h3><p>One config, many targets: switch <code>dev</code> / <code>staging</code> / <code>prod</code> from the status bar, or map workspace subfolders to different servers.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-branch"/></svg><h3>Profiles &amp; multi-config</h3><p>One config, many targets: switch <code>dev</code> / <code>staging</code> / <code>prod</code> from the status bar, or map workspace subfolders to different servers.</p></div>
     </div>
 
     <h2 id="feat-setup">Setup &amp; polish</h2>
@@ -568,6 +577,7 @@
     <h1>Quick start</h1>
     <p class="lede">From an empty folder to upload-on-save in five steps. Prefer a guided tour? Run <strong>Welcome: Open Walkthrough…</strong> in VS Code and pick <strong>Get started with SFTPresso</strong>.</p>
 
+    <h2 class="visually-hidden">Steps</h2>
     <ol class="steps">
       <li>
         <h3>Install the extension</h3>
@@ -994,7 +1004,7 @@ SOFTWARE.</div>
         <h2>Contributes</h2>
         <ul>
           <li><strong>Views:</strong> SFTP Activity Bar container with <em>Explorer</em> and <em>Transfers</em> views.</li>
-          <li><strong>Commands:</strong> 60+ under the <em>SFTP</em> category — see <button class="link-btn" data-file="commands.md">commands.md</button>.</li>
+          <li><strong>Commands:</strong> 58 under the <em>SFTP</em> category — see <button class="link-btn" data-file="commands.md">commands.md</button>.</li>
           <li><strong>Settings:</strong> <code>sftp.debug</code>, <code>sftp.downloadWhenOpenInRemoteExplorer</code>.</li>
           <li><strong>JSON schema:</strong> validation and completions for <code>.vscode/sftp.json</code>.</li>
           <li><strong>Walkthrough:</strong> <em>Get started with SFTPresso</em>.</li>

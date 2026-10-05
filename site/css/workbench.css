@@ -39,7 +39,7 @@
 
   --fg: #cccccc;
   --fg-muted: #9d9d9d;
-  --fg-dim: #6f6f6f;
+  --fg-dim: #909090;
   --fg-active: #ffffff;
   --fg-icon: #868686;
   --fg-icon-active: #d7d7d7;
@@ -58,6 +58,9 @@
   --color-success: #89d185;
   --color-info: #3794ff;
   --color-progress: #0078d4;
+  --text-warning: #cca700;
+  --text-success: #89d185;
+  --text-info: #6cb2ff;
 
   --syn-key: #9cdcfe;
   --syn-string: #ce9178;
@@ -72,7 +75,7 @@
   --syn-attr: #9cdcfe;
   --syn-selector: #d7ba7d;
   --syn-property: #9cdcfe;
-  --line-number: #6e7681;
+  --line-number: #858d96;
   --line-number-active: #cccccc;
 
   --term-green: #23d18b;
@@ -97,7 +100,7 @@ html[data-theme="light"] {
   --bg-code: #f3f3f3;
   --bg-selection: #e8e8e8;
   --bg-selection-inactive: #e4e6f1;
-  --bg-badge: #cccccc;
+  --bg-badge: #616161;
   --bg-remote: #005fb8;
   --bg-tab-active: #ffffff;
   --bg-tab-inactive: #f8f8f8;
@@ -112,7 +115,7 @@ html[data-theme="light"] {
 
   --fg: #3b3b3b;
   --fg-muted: #616161;
-  --fg-dim: #8b8b8b;
+  --fg-dim: #6e6e6e;
   --fg-active: #000000;
   --fg-icon: #616161;
   --fg-icon-active: #1f1f1f;
@@ -131,10 +134,14 @@ html[data-theme="light"] {
   --color-success: #2e8b57;
   --color-info: #1a85ff;
   --color-progress: #005fb8;
+  /* VS Code's light status hues are tuned for icons; text needs 4.5:1 on white. */
+  --text-warning: #8a6100;
+  --text-success: #1e6b42;
+  --text-info: #0b62c4;
 
   --syn-key: #0451a5;
   --syn-string: #a31515;
-  --syn-number: #098658;
+  --syn-number: #07734c;
   --syn-keyword: #0000ff;
   --syn-comment: #008000;
   --syn-punct: #000000;
@@ -148,10 +155,10 @@ html[data-theme="light"] {
   --line-number: #6e7681;
   --line-number-active: #171184;
 
-  --term-green: #14ce14;
+  --term-green: #0e7a0d;
   --term-blue: #0451a5;
-  --term-cyan: #0598bc;
-  --term-yellow: #949800;
+  --term-cyan: #03718c;
+  --term-yellow: #6f6f00;
   --term-magenta: #bc05bc;
   --term-dim: #616161;
 
@@ -403,6 +410,7 @@ kbd {
   width: 4px;
   margin: 0 -2px;
   cursor: ew-resize;
+  touch-action: none;
   z-index: 5;
   position: relative;
   flex: none;
@@ -697,8 +705,17 @@ kbd {
   min-height: 120px;
 }
 
+.pane-head {
+  display: flex;
+  align-items: center;
+  flex: none;
+  height: 22px;
+}
+
 .pane-header {
   display: flex;
+  flex: 1;
+  min-width: 0;
   align-items: center;
   gap: 2px;
   height: 22px;
@@ -707,13 +724,18 @@ kbd {
   font-weight: 700;
   text-transform: uppercase;
   color: var(--fg);
-  width: 100%;
   text-align: left;
   user-select: none;
-  flex: none;
 }
 
-.pane-header:hover .pane-actions {
+/* Headers without a toolbar sit directly in the column-flex pane; don't let them grow. */
+.pane>.pane-header {
+  flex: none;
+  width: 100%;
+}
+
+.pane-head:hover .pane-actions,
+.pane-actions:focus-within {
   opacity: 1;
 }
 
@@ -721,7 +743,8 @@ kbd {
   transition: transform .1s;
 }
 
-.pane.expanded>.pane-header .twistie {
+.pane.expanded>.pane-header .twistie,
+.pane.expanded>.pane-head .twistie {
   transform: rotate(90deg);
 }
 
@@ -747,6 +770,7 @@ kbd {
 .pane-actions {
   display: flex;
   gap: 2px;
+  padding-right: 4px;
   opacity: 0;
   transition: opacity .1s;
 }
@@ -795,6 +819,15 @@ kbd {
 
 .tree-row:hover {
   background: var(--bg-hover);
+}
+
+.tree-item:focus {
+  outline: none;
+}
+
+.tree-item:focus-visible>.tree-row {
+  outline: 1px solid var(--border-focus);
+  outline-offset: -1px;
 }
 
 .tree-item.selected>.tree-row {
@@ -1054,6 +1087,13 @@ kbd {
   margin-top: 6px;
 }
 
+.debug-heading {
+  margin: 20px 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fg-muted);
+}
+
 .scm-input {
   height: 26px;
   line-height: 24px;
@@ -1062,7 +1102,7 @@ kbd {
   background: var(--bg-input);
   border: 1px solid var(--border-strong);
   border-radius: 2px;
-  color: var(--fg-dim);
+  color: var(--fg-muted);
   font-size: 12px;
   overflow: hidden;
   white-space: nowrap;
@@ -1480,6 +1520,11 @@ kbd {
   margin: 0 0 12px;
 }
 
+/* 34em ≈ 73 characters of this UI face; the 940px column stays for code, tables, and grids. */
+.doc :where(p, ul:not(.link-list), ol:not(.steps), .callout, figcaption) {
+  max-width: 34em;
+}
+
 .doc ul,
 .doc ol {
   padding-left: 24px;
@@ -1564,11 +1609,15 @@ kbd {
 }
 
 .doc-section {
-  margin-top: 24px;
+  margin-top: 48px;
+}
+
+.doc-section > h2:first-child {
+  margin-top: 0;
 }
 
 .doc-footer {
-  margin-top: 40px;
+  margin-top: 56px;
   padding-top: 16px;
   border-top: 1px solid var(--border);
   color: var(--fg-muted);
@@ -1580,9 +1629,9 @@ kbd {
   gap: 10px;
   padding: 10px 12px;
   margin: 16px 0;
-  border-left: 3px solid var(--color-info);
+  border: 1px solid rgba(55, 148, 255, .35);
   background: rgba(55, 148, 255, .08);
-  border-radius: 0 4px 4px 0;
+  border-radius: 4px;
 }
 
 .callout .icon {
@@ -1591,7 +1640,7 @@ kbd {
 }
 
 .callout-tip {
-  border-color: var(--color-success);
+  border-color: rgba(137, 209, 133, .4);
   background: rgba(137, 209, 133, .08);
 }
 
@@ -1619,14 +1668,6 @@ kbd {
   min-width: 0;
 }
 
-.hero-kicker {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: .08em;
-  color: var(--fg-muted);
-  margin: 0 0 4px;
-}
-
 .hero h1 {
   font-size: 40px;
   margin: 0 0 10px;
@@ -1634,10 +1675,10 @@ kbd {
   padding: 0;
 }
 
-.hero-lede {
+.doc .hero-lede {
   font-size: 17px;
   line-height: 1.5;
-  margin: 0 0 18px;
+  margin: 0 0 20px;
   max-width: 64ch;
 }
 
@@ -1645,7 +1686,14 @@ kbd {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+}
+
+.doc .hero-alt {
+  max-width: none;
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--fg-muted);
 }
 
 .hero-badges {
@@ -1678,11 +1726,7 @@ kbd {
 }
 
 .badge-blue {
-  background: #007ec6;
-}
-
-.badge-green {
-  background: #4c1;
+  background: #006eb0;
 }
 
 html[data-theme="light"] .badge-v {
@@ -1693,13 +1737,10 @@ html[data-theme="light"] .badge-v {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
-  margin: 22px 0 8px;
-  padding: 10px 14px;
-  background: var(--bg-code);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  gap: 8px;
+  margin: 0 0 8px;
   font-size: 13px;
+  color: var(--fg-muted);
 }
 
 .inline-cmd {
@@ -1722,10 +1763,13 @@ html[data-theme="light"] .badge-v {
 }
 
 .showcase {
-  margin: 20px 0 8px;
+  margin: 32px 0 0;
 }
 
 .showcase img {
+  height: auto;
+  /* The screenshot is Dark Modern with transparent margins; keep it dark in either theme. */
+  background: #1f1f1f;
   border: 1px solid var(--border-strong);
   border-radius: 6px;
   box-shadow: var(--shadow);
@@ -1742,7 +1786,7 @@ html[data-theme="light"] .badge-v {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 14px;
-  margin: 28px 0 8px;
+  margin: 32px 0 0;
 }
 
 .card {
@@ -1765,6 +1809,7 @@ html[data-theme="light"] .badge-v {
 }
 
 .card p {
+  max-width: 34em;
   margin: 0;
   font-size: 13px;
   color: var(--fg-muted);
@@ -1904,6 +1949,8 @@ html[data-theme="light"] .badge-v {
 
 /* Changelog */
 .release h2 {
+  margin-top: 28px;
+  font-size: 18px;
   display: flex;
   align-items: baseline;
   gap: 10px;
@@ -1917,10 +1964,8 @@ html[data-theme="light"] .badge-v {
 
 .tag {
   display: inline-block;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: .04em;
   padding: 1px 6px;
   border-radius: 3px;
   margin-right: 6px;
@@ -1929,12 +1974,12 @@ html[data-theme="light"] .badge-v {
 
 .tag-feat {
   background: rgba(137, 209, 133, .2);
-  color: var(--color-success);
+  color: var(--text-success);
 }
 
 .tag-fix {
   background: rgba(55, 148, 255, .2);
-  color: var(--color-info);
+  color: var(--text-info);
 }
 
 /* Plain text editor (LICENSE) */
@@ -2419,7 +2464,7 @@ html[data-theme="light"] .badge-v {
 }
 
 .output-log .lvl-warn {
-  color: var(--color-warning);
+  color: var(--text-warning);
 }
 
 .output-log .lvl-error {
@@ -2915,6 +2960,8 @@ html[data-theme="light"] .badge-v {
 
 .toast-msg {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -3004,7 +3051,7 @@ html[data-theme="light"] .badge-v {
   }
 
   .three-up {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 }
 
@@ -3071,7 +3118,7 @@ html[data-theme="light"] .badge-v {
     font-size: 32px;
   }
 
-  .hero-lede {
+  .doc .hero-lede {
     font-size: 15px;
   }
 
@@ -3147,6 +3194,16 @@ html[data-theme="light"] .badge-v {
     font-size: 28px;
   }
 
+  .hero-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .hero-actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+
   .layout-controls .titlebar-btn[data-action="toggle-panel"] {
     display: none;
   }
@@ -3175,6 +3232,66 @@ html[data-theme="light"] .badge-v {
   *::before,
   *::after {
     animation-duration: .001s !important;
+    animation-iteration-count: 1 !important;
     transition-duration: .001s !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* No movement, but a notification still fades so its arrival registers. */
+  .toast {
+    animation: toast-fade .15s ease-out !important;
+  }
+
+  .toast.leaving {
+    transform: none;
+    transition: opacity .15s !important;
+  }
+}
+
+@keyframes toast-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Present for screen readers and the outline, invisible on screen. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Touch: VS Code's 22px rows are too small to hit with a thumb. */
+@media (pointer: coarse), (max-width: 600px) {
+  .tree-row,
+  .quick-item {
+    height: 32px;
+  }
+
+  .status-item {
+    min-width: 32px;
+    justify-content: center;
+  }
+
+  .btn {
+    min-height: 36px;
+  }
+
+  .tab-close {
+    width: 28px;
+    height: 28px;
+    opacity: .8;
+  }
+}
+
+@media (pointer: coarse) {
+  :root {
+    --statusbar-h: 28px;
   }
 }
