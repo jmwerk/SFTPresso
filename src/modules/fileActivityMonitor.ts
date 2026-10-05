@@ -22,10 +22,43 @@ import {
 } from './serviceManager';
 import { reportError, isValidFile, isConfigFile, isInWorkspace } from '../helper';
 import { downloadFile, uploadFile } from '../fileHandlers';
-import { CONGIF_FILENAME } from '../constants';
+import * as path from 'path';
+import { CONGIF_FILENAME, CONFIG_PATH } from '../constants';
 
 let workspaceWatcher: vscode.Disposable;
-let configDeleteWatcher: vscode.FileSystemWatcher;
+let configFileWatcher: vscode.FileSystemWatcher;
+
+// An editor save fires both the save event and a file-change event; collapse
+// them (and bursts of writes from other tools) into a single reload.
+const CONFIG_RELOAD_DEBOUNCE = 200;
+const pendingConfigReloads = new Map<string, ReturnType<typeof setTimeout>>();
+
+function cancelConfigReload(uri: vscode.Uri) {
+  const timer = pendingConfigReloads.get(uri.fsPath);
+  if (timer) {
+    clearTimeout(timer);
+    pendingConfigReloads.delete(uri.fsPath);
+  }
+}
+
+function scheduleConfigReload(uri: vscode.Uri) {
+  cancelConfigReload(uri);
+  pendingConfigReloads.set(
+    uri.fsPath,
+    setTimeout(() => {
+      pendingConfigReloads.delete(uri.fsPath);
+      handleConfigSave(uri);
+    }, CONFIG_RELOAD_DEBOUNCE)
+  );
+}
+
+// only the workspace folder's own .vscode/sftp.json defines its services
+function isWorkspaceConfig(uri: vscode.Uri) {
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+  return (
+    !!workspaceFolder && uri.fsPath === path.join(workspaceFolder.uri.fsPath, CONFIG_PATH)
+  );
+}
 
 async function handleConfigSave(uri: vscode.Uri) {
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
@@ -207,22 +240,26 @@ function init() {
 
   watchWorkspace({
     onDidSaveFile: handleFileSave,
-    onDidSaveSftpConfig: handleConfigSave,
+    onDidSaveSftpConfig: scheduleConfigReload,
   });
 
-  if (configDeleteWatcher) {
-    configDeleteWatcher.dispose();
+  if (configFileWatcher) {
+    configFileWatcher.dispose();
   }
-  // ignoreCreate/ignoreChange: creation and edits are already handled via
-  // onDidSaveTextDocument above; this watcher exists solely for delete, which
-  // saves never fire for.
-  configDeleteWatcher = vscode.workspace.createFileSystemWatcher(
-    `**/.vscode/${CONGIF_FILENAME}`,
-    true,
-    true,
-    false
-  );
-  configDeleteWatcher.onDidDelete(handleConfigDelete);
+  // Saves only cover edits made in this editor; the watcher also catches
+  // sftp.json written by git, scripts, or another editor, and deletes.
+  configFileWatcher = vscode.workspace.createFileSystemWatcher(`**/.vscode/${CONGIF_FILENAME}`);
+  const reloadFromDisk = (uri: vscode.Uri) => {
+    if (isWorkspaceConfig(uri)) {
+      scheduleConfigReload(uri);
+    }
+  };
+  configFileWatcher.onDidCreate(reloadFromDisk);
+  configFileWatcher.onDidChange(reloadFromDisk);
+  configFileWatcher.onDidDelete(uri => {
+    cancelConfigReload(uri);
+    handleConfigDelete(uri);
+  });
 }
 
 function destory() {
@@ -235,9 +272,11 @@ function destory() {
   if (trustWatcher) {
     trustWatcher.dispose();
   }
-  if (configDeleteWatcher) {
-    configDeleteWatcher.dispose();
+  if (configFileWatcher) {
+    configFileWatcher.dispose();
   }
+  pendingConfigReloads.forEach(timer => clearTimeout(timer));
+  pendingConfigReloads.clear();
 }
 
 export default {
