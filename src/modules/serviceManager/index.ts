@@ -258,7 +258,11 @@ export function refreshUploadOnSaveState() {
 }
 
 export function createFileService(config: any, workspace: string) {
-  if (config.defaultProfile) {
+  // defaultProfile picks the starting profile; a config reload (an edit, the
+  // upload-on-save toggle) must keep whatever profile the user switched to
+  const profileNames = config.profiles ? Object.keys(config.profiles) : [];
+  const keepCurrent = !!app.state.profile && profileNames.includes(app.state.profile);
+  if (config.defaultProfile && !keepCurrent) {
     app.state.profile = config.defaultProfile;
   }
 

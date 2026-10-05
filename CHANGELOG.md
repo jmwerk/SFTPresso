@@ -11,6 +11,7 @@
 * Improvement : **The "To All Profiles" upload commands only appear when the config defines profiles.**
 * Improvement : The Remote Explorer view is titled **Remote Explorer** instead of "Explorer", which collided with VS Code's own Explorer. Toolbar and inline icons are VS Code's built-in codicons, so they match the rest of the workbench in every theme, including high contrast. The output channel is named **SFTPresso**, the sync commands read **Sync Local → Remote** / **Sync Remote → Local**, and the per-file status-bar messages use icons instead of `local ➞ remote style.css`.
 * Fix : **Changes to `sftp.json` made outside VS Code are picked up** (from git, a script, or another editor). Previously only saves from the editor reloaded the config, so anything else needed a window reload.
+* Fix : **Reloading the config no longer resets the active profile to `defaultProfile`.** Saving `sftp.json` (or toggling upload on save, which writes it) switched you back to the default profile, so a toggle made while on `ftp` silently moved you to `ssh`. The profile you picked now stays, unless it was removed from the config.
 * Fix : A failed connection attempt no longer flips the connection status from error back to idle a moment later.
 * Fix : A transfer failure that happens while the Transfers view is open no longer adds an "unseen" badge.
 
