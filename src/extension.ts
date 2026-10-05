@@ -75,6 +75,7 @@ export async function activate(context: vscode.ExtensionContext) {
   context.subscriptions.push(app.connectionBarItem);
   let lastProfile = app.state.profile;
   app.state.subscribe(state => {
+    setContextValue('hasProfiles', state.availableProfiles.length > 0);
     if (state.profile !== lastProfile) {
       lastProfile = state.profile;
       // the active profile decides which config a service resolves to

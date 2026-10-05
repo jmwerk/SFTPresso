@@ -4,7 +4,7 @@ import StatusBarItem from './ui/statusBarItem';
 import ConnectionStatusBar from './ui/connectionStatusBar';
 import {
   COMMAND_TOGGLE_OUTPUT,
-  COMMAND_CANCEL_ALL_TRANSFER,
+  VIEW_TRANSFERS_FOCUS,
   COMMAND_SET_PROFILE,
 } from './constants';
 import AppState from './modules/appState';
@@ -26,6 +26,8 @@ const app: App = Object.create(null);
 
 app.state = new AppState();
 app.sftpBarItem = new StatusBarItem(
+  'sftpresso.profile',
+  'SFTPresso Profile',
   () => {
     let label: string;
     if (app.state.profile) {
@@ -59,9 +61,11 @@ app.sftpBarItem = new StatusBarItem(
 );
 app.connectionBarItem = new ConnectionStatusBar();
 app.transferBarItem = new StatusBarItem(
+  'sftpresso.transfers',
+  'SFTPresso Transfers',
   () => '',
-  'SFTPresso transfers (click to cancel)',
-  COMMAND_CANCEL_ALL_TRANSFER
+  'SFTPresso transfers (click to show)',
+  VIEW_TRANSFERS_FOCUS
 );
 app.fsCache = new LRUCache<string, string>({ max: 6 });
 

@@ -1,12 +1,5 @@
 import * as vscode from 'vscode';
 
-const spinners = {
-  dots: {
-    interval: 80,
-    frames: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
-  },
-};
-
 enum Status {
   ok = 1,
   warn,
@@ -20,23 +13,19 @@ export default class StatusBarItem {
   private _tooltip: string | (() => string);
   private _command: string | (() => string);
   private statusBarItem: vscode.StatusBarItem;
-  private spinnerTimer: any = null;
+  private spinning = false;
   private resetTimer: any = null;
-  private curFrameOfSpinner: number = 0;
   private text: string;
   private status: Status = Status.ok;
-  private spinner: {
-    interval: number;
-    frames: string[];
-  };
 
-  constructor(name, tooltip, command) {
+  // id and itemName identify the item in the status bar's hide/show menu
+  constructor(id: string, itemName: string, name, tooltip, command) {
     this._name = name;
     this._tooltip = tooltip;
     this._command = command;
-    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    this.statusBarItem = vscode.window.createStatusBarItem(id, vscode.StatusBarAlignment.Left);
+    this.statusBarItem.name = itemName;
     this.statusBarItem.command = this.command;
-    this.spinner = spinners.dots;
     this.reset = this.reset.bind(this);
     this.reset();
   }
@@ -71,26 +60,16 @@ export default class StatusBarItem {
   }
 
   isSpinning() {
-    return this.spinnerTimer !== null;
+    return this.spinning;
   }
 
   startSpinner() {
-    if (this.spinnerTimer) {
-      return;
-    }
-
-    const totalFrame = this.spinner.frames.length;
-    this.spinnerTimer = setInterval(() => {
-      this.curFrameOfSpinner = (this.curFrameOfSpinner + 1) % totalFrame;
-      this._render();
-    }, this.spinner.interval);
+    this.spinning = true;
     this._render();
   }
 
   stopSpinner() {
-    clearInterval(this.spinnerTimer);
-    this.spinnerTimer = null;
-    this.curFrameOfSpinner = 0;
+    this.spinning = false;
     this._render();
   }
 
@@ -116,8 +95,9 @@ export default class StatusBarItem {
   }
 
   private _render() {
-    if (this.isSpinning()) {
-      this.statusBarItem.text = this.spinner.frames[this.curFrameOfSpinner] + ' ' + this.text;
+    // a message that already leads with an icon shows activity on its own
+    if (this.isSpinning() && !this.text.startsWith('$(')) {
+      this.statusBarItem.text = `$(sync~spin) ${this.text}`;
     } else if (this.name === this.text) {
       switch (this.status) {
         case Status.ok:

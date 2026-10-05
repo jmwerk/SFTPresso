@@ -91,7 +91,7 @@ async function selectPlaintextEntry(): Promise<PlaintextEntry | undefined> {
 
   const picked = await window.showQuickPick(
     entries.map(entry => ({ label: entry.label, entry })),
-    { placeHolder: 'Select a plaintext password to migrate...' }
+    { placeHolder: 'Select a plaintext password to migrate…' }
   );
   return picked ? picked.entry : undefined;
 }
