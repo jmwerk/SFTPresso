@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import app from './app';
 import initCommands from './initCommands';
 import { reportError } from './helper';
+import logger from './logger';
 import fileActivityMonitor from './modules/fileActivityMonitor';
 import { tryLoadConfigs } from './modules/config';
 import {
@@ -79,6 +80,7 @@ export async function activate(context: vscode.ExtensionContext) {
     app.uploadOnSaveBarItem.update(state.uploadOnSave);
     if (state.profile !== lastProfile) {
       lastProfile = state.profile;
+      logger.info(`Using profile: ${state.profile ?? '(none)'}`);
       // the active profile decides which config a service resolves to
       getAllFileService().forEach(service => {
         service.invalidateConfigCache();
