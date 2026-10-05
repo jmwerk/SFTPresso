@@ -112,6 +112,20 @@ export async function showConfirmMessage(
   return Boolean(result && result.title === confirmLabel);
 }
 
+// Modal warning for irreversible actions; the dialog supplies its own Cancel.
+export async function showDestructiveConfirm(
+  message: string,
+  detail: string,
+  confirmLabel: string
+) {
+  const result = await vscode.window.showWarningMessage(
+    message,
+    { modal: true, detail },
+    confirmLabel
+  );
+  return result === confirmLabel;
+}
+
 export function showOpenDialog(options: vscode.OpenDialogOptions) {
   return vscode.window.showOpenDialog(options);
 }
