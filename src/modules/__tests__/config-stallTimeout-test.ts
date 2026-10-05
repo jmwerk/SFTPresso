@@ -1,4 +1,4 @@
-import { validateConfig } from '../config';
+import { validateConfig, defaultConfig } from '../config';
 
 const base = { host: 'h', username: 'u', remotePath: '/r' };
 
@@ -11,6 +11,10 @@ describe('validateConfig — stallTimeout', () => {
 
   it('accepts a config that omits it', () => {
     expect(validateConfig(base)).toBeUndefined();
+  });
+
+  it('defaults on, so a connection dying mid-transfer cannot hang forever', () => {
+    expect(defaultConfig.stallTimeout).toBe(30 * 1000);
   });
 
   it('rejects non-numeric, negative or fractional values', () => {

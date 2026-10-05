@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import app from './app';
 import initCommands from './initCommands';
 import { reportError } from './helper';
+import logger from './logger';
 import fileActivityMonitor from './modules/fileActivityMonitor';
 import { tryLoadConfigs } from './modules/config';
 import {
@@ -72,11 +73,14 @@ export async function activate(context: vscode.ExtensionContext) {
   setContextValue('enabled', true);
   app.sftpBarItem.show();
   app.connectionBarItem.show();
-  context.subscriptions.push(app.connectionBarItem);
+  context.subscriptions.push(app.connectionBarItem, app.uploadOnSaveBarItem);
   let lastProfile = app.state.profile;
   app.state.subscribe(state => {
+    setContextValue('hasProfiles', state.availableProfiles.length > 0);
+    app.uploadOnSaveBarItem.update(state.uploadOnSave);
     if (state.profile !== lastProfile) {
       lastProfile = state.profile;
+      logger.info(`Using profile: ${state.profile ?? '(none)'}`);
       // the active profile decides which config a service resolves to
       getAllFileService().forEach(service => {
         service.invalidateConfigCache();

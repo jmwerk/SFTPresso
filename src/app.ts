@@ -2,9 +2,11 @@ import { ExtensionContext } from 'vscode';
 import { LRUCache } from 'lru-cache';
 import StatusBarItem from './ui/statusBarItem';
 import ConnectionStatusBar from './ui/connectionStatusBar';
+import UploadOnSaveStatusBar from './ui/uploadOnSaveStatusBar';
+import { STATUS_PRIORITY } from './ui/statusBarPriority';
 import {
   COMMAND_TOGGLE_OUTPUT,
-  COMMAND_CANCEL_ALL_TRANSFER,
+  VIEW_TRANSFERS_FOCUS,
   COMMAND_SET_PROFILE,
 } from './constants';
 import AppState from './modules/appState';
@@ -17,6 +19,7 @@ interface App {
   state: AppState;
   sftpBarItem: StatusBarItem;
   connectionBarItem: ConnectionStatusBar;
+  uploadOnSaveBarItem: UploadOnSaveStatusBar;
   transferBarItem: StatusBarItem;
   remoteExplorer: RemoteExplorer;
   transferView: TransferView;
@@ -26,42 +29,30 @@ const app: App = Object.create(null);
 
 app.state = new AppState();
 app.sftpBarItem = new StatusBarItem(
+  'sftpresso.profile',
+  'SFTPresso Profile',
+  STATUS_PRIORITY.profile,
   () => {
-    let label: string;
     if (app.state.profile) {
-      label = `SFTP: ${app.state.profile}`;
-    } else if (app.state.availableProfiles.length > 0) {
-      label = 'SFTP: (no profile)';
-    } else {
-      label = 'SFTP';
+      return `SFTP: ${app.state.profile}`;
     }
-
-    // surface an "upload on save" indicator when it's active
-    if (app.state.uploadOnSave === true) {
-      label += ' $(cloud-upload)';
-    }
-    return label;
+    return app.state.availableProfiles.length > 0 ? 'SFTP: (no profile)' : 'SFTP';
   },
-  () => {
-    const parts: string[] = [];
-    if (app.state.availableProfiles.length > 0) {
-      parts.push('SFTPresso — click to switch profile');
-    } else {
-      parts.push('SFTPresso');
-    }
-    if (app.state.uploadOnSave !== null) {
-      parts.push(`Upload on Save: ${app.state.uploadOnSave ? 'On' : 'Off'}`);
-    }
-    return parts.join('\n');
-  },
+  // upload on save has its own toggle item next to this one
+  () =>
+    app.state.availableProfiles.length > 0 ? 'SFTPresso — click to switch profile' : 'SFTPresso',
   () =>
     app.state.availableProfiles.length > 0 ? COMMAND_SET_PROFILE : COMMAND_TOGGLE_OUTPUT
 );
 app.connectionBarItem = new ConnectionStatusBar();
+app.uploadOnSaveBarItem = new UploadOnSaveStatusBar();
 app.transferBarItem = new StatusBarItem(
+  'sftpresso.transfers',
+  'SFTPresso Transfers',
+  STATUS_PRIORITY.transfers,
   () => '',
-  'SFTPresso transfers (click to cancel)',
-  COMMAND_CANCEL_ALL_TRANSFER
+  'SFTPresso transfers (click to show)',
+  VIEW_TRANSFERS_FOCUS
 );
 app.fsCache = new LRUCache<string, string>({ max: 6 });
 

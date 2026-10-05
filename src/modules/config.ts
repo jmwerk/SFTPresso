@@ -152,12 +152,13 @@ export const defaultConfig = {
   // reused. 0 keeps the existing behaviour of reusing it unchecked.
   idleTimeout: 0,
 
-  // ms without a byte moving before a transfer is given up on. 0 waits
-  // indefinitely, as before.
-  stallTimeout: 0,
+  // ms without a byte moving before a transfer is given up on. On by default:
+  // a connection that dies mid-transfer otherwise hangs the batch forever.
+  // 0 waits indefinitely.
+  stallTimeout: 30 * 1000,
 
   // ms a single remote request may go unanswered before it is failed and the
-  // connection dropped. Unlike the two above this defaults on: a request that
+  // connection dropped. Like stallTimeout this defaults on: a request that
   // has gone a full minute without a reply is not slow, it is lost, and the
   // alternative is an extension that hangs until the window is reloaded. Set
   // it to 0 to wait indefinitely.

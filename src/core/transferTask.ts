@@ -59,6 +59,10 @@ const PROGRESS_REPORT_INTERVAL = 500;
 // number of throttled samples kept for the bytesPerSecond rolling window
 const PROGRESS_SAMPLE_WINDOW = 5;
 
+// no bytes for this long and the UI calls the transfer stalled; independent of
+// stallTimeout, which decides when to give up on it
+export const STALL_DISPLAY_THRESHOLD = 5000;
+
 interface ProgressSample {
   time: number;
   bytes: number;
@@ -156,6 +160,7 @@ export default class TransferTask implements Task {
   readonly totalBytes: number | undefined;
   private _progressListener: (() => void) | undefined;
   private _lastProgressReportAt: number = 0;
+  private _lastByteAt: number = 0;
   // rolling window of recent (timestamp, transferredBytes) samples, oldest first
   private _progressSamples: ProgressSample[] = [];
 
@@ -203,6 +208,7 @@ export default class TransferTask implements Task {
     this._handle = undefined as any;
     this.transferredBytes = 0;
     this._lastProgressReportAt = 0;
+    this._lastByteAt = 0;
     this._progressSamples = [];
     if (this._cancelTokenSource) {
       this._cancelTokenSource.dispose();
@@ -212,6 +218,7 @@ export default class TransferTask implements Task {
 
   private _reportProgress(transferred: number) {
     this.transferredBytes = transferred;
+    this._lastByteAt = Date.now();
     // bytes are moving, so the connection is alive -- push the deadline out.
     // Deliberately outside the throttle below: the watchdog cares that data
     // arrived at all, not about the UI refresh rate.
@@ -230,9 +237,22 @@ export default class TransferTask implements Task {
     }
   }
 
+  // bytes started moving but nothing has arrived for a while
+  get isStalled(): boolean {
+    return (
+      this._lastByteAt > 0 &&
+      !this._cancelled &&
+      Date.now() - this._lastByteAt >= STALL_DISPLAY_THRESHOLD
+    );
+  }
+
   // throughput over the current sample window, or undefined until at least
-  // 2 throttled samples have been recorded (~1s into the transfer)
+  // 2 throttled samples have been recorded (~1s into the transfer). A stalled
+  // task reports 0 rather than the last window's rate, which would never update.
   get bytesPerSecond(): number | undefined {
+    if (this.isStalled) {
+      return 0;
+    }
     if (this._progressSamples.length < 2) {
       return undefined;
     }

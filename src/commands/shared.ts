@@ -64,7 +64,7 @@ export function selectContext(): Promise<Uri | undefined> {
 
     window
       .showQuickPick(projectsList, {
-        placeHolder: 'Select a folder...',
+        placeHolder: 'Select a folder…',
       })
       .then(selection => {
         if (selection) {
@@ -125,7 +125,7 @@ export async function selectRemoteConnection(): Promise<ConnectIdentity | undefi
   const picked =
     items.length === 1
       ? items[0]
-      : await window.showQuickPick(items, { placeHolder: 'Select a remote...' });
+      : await window.showQuickPick(items, { placeHolder: 'Select a remote…' });
 
   return picked ? picked.identity : undefined;
 }

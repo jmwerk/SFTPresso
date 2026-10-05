@@ -7,6 +7,7 @@ import { getActiveTextEditor, showErrorMessage } from '../../host';
 import * as output from '../../ui/output';
 import { formatBytes } from '../../utils';
 import { UResource, FileService, TransferTask } from '../../core';
+import { TransferDirection } from '../../core/transferTask';
 import { validateConfig } from '../config';
 import watcherService from '../fileWatcher';
 import Trie from './trie';
@@ -29,9 +30,45 @@ const isWindows = process.platform === 'win32';
 let queuedTransferCount = 0;
 let doneTransferCount = 0;
 
+// Progress events stop when a connection dies, so nothing would ever repaint
+// the stale speed/ETA. A low-frequency tick re-checks for stalls while busy.
+const STALL_CHECK_INTERVAL = 1000;
+let stallTicker: ReturnType<typeof setInterval> | null = null;
+const stalledTasks = new Set<TransferTask>();
+
+function stopStallTicker() {
+  if (stallTicker) {
+    clearInterval(stallTicker);
+    stallTicker = null;
+  }
+  stalledTasks.clear();
+}
+
+function checkStalls() {
+  const running = getRunningTransformTasks();
+  running.forEach(task => {
+    if (task.isStalled === stalledTasks.has(task)) {
+      return;
+    }
+    if (task.isStalled) {
+      stalledTasks.add(task);
+    } else {
+      stalledTasks.delete(task);
+    }
+    transferEventEmitter.fire({ type: 'progress', task });
+  });
+  stalledTasks.forEach(task => {
+    if (!running.includes(task)) {
+      stalledTasks.delete(task);
+    }
+  });
+  updateTransferProgress();
+}
+
 export function resetTransferProgress() {
   queuedTransferCount = 0;
   doneTransferCount = 0;
+  stopStallTicker();
   app.transferBarItem.hide();
 }
 
@@ -43,17 +80,26 @@ function updateTransferProgress() {
   if (doneTransferCount >= queuedTransferCount) {
     queuedTransferCount = 0;
     doneTransferCount = 0;
+    stopStallTicker();
     app.transferBarItem.hide();
     return;
+  }
+
+  if (!stallTicker) {
+    stallTicker = setInterval(checkStalls, STALL_CHECK_INTERVAL);
   }
 
   let message = `Transferring ${doneTransferCount}/${queuedTransferCount} files`;
   // omit the figure until at least one in-flight task has a defined rate,
   // rather than showing a misleading "0 B/s" before any samples exist
-  const rates = getRunningTransformTasks()
+  const running = getRunningTransformTasks();
+  const moving = running.filter(task => !task.isStalled);
+  const rates = moving
     .map(task => task.bytesPerSecond)
     .filter((rate): rate is number => rate !== undefined);
-  if (rates.length > 0) {
+  if (running.length > 0 && moving.length === 0) {
+    message += ' — stalled';
+  } else if (rates.length > 0) {
     const combinedBytesPerSecond = rates.reduce((sum, rate) => sum + rate, 0);
     message += ` — ${formatBytes(combinedBytesPerSecond)}/s`;
   }
@@ -212,7 +258,11 @@ export function refreshUploadOnSaveState() {
 }
 
 export function createFileService(config: any, workspace: string) {
-  if (config.defaultProfile) {
+  // defaultProfile picks the starting profile; a config reload (an edit, the
+  // upload-on-save toggle) must keep whatever profile the user switched to
+  const profileNames = config.profiles ? Object.keys(config.profiles) : [];
+  const keepCurrent = !!app.state.profile && profileNames.includes(app.state.profile);
+  if (config.defaultProfile && !keepCurrent) {
     app.state.profile = config.defaultProfile;
   }
 
@@ -232,10 +282,9 @@ export function createFileService(config: any, workspace: string) {
   });
   service.beforeTransfer(task => {
     const { localFsPath, transferType } = task;
-    app.sftpBarItem.showMsg(
-      `${transferType} ${path.basename(localFsPath)}`,
-      simplifyPath(localFsPath)
-    );
+    const icon =
+      transferType === TransferDirection.LOCAL_TO_REMOTE ? 'cloud-upload' : 'cloud-download';
+    app.sftpBarItem.showMsg(`$(${icon}) ${path.basename(localFsPath)}`, simplifyPath(localFsPath));
     transferEventEmitter.fire({ type: 'start', task });
   });
   service.onProgressTransfer(task => {
@@ -248,13 +297,13 @@ export function createFileService(config: any, workspace: string) {
     const filepath = simplifyPath(localFsPath);
     if (task.isCancelled()) {
       logger.info(`cancel transfer ${localFsPath}`);
-      app.sftpBarItem.showMsg(`cancelled ${filename}`, filepath, 2000 * 2);
+      app.sftpBarItem.showMsg(`$(circle-slash) ${filename}`, `Cancelled: ${filepath}`, 2000 * 2);
     } else if (error) {
       reportTransferFailure(error, `when ${transferType} ${localFsPath}`);
-      app.sftpBarItem.showMsg(`failed ${filename}`, filepath, 2000 * 2);
+      app.sftpBarItem.showMsg(`$(error) ${filename}`, `Failed: ${filepath}`, 2000 * 2);
     } else {
       logger.info(`${transferType} ${localFsPath}`);
-      app.sftpBarItem.showMsg(`done ${filename}`, filepath, 2000 * 2);
+      app.sftpBarItem.showMsg(`$(check) ${filename}`, `Done: ${filepath}`, 2000 * 2);
     }
     doneTransferCount++;
     updateTransferProgress();

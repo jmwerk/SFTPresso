@@ -42,6 +42,9 @@ class KeepAliveRemoteFs {
   private isValid: boolean = false;
 
   private hasConnected: boolean = false;
+  // set once we tear the connection down ourselves, so the socket events that
+  // follow don't overwrite the state we already chose
+  private closing: boolean = false;
 
   private pendingPromise: Promise<RemoteFileSystem> | null;
 
@@ -147,11 +150,16 @@ class KeepAliveRemoteFs {
         logger.debug(`ignoring '${reason}' from a replaced connection`);
         return;
       }
-      this.invalid(reason, err);
+      if (this.closing) {
+        return;
+      }
+      // nothing on our side asked for this, so the server or network dropped it
+      this.invalid(reason === 'error' ? 'error' : 'lost', err);
     });
     this.fs = fs;
+    this.closing = false;
 
-    app.sftpBarItem.showMsg('connecting...', connectOption.connectTimeout);
+    app.sftpBarItem.showMsg('Connecting…', connectOption.connectTimeout);
     app.connectionBarItem.setState(
       this.id,
       this.hasConnected ? ConnectionState.Reconnecting : ConnectionState.Connecting
@@ -172,6 +180,7 @@ class KeepAliveRemoteFs {
           return fs;
         },
         err => {
+          this.closing = true;
           fs.end();
           this.invalid('error');
           throw err;
@@ -253,19 +262,25 @@ class KeepAliveRemoteFs {
     // entry exists to prevent. getFs() clears it when the acquisition it
     // started actually settles.
     if (this.fs) {
+      this.closing = true;
       this.fs.end();
     }
     this.isValid = false;
-    app.connectionBarItem.setState(
-      this.id,
-      reason === 'error' ? ConnectionState.Error : ConnectionState.Idle
-    );
+    let state = ConnectionState.Idle;
+    if (reason === 'error') {
+      state = ConnectionState.Error;
+    } else if (reason === 'lost') {
+      logger.warn('connection closed by the server; reconnecting on next use');
+      state = ConnectionState.Lost;
+    }
+    app.connectionBarItem.setState(this.id, state);
   }
 
   end() {
     // may never have got as far as constructing one, e.g. an unsupported
     // protocol threw out of the acquisition
     if (this.fs) {
+      this.closing = true;
       this.fs.end();
     }
     app.connectionBarItem.clear(this.id);

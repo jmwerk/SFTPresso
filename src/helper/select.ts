@@ -78,7 +78,7 @@ async function showFiles<T extends FileListChildItem>(
     });
 
   const result = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select a target...',
+    placeHolder: 'Select a target…',
   });
 
   if (result === undefined) {

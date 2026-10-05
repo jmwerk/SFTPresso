@@ -83,11 +83,11 @@ Most of the time that's deploying while editing locally — same editor, same sh
 | Remote Explorer | SFTP icon in the Activity Bar | Browse remote files, multi-select download/upload — see [Using the Remote Explorer](#using-the-remote-explorer) |
 | Remote Explorer filter | `SFTP: Filter Remote Explorer` / `SFTP: Clear Filter` | Live, debounced substring search across the whole remote tree — including folders you haven't expanded yet — see [Using the Remote Explorer](#using-the-remote-explorer) |
 | Transfers view | SFTP sidebar → **Transfers** | Live per-file status (queued / transferring / failed) with byte-level progress, speed, and ETA, per-file cancel, and retry for failed transfers — see [Monitoring and cancelling transfers](#monitoring-and-cancelling-transfers) |
-| Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter plus combined transfer speed; click to cancel all |
+| Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter plus combined transfer speed; click to open the Transfers view |
 | Diff local ↔ remote | `SFTP: Diff with Remote` | Opens VS Code's diff view against the remote copy |
 | Compare Folders | `SFTP: Compare Folders with Remote` | Recursive local/remote diff with per-file actions — see [Comparing folders](#comparing-folders-with-the-remote) |
 | Test Connection | `SFTP: Test Connection` / CodeLens on `sftp.json` | Verifies the active profile can connect |
-| Connection status | Status bar (when enabled) | An icon reflects the live remote connection state — idle, connecting/reconnecting, connected, or error; click it to run `SFTP: Test Connection` |
+| Connection status | Status bar (when enabled) | An icon reflects the live remote connection state — idle, connecting/reconnecting, connected, lost, or error; click it to run `SFTP: Test Connection` |
 | Guided config setup | `SFTP: Config` → **Quick setup** | Step-by-step wizard that generates `sftp.json` and tests the connection — see [First-time setup](#first-time-setup) |
 | Secure password storage | `SFTP: Save Password` / `SFTP: Clear Password` / `SFTP: Migrate Plaintext Password` | Keep passwords in VS Code's secret storage (OS keychain) instead of plaintext `sftp.json` — see [Storing passwords securely](#storing-passwords-securely) |
 | Upload on save | [`uploadOnSave`](#uploadonsave) | Mirrors every VS Code save to the server |
@@ -99,7 +99,7 @@ Most of the time that's deploying while editing locally — same editor, same sh
 | Temp-file / atomic uploads | [`useTempFile`](#usetempfile), [`openSsh`](#openssh) | Avoid serving half-written files |
 | Connection hopping | [`hop`](#connection-hopping-ssh-proxy--bastion) | Reach a target server through one or more SSH bastions |
 | Upload to all profiles | `SFTP: Upload … To All Profiles` | Push one file/folder/project to every profile at once |
-| Run Remote Command | `SFTP: Run Remote Command` | Run a shell command on the server over the existing SSH connection — no re-authentication. Pick a saved command from [`remoteCommands`](#remotecommands) or type one; output streams to the SFTP output channel and the exit code is reported. SFTP only. |
+| Run Remote Command | `SFTP: Run Remote Command` | Run a shell command on the server over the existing SSH connection — no re-authentication. Pick a saved command from [`remoteCommands`](#remotecommands) or type one; output streams to the SFTPresso output channel and the exit code is reported. SFTP only. |
 | Legacy extension detection | Automatic, on startup | Warns if an older `@liximomo`/`@Natizyskunk` `sftp` extension is also enabled — see [Legacy extension detection](#legacy-extension-detection) |
 
 ---
@@ -174,7 +174,7 @@ Notes:
 
 Run **`SFTP: Test Connection`** from the Command Palette, or click the **Test Connection** CodeLens shown at the top of `sftp.json`. It connects using the active profile's settings and reports success or failure with an actionable message (see [SSH connection error messages](#ssh-connection-error-messages)).
 
-There's also a **connection-status indicator** in the status bar — a plug icon when idle, a spinner while (re)connecting, an active-VM icon when connected, and a highlighted error icon when it fails. Connections reconnect lazily on the next operation, so without this you'd never actually see a reconnect fail; click the icon to run `SFTP: Test Connection`.
+There's also a **connection-status indicator** in the status bar, next to the profile item — a plug icon when idle, a spinner while (re)connecting, an active-VM icon when connected, a disconnect icon when the server or network dropped the connection (it reconnects on next use), and a highlighted error icon when it fails. Hover it for the state in words. Connections reconnect lazily on the next operation, so without this you'd never actually see a reconnect fail; click the icon to run `SFTP: Test Connection`.
 
 ### Storing passwords securely
 
@@ -217,7 +217,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Set Profile` | `sftp.setProfile` | Switch the active [profile](#profiles-dev--prod). |
 | `SFTP: Test Connection` | `sftp.testConnection` | Connect to the active profile's remote and report success/failure. Also available as a CodeLens on `sftp.json`. |
 | `SFTP: Disconnect` | `sftp.disconnect` | Drop every pooled connection (all configs/profiles, not just the active one) so the next command reconnects fresh. Manual escape hatch for a stuck connection — [`operationTimeout`](#operationtimeout) usually catches that on its own, but this is faster than reloading the window when it doesn't. |
-| `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). The status bar shows a `$(cloud-upload)` indicator while it's on. |
+| `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). Also available as the `$(cloud-upload)` status bar button, which is dimmed while it's off. |
 | Add to Ignore | `sftp.addToIgnore` | File-explorer context menu command. Appends the right-clicked file or folder's workspace-relative path to the active config's [`ignore`](#ignore) array in `sftp.json` (folders as `path/**`), preserving comments and formatting; a no-op if the entry is already listed. |
 | `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal auto-logged-in to the server. Extra CLI flags can be added via [`sshCustomParams`](#sshcustomparams). |
 | `SFTP: Save Password` | `sftp.savePassword` | Store a password for a remote in VS Code's secret storage (OS keychain). See [Storing passwords securely](#storing-passwords-securely). |
@@ -225,7 +225,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Clear Password` | `sftp.clearPassword` | Remove a saved password from secret storage. |
 | `SFTP: Show Host Key Fingerprint` | `sftp.showHostKey` | Show the stored host key(s) for a remote — fingerprint, type, source file — with a copy button. See [Host key verification](#host-key-verification). |
 | `SFTP: Forget Host Key` | `sftp.forgetHostKey` | Clear the stored host key(s) for a remote, so the next connection is treated as new. What you run when a connection's refused because the server's key changed. Removing an entry from your own `~/.ssh/known_hosts` asks for confirmation first, naming the file and line. |
-| `SFTP: Run Remote Command` | `sftp.runRemoteCommand` | Run a command on the remote over the existing SSH connection, no re-auth. Pick from [`remoteCommands`](#remotecommands) or type one — either way you confirm the resolved command and host before it runs, since it executes on whatever server the active config points at. Output streams to the SFTP output channel; a command past [`remoteCommandTimeout`](#remotecommandtimeout) gets killed and reported as timed out. FTP configs just get an error instead. |
+| `SFTP: Run Remote Command` | `sftp.runRemoteCommand` | Run a command on the remote over the existing SSH connection, no re-auth. Pick from [`remoteCommands`](#remotecommands) or type one — either way you confirm the resolved command and host before it runs, since it executes on whatever server the active config points at. Output streams to the SFTPresso output channel; a command past [`remoteCommandTimeout`](#remotecommandtimeout) gets killed and reported as timed out. FTP configs just get an error instead. |
 
 ### Upload commands
 
@@ -255,8 +255,8 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 
 | Command | ID | Description |
 | --- | --- | --- |
-| `SFTP: Sync Local -> Remote` | `sftp.sync.localToRemote` | Copies files that differ by timestamp, plus files that exist only locally. |
-| `SFTP: Sync Remote -> Local` | `sftp.sync.remoteToLocal` | Same, in the opposite direction. |
+| `SFTP: Sync Local → Remote` | `sftp.sync.localToRemote` | Copies files that differ by timestamp, plus files that exist only locally. |
+| `SFTP: Sync Remote → Local` | `sftp.sync.remoteToLocal` | Same, in the opposite direction. |
 | `SFTP: Sync Both Directions` | `sftp.sync.bothDirections` | Compares modification times and always keeps the **newest** version on both sides. Only `syncOption.skipCreate` and `syncOption.ignoreExisting` apply to this command. |
 
 > If local and remote clocks disagree (server in another timezone, clock drift), set [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) so timestamp comparison stays accurate.
@@ -291,7 +291,8 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 
 | Command | ID | Description |
 | --- | --- | --- |
-| `SFTP: Cancel All Transfers` | `sftp.cancelAllTransfer` | Stop every in-flight upload/download. Also triggered by clicking the status-bar progress counter, and from the Transfers view title bar. |
+| `SFTP: Cancel All Transfers` | `sftp.cancelAllTransfer` | Stop every in-flight upload/download. Also in the Transfers view title bar. |
+| Clear Failed Transfers | `sftp.clearFailedTransfers` | Remove failed rows from the [Transfers view](#monitoring-and-cancelling-transfers). Shown in its title bar while any failure is listed. |
 | Cancel Transfer | `sftp.cancelTransfer` | Cancel a single in-flight file — the inline ✕ button on items in the [Transfers view](#monitoring-and-cancelling-transfers). |
 | Retry Transfer | `sftp.retryTransfer` | Re-queue a single failed file — the inline ↻ button on failed items in the [Transfers view](#monitoring-and-cancelling-transfers). |
 
@@ -432,7 +433,7 @@ Octal permissions applied to newly created remote directories.
 ```
 
 #### uploadOnSave
-Upload the file on every VS Code save. See the [Upload on save](#upload-on-save) workflow. You can flip this without editing JSON via **`SFTP: Toggle Upload on Save`**; the status bar shows a `$(cloud-upload)` indicator while it's on.
+Upload the file on every VS Code save. See the [Upload on save](#upload-on-save) workflow. You can flip this without editing JSON via **`SFTP: Toggle Upload on Save`** or by clicking the `$(cloud-upload)` button in the status bar, which is dimmed while it's off.
 
 | Key | Type | Default |
 | --- | --- | --- |
@@ -719,7 +720,7 @@ Set it a bit under whatever your host's actual limit is — if it drops connecti
 }
 ```
 
-When the check passes it's invisible — a healthy server just answers and things carry on, so a working `idleTimeout` looks identical to one that isn't doing anything. To actually confirm it's active, turn on `sftp.debug` and watch the **SFTP** output channel:
+When the check passes it's invisible — a healthy server just answers and things carry on, so a working `idleTimeout` looks identical to one that isn't doing anything. To actually confirm it's active, turn on `sftp.debug` and watch the **SFTPresso** output channel:
 
 ```
 [debug] probing connection after 301204ms idle (timeout 10000ms)
@@ -737,24 +738,24 @@ A reconnect is reported at info level, so that line appears whether or not `sftp
 #### stallTimeout
 `idleTimeout` catches a connection that died *between* operations. This one catches the other case — a connection that dies mid-transfer, where the bytes just stop arriving and there's no error to react to, so the upload would otherwise wait forever.
 
-With `stallTimeout` set, a transfer that goes that long without a single byte moving gets failed instead of left hanging — and it's classified the same as a dropped connection, so [`retry`](#retry) picks it up and tries again automatically.
+A transfer that goes that long without a single byte moving gets failed instead of left hanging — and it's classified the same as a dropped connection, so [`retry`](#retry) picks it up and tries again automatically.
 
-The clock resets on every chunk received, so this is measuring *stalls*, not total transfer time — a huge file crawling over a slow link keeps resetting the timer and never trips it. 30–60 seconds is a reasonable starting point.
+The clock resets on every chunk received, so this is measuring *stalls*, not total transfer time — a huge file crawling over a slow link keeps resetting the timer and never trips it. It's on by default at 30 seconds; raise it for a server that legitimately pauses longer, or set `0` to wait forever. Separately, the Transfers view marks a row *stalled* after 5 seconds without data, so a dead connection is visible long before the timeout fires.
 
 | Key | Type | Default |
 | --- | --- | --- |
-| `stallTimeout` | number | `0` (wait indefinitely) |
+| `stallTimeout` | number | `30000` |
 
 ```jsonc
 {
-  // give up on a transfer that hasn't moved a byte in 30 seconds
-  "stallTimeout": 30000,
+  // give up on a transfer that hasn't moved a byte in 60 seconds
+  "stallTimeout": 60000,
   "retry": { "attempts": 2 }
 }
 ```
 
 #### operationTimeout
-The third way a connection can go quiet, and the only one of the three that's on by default.
+The third way a connection can go quiet. Like `stallTimeout`, it's on by default.
 
 `idleTimeout` and `stallTimeout` cover the connection dying between operations or mid-transfer. What's left is everything around a transfer — the `mkdir`, the directory listing behind a sync, a `stat`, a rename. A server can keep the SSH transport up and answer keepalives just fine while the SFTP subsystem behind it stops reading its channel — every request just queues up locally with nothing ever answering back, and there's no error to catch.
 
@@ -781,7 +782,7 @@ A timeout is reported at warn level, so the line appears whether or not `sftp.de
 
 > ℹ️ SFTP only. FTP is already covered by [`connectTimeout`](#connecttimeout), which the FTP client applies as an idle timeout on both the control and data sockets. Setting `operationTimeout` on an FTP config is accepted and ignored.
 
-> ⚠️ Unlike the two above, this one's on by default — a full minute with no reply isn't "slow," it's lost, and the alternative is an extension stuck until you reload the window. Got a genuinely slow server tripping this by accident? Raise the number rather than disabling it; `0` goes back to waiting forever.
+> ⚠️ Like `stallTimeout`, this one's on by default — a full minute with no reply isn't "slow," it's lost, and the alternative is an extension stuck until you reload the window. Got a genuinely slow server tripping this by accident? Raise the number rather than disabling it; `0` goes back to waiting forever.
 
 #### remoteCommands
 Labeled shell commands offered by [`SFTP: Run Remote Command`](#configuration-and-connection-commands) as a quick pick, instead of a blank prompt every time. Each command runs over the existing pooled SSH connection.
@@ -1363,10 +1364,10 @@ Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SF
 
 During bulk operations (folder upload/download, sync, project transfers):
 
-- The **status bar** shows a live "Transferring X/Y files" counter, plus the combined transfer speed across every in-flight file once it's available — click the counter to cancel everything.
-- The **Transfers** view in the SFTP sidebar lists each file with its status (queued / transferring / failed) and an inline **✕** button to cancel just that file.
-- While a file is transferring, its row shows **byte-level progress**, current **speed**, and, once the total size is known, an **ETA** in the description — e.g. `42% — 3.1 MB / 7.4 MB — 1.2 MB/s — ETA 00:04`, or just bytes and speed when the total size isn't known. The speed and ETA are computed from a rolling window of recent progress and appear a moment into the transfer, once enough samples have been collected. Updates are throttled to a couple per second per file.
-- A failed transfer keeps its row (marked *failed*) with an inline **↻ Retry** button (`sftp.retryTransfer`). Retrying re-queues just that file with its original direction and options and resets its status to *queued*.
+- The **status bar** shows a live "Transferring X/Y files" counter, plus the combined transfer speed across every in-flight file once it's available — click the counter to open the Transfers view.
+- The **Transfers** view in the SFTP sidebar lists each file with an upload or download icon, its status (queued / transferring / failed), and an inline **✕** button to cancel just that file. Hover a queued or failed row for the full source and destination paths.
+- While a file is transferring, its row shows **byte-level progress**, current **speed**, and, once the total size is known, an **ETA** in the description — e.g. `42% of 7.4 MB · 1.2 MB/s · 00:04`, or just bytes and speed when the total size isn't known. The speed and ETA are computed from a rolling window of recent progress and appear a moment into the transfer, once enough samples have been collected. Updates are throttled to a couple per second per file.
+- A failed transfer keeps its row (marked *failed*, with the error in its tooltip) and an inline **↻ Retry** button (`sftp.retryTransfer`) until you retry it or run **Clear Failed Transfers** from the view title bar. Retrying re-queues just that file with its original direction and options and resets its status to *queued*.
 - `SFTP: Cancel All Transfers` is also available from the Command Palette and the Transfers view title bar. It stops the directory scan as well as the queued transfers, so cancelling a large folder or project transfer takes effect immediately instead of after the whole tree has been walked.
 
 ### Comparing folders with the remote
@@ -1400,7 +1401,7 @@ A few habits that'll save you a bad afternoon:
 
 1. Open Settings (`File → Preferences → Settings`, or `Code → Preferences → Settings` on macOS).
 2. Set `sftp.debug` to `true` and **reload VS Code**.
-3. View the logs in `View → Output` and select the **sftp** channel.
+3. View the logs in `View → Output` and select the **SFTPresso** channel.
 
 If a connection drops mid-session, the underlying error is logged there (since 1.16.5) instead of being silently discarded.
 

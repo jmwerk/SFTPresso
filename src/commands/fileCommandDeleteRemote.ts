@@ -1,7 +1,7 @@
 import { COMMAND_DELETE_REMOTE } from '../constants';
 import { upath } from '../core';
 import { removeRemote } from '../fileHandlers';
-import { showConfirmMessage } from '../host';
+import { showDestructiveConfirm } from '../host';
 import { checkFileCommand } from './abstract/createCommand';
 import { uriFromExplorerContextOrEditorContext } from './shared';
 
@@ -14,14 +14,14 @@ export default checkFileCommand({
       return;
     }
 
-    const filename = Array.isArray(targets)
-      ? targets.map(t => upath.basename(t.fsPath)).join(',')
-      : upath.basename(targets.fsPath);
-    const result = await showConfirmMessage(
-      `Are you sure you want to delete '${filename}'?`,
-      'Delete',
-      'Cancel'
-    );
+    const list = Array.isArray(targets) ? targets : [targets];
+    const message =
+      list.length === 1
+        ? `Delete '${upath.basename(list[0].fsPath)}' from the server?`
+        : `Delete ${list.length} items from the server?`;
+    const names = list.length > 1 ? list.map(t => upath.basename(t.fsPath)).join(', ') + '\n\n' : '';
+    const detail = `${names}This can't be undone.`;
+    const result = await showDestructiveConfirm(message, detail, 'Delete');
 
     return result ? targets : undefined;
   },

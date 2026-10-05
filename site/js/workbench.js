@@ -61,7 +61,7 @@
     delay: ['number', 'Base backoff in ms, doubled on every attempt and capped at 15 s.'],
     operationTimeout: ['number', 'Deadline in ms for any single remote request (<code>mkdir</code>, <code>stat</code>, listing, rename). An unanswered request fails with ETIMEDOUT and the connection is dropped so the next command starts fresh. Default <code>60000</code>. SFTP only.'],
     idleTimeout: ['number', 'After this many ms unused, a pooled connection gets a cheap health check before reuse and is replaced if it doesn\'t answer. Set a bit under your host\'s idle limit. Default <code>0</code> (never).'],
-    stallTimeout: ['number', 'Fail a transfer that goes this many ms without a single byte moving, so a connection that dies mid-transfer doesn\'t hang forever. Retried automatically. Default <code>0</code> (wait indefinitely).'],
+    stallTimeout: ['number', 'Fail a transfer that goes this many ms without a single byte moving, so a connection that dies mid-transfer doesn\'t hang forever. Retried automatically. Default <code>30000</code>; <code>0</code> waits indefinitely.'],
     keepaliveInterval: ['number', 'How often an SSH keepalive packet is sent, in ms. Falls back to <code>ServerAliveInterval</code> from your ssh config. Default <code>30000</code>.'],
     remoteCommands: ['object', 'Labelled shell commands offered by <strong>SFTP: Run Remote Command</strong> as a quick pick. Run over the existing SSH connection, no re-authentication. SFTP only.'],
     remoteExplorer: ['object', '<code>filesExclude</code> hides patterns in the Remote Explorer, <code>order</code> sorts roots, and <code>enableDragAndDrop</code> allows drag-to-move and dropping files in from your OS.'],
@@ -1539,15 +1539,17 @@
     { id: 'sftp.download.project', label: 'SFTP: Download Project', desc: 'Download everything under remotePath', run: () => startTransfers(demoFilesFor('project'), 'download') },
     { id: 'sftpresso.demo', label: 'Demo: See It Work', desc: 'Download a 12-file project with live progress', run: runDemo },
     { id: 'sftpresso.demo.failedTransfer', label: 'Demo: Failed Transfer and Retry', desc: 'One upload hits a permission error', run: demoFailedTransfer },
+    { id: 'sftpresso.demo.droppedConnection', label: 'Demo: Dropped Connection', desc: 'The server goes quiet mid-upload', run: demoDroppedConnection },
     { id: 'sftpresso.demo.conflict', label: 'Demo: Upload Conflict', desc: 'conflictCheck catches a remote edit', run: demoConflict },
     { id: 'sftpresso.demo.hostKeyChanged', label: 'Demo: Changed Host Key', desc: 'The server offers a different key', run: demoHostKeyChanged },
-    { id: 'sftp.sync.localToRemote', label: 'SFTP: Sync Local -> Remote', desc: 'Copy files that differ by timestamp', run: syncPreview },
+    { id: 'sftp.sync.localToRemote', label: 'SFTP: Sync Local → Remote', desc: 'Copy files that differ by timestamp', run: syncPreview },
     { id: 'sftp.diff.activeFile', label: 'SFTP: Diff Active File with Remote', desc: "Open VS Code's diff view", run: () => notify('In VS Code this opens the built-in diff editor: your local file on the left, the remote copy on the right.', { timeout: 5000 }) },
     { id: 'sftp.compareFolders', label: 'SFTP: Compare Folders with Remote', desc: 'Recursive local/remote diff', run: () => openFile('features.md', { anchor: 'feat-explore' }) },
     { id: 'sftp.remoteExplorer.filter', label: 'SFTP: Filter Remote Explorer', desc: 'Live substring search across the remote tree', run: () => { showView('sftp', { force: true }); openQuickInput('filter:'); } },
     { id: 'sftp.remoteExplorer.clearFilter', label: 'SFTP: Clear Filter', desc: 'Restore the full remote listing', run: () => applyRemoteFilter('') },
     { id: 'sftp.remoteExplorer.refresh', label: 'SFTP: Refresh Remote Explorer', desc: '', run: () => { showView('sftp', { force: true }); logOutput('debug', 'remote explorer refreshed (acme.example.com)'); } },
     { id: 'sftp.cancelAllTransfer', label: 'SFTP: Cancel All Transfers', desc: 'Stop every in-flight transfer', run: cancelAllTransfers },
+    { id: 'sftp.clearFailedTransfers', label: 'SFTP: Clear Failed Transfers', desc: 'Remove failed rows from the Transfers view', run: clearFailedTransfers },
     { id: 'workbench.action.showCommands', label: 'Show All Commands', desc: '', key: [MOD, 'Shift', 'P'], run: () => openQuickInput('>') },
     { id: 'workbench.action.quickOpen', label: 'Go to File…', desc: '', key: [MOD, 'P'], run: () => openQuickInput('') },
     { id: 'workbench.action.toggleSidebar', label: 'View: Toggle Primary Side Bar Visibility', desc: '', key: [MOD, 'B'], run: () => workbench.classList.toggle('sidebar-hidden') },
@@ -1571,10 +1573,11 @@
     const item = $('#status-connection');
     const use = $('use', item);
     const icon = $('.icon', item);
-    item.classList.remove('is-error', 'is-connected');
+    item.classList.remove('is-error', 'is-connected', 'is-lost');
     icon.classList.remove('spin');
     if (stateName === 'connecting') { use.setAttribute('href', '#i-loading'); icon.classList.add('spin'); item.title = 'SFTP: connecting…'; }
     else if (stateName === 'connected') { use.setAttribute('href', '#i-vm-active'); item.classList.add('is-connected'); item.title = 'SFTP: connected to ' + activeHost() + ' — click to test again'; }
+    else if (stateName === 'lost') { use.setAttribute('href', '#i-disconnect'); item.classList.add('is-lost'); item.title = 'SFTP: connection lost, reconnects on next use — click to test'; }
     else if (stateName === 'error') { use.setAttribute('href', '#i-error'); item.classList.add('is-error'); item.title = 'SFTP: connection failed — click to retry'; }
     else { use.setAttribute('href', '#i-plug'); item.title = 'SFTP: idle — click to test the connection'; }
   }
@@ -1671,6 +1674,14 @@
     files[1].error = 'Permission denied';
     startTransfers(files, 'upload');
   }
+  // The server stops answering mid-upload: rows go stalled, the connection drops,
+  // and retry reconnects and finishes. The 30s stallTimeout is compressed to 3s.
+  function demoDroppedConnection() {
+    if (state.transfers.some((t) => t.status === 'queued' || t.status === 'transferring')) return;
+    if (!window.matchMedia('(max-width: 900px)').matches) showPanel('output');
+    state.stallDemo = { at: performance.now() + 2500, until: 0 };
+    startTransfers(demoFilesFor('project').filter((f) => ['assets/video/intro.mp4', 'assets/video/tour.mp4', 'docs/manual.pdf'].includes(f.name)), 'upload');
+  }
   function demoConflict() {
     const remotePath = `${state.profile === 'staging' ? '/var/www/staging' : '/var/www/acme'}/css/style.css`;
     if (!window.matchMedia('(max-width: 900px)').matches) showPanel('output');
@@ -1702,6 +1713,7 @@
     });
   }
   const transfersList = $('#transfers-list');
+  const emptyTransfersHtml = transfersList.innerHTML;
   function startTransfers(files, direction) {
     if (!files.length) return;
     showView('sftp', { force: true, keepOpen: true });
@@ -1733,17 +1745,19 @@
   function tickTransfers() {
     const active = state.transfers.filter((t) => t.status === 'transferring');
     const queued = state.transfers.filter((t) => t.status === 'queued');
-    while (active.length < 4 && queued.length) {
-      const t = queued.shift();
+    const ready = queued.filter((t) => !t.retryAt || performance.now() >= t.retryAt);
+    while (active.length < 4 && ready.length) {
+      const t = ready.shift();
+      t.retryAt = 0;
       t.status = 'transferring';
       t.start = performance.now();
       t.speed = (t.size > 256_000 ? 2.2 : 0.9) * (0.7 + Math.random() * 0.8) * 1_000_000; // bytes/s
       active.push(t);
       const li = $(`.transfer[data-id="${t.id}"]`);
-      if (li) $('use', li).setAttribute('href', '#i-sync');
-      if (li) $('.icon', li).classList.add('spin');
+      if (li) $('use', li).setAttribute('href', t.direction === 'upload' ? '#i-cloud-upload' : '#i-cloud-download');
     }
     let totalSpeed = 0;
+    if (stallTick(active)) return;
     active.forEach((t) => {
       t.speed *= 0.9 + Math.random() * 0.2;
       t.done = Math.min(t.size, t.done + t.speed * 0.25);
@@ -1756,7 +1770,7 @@
       if (t.failAt && pct >= t.failAt) { t.failAt = 0; failTransfer(t.id, t.error); return; }
       const eta = t.speed > 0 ? Math.max(0, Math.round((t.size - t.done) / t.speed)) : 0;
       const etaStr = `${String(Math.floor(eta / 60)).padStart(2, '0')}:${String(eta % 60).padStart(2, '0')}`;
-      $('.transfer-status', li).textContent = `${Math.round(pct * 100)}% — ${formatBytes(t.done)} / ${formatBytes(t.size)} — ${formatBytes(t.speed)}/s — ETA ${etaStr}`;
+      $('.transfer-status', li).textContent = `${Math.round(pct * 100)}% of ${formatBytes(t.size)} · ${formatBytes(t.speed)}/s · ${etaStr}`;
       if (t.done >= t.size) {
         t.status = 'done';
         li.classList.add('done');
@@ -1773,6 +1787,7 @@
     if (!remaining.length) {
       clearInterval(state.transferTimer);
       state.transferTimer = null;
+      state.stallDemo = null;
       if (state.batchToast) { state.batchToast.dismiss(); state.batchToast = null; }
       const n = state.transfers.filter((t) => t.status === 'done').length;
       const demo = state.demoBatch;
@@ -1811,8 +1826,9 @@
     const badge = $('#transfers-badge');
     if (!remaining.length) { item.hidden = true; badge.hidden = true; return; }
     item.hidden = false;
-    $('#status-transfers-label').textContent = `Transferring ${total - remaining.length + 1}/${total} files${totalSpeed ? ` — ${formatBytes(totalSpeed)}/s` : ''}`;
-    item.title = 'Click to cancel all transfers';
+    const speed = state.stallDemo && state.stallDemo.until ? ' — stalled' : totalSpeed ? ` — ${formatBytes(totalSpeed)}/s` : '';
+    $('#status-transfers-label').textContent = `Transferring ${total - remaining.length + 1}/${total} files${speed}`;
+    item.title = 'Click to show the Transfers view';
     badge.hidden = false;
     badge.textContent = remaining.length;
     if (state.batchToast) {
@@ -1836,6 +1852,7 @@
       actions.innerHTML = `<button class="icon-btn" title="Retry Transfer" aria-label="Retry ${escapeHtml(t.name)}"><svg class="icon"><use href="#i-refresh"/></svg></button>`;
       $('button', actions).addEventListener('click', () => retryTransfer(id));
     }
+    updateClearFailed();
     if (error) logOutput('error', `${t.direction === 'upload' ? '↑' : '↓'} ${t.name}: ${error} — retry from the Transfers view`);
     else logOutput('warn', `${t.name}: cancelled`);
     updateTransfersStatus();
@@ -1853,12 +1870,63 @@
       actions.innerHTML = `<button class="icon-btn" title="Cancel Transfer"><svg class="icon"><use href="#i-close"/></svg></button>`;
       $('button', actions).addEventListener('click', () => cancelTransfer(id));
     }
+    updateClearFailed();
     logOutput('info', `${t.name}: retrying`);
     if (!state.transferTimer) state.transferTimer = setInterval(tickTransfers, 250);
+  }
+  function updateClearFailed() {
+    $('#clear-failed-transfers').hidden = !state.transfers.some((t) => t.status === 'failed');
+  }
+  function clearFailedTransfers() {
+    const failed = state.transfers.filter((t) => t.status === 'failed');
+    failed.forEach((t) => { const li = $(`.transfer[data-id="${t.id}"]`); if (li) li.remove(); });
+    state.transfers = state.transfers.filter((t) => t.status !== 'failed');
+    if (!state.transfers.length) transfersList.innerHTML = emptyTransfersHtml;
+    if (failed.length) logOutput('info', `cleared ${failed.length} failed transfer${failed.length === 1 ? '' : 's'}`);
+    updateClearFailed();
+    updateTransfersStatus();
+  }
+  // Freezes active rows as "stalled", then drops the connection and requeues them.
+  function stallTick(active) {
+    const demo = state.stallDemo;
+    if (!demo || !active.length) return false;
+    const now = performance.now();
+    if (!demo.until) {
+      if (now < demo.at) return false;
+      demo.until = now + 3000;
+      active.forEach((t) => {
+        const li = $(`.transfer[data-id="${t.id}"]`);
+        if (!li) return;
+        li.classList.add('stalled');
+        $('use', li).setAttribute('href', '#i-warning');
+        $('.transfer-status', li).textContent = `stalled · ${Math.round((t.done / t.size) * 100)}% of ${formatBytes(t.size)}`;
+      });
+      updateTransfersStatus();
+      return true;
+    }
+    if (now < demo.until) return true;
+    state.stallDemo = null;
+    setConnection('lost');
+    logOutput('warn', 'connection closed by the server; reconnecting on next use');
+    active.forEach((t) => {
+      logOutput('warn', `${t.direction === 'upload' ? '↑' : '↓'} ${t.name} failed (transfer stalled: no data for 30000ms), retrying in 2000ms (attempt 1 of 2)`);
+      t.status = 'queued'; t.done = 0; t.retryAt = now + 1500;
+      const li = $(`.transfer[data-id="${t.id}"]`);
+      if (!li) return;
+      li.classList.remove('stalled');
+      $('use', li).setAttribute('href', '#i-clock');
+      $('.transfer-status', li).textContent = 'queued · retrying';
+      $('.transfer-bar span', li).style.width = '0%';
+    });
+    setTimeout(() => setConnection('connecting'), 1000);
+    setTimeout(() => setConnection('connected'), 1500);
+    updateTransfersStatus();
+    return true;
   }
   function cancelAllTransfers() {
     const remaining = state.transfers.filter((t) => t.status === 'queued' || t.status === 'transferring');
     if (!remaining.length) { notify('No transfers in progress.', { timeout: 2500 }); return; }
+    state.stallDemo = null;
     remaining.forEach((t) => cancelTransfer(t.id));
     logOutput('warn', `cancelled ${remaining.length} transfer${remaining.length === 1 ? '' : 's'} — directory scan stopped too`);
     if (state.batchToast) { state.batchToast.dismiss(); state.batchToast = null; }

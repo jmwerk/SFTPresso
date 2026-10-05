@@ -64,7 +64,7 @@
       "sftp": [
         {
           "id": "remoteExplorer",
-          "name": "Explorer",
+          "name": "Remote Explorer",
           "icon": "resources/remote-explorer.svg",
           "contextualTitle": "SFTP",
           "when": "sftp.enabled"
@@ -78,6 +78,12 @@
         }
       ]
     },
+    "viewsWelcome": [
+      {
+        "view": "sftpTransfers",
+        "contents": "No transfers in progress.\nUploads and downloads appear here with progress, speed, and time remaining. Failed transfers stay until you retry or clear them.\n[Show Log](command:sftp.toggleOutput)"
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "sftp configuration",
@@ -165,7 +171,8 @@
       {
         "command": "sftp.cancelAllTransfer",
         "title": "Cancel All Transfers",
-        "category": "SFTP"
+        "category": "SFTP",
+        "icon": "$(close-all)"
       },
       {
         "command": "sftp.cancelTransfer",
@@ -180,6 +187,12 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "sftp.clearFailedTransfers",
+        "category": "SFTP",
+        "title": "Clear Failed Transfers",
+        "icon": "$(clear-all)"
+      },
+      {
         "command": "sftp.upload.file",
         "title": "Upload File",
         "category": "SFTP"
@@ -188,10 +201,7 @@
         "command": "sftp.upload.changedFiles",
         "title": "Upload Changed Files",
         "category": "SFTP",
-        "icon": {
-          "light": "resources/light/upload.svg",
-          "dark": "resources/dark/upload.svg"
-        }
+        "icon": "$(cloud-upload)"
       },
       {
         "command": "sftp.upload.activeFile",
@@ -252,10 +262,7 @@
         "command": "sftp.download.file",
         "title": "Download File",
         "category": "SFTP",
-        "icon": {
-          "dark": "resources/dark/download-file.svg",
-          "light": "resources/light/download-file.svg"
-        }
+        "icon": "$(cloud-download)"
       },
       {
         "command": "sftp.download.activeFile",
@@ -266,10 +273,7 @@
         "command": "sftp.download.folder",
         "title": "Download Folder",
         "category": "SFTP",
-        "icon": {
-          "dark": "resources/dark/download-folder.svg",
-          "light": "resources/light/download-folder.svg"
-        }
+        "icon": "$(cloud-download)"
       },
       {
         "command": "sftp.download.activeFolder",
@@ -288,12 +292,12 @@
       },
       {
         "command": "sftp.sync.localToRemote",
-        "title": "Sync Local -> Remote",
+        "title": "Sync Local → Remote",
         "category": "SFTP"
       },
       {
         "command": "sftp.sync.remoteToLocal",
-        "title": "Sync Remote -> Local",
+        "title": "Sync Remote → Local",
         "category": "SFTP"
       },
       {
@@ -379,19 +383,13 @@
       {
         "command": "sftp.remoteExplorer.refresh",
         "title": "Refresh",
-        "icon": {
-          "light": "resources/light/refresh.svg",
-          "dark": "resources/dark/refresh.svg"
-        }
+        "icon": "$(refresh)"
       },
       {
         "command": "sftp.remoteExplorer.refreshActiveFile",
         "title": "Refresh Active Remote File",
         "category": "SFTP",
-        "icon": {
-          "light": "resources/light/refresh.svg",
-          "dark": "resources/dark/refresh.svg"
-        }
+        "icon": "$(refresh)"
       },
       {
         "command": "sftp.remoteExplorer.filter",
@@ -483,6 +481,10 @@
           "when": "false"
         },
         {
+          "command": "sftp.clearFailedTransfers",
+          "when": "sftp.enabled && sftp.transfers.hasFailed"
+        },
+        {
           "command": "sftp.upload.activeFile",
           "when": "sftp.enabled"
         },
@@ -496,15 +498,15 @@
         },
         {
           "command": "sftp.upload.activeFile.to.allProfiles",
-          "when": "sftp.enabled"
+          "when": "sftp.enabled && sftp.hasProfiles"
         },
         {
           "command": "sftp.upload.activeFolder.to.allProfiles",
-          "when": "sftp.enabled"
+          "when": "sftp.enabled && sftp.hasProfiles"
         },
         {
           "command": "sftp.upload.project.to.allProfiles",
-          "when": "sftp.enabled"
+          "when": "sftp.enabled && sftp.hasProfiles"
         },
         {
           "command": "sftp.download.activeFile",
@@ -684,13 +686,13 @@
         {
           "command": "sftp.upload.file.to.allProfiles",
           "group": "sftp.trans@1",
-          "when": "sftp.enabled && !explorerResourceIsRoot && !explorerResourceIsFolder"
+          "when": "sftp.enabled && !explorerResourceIsRoot && !explorerResourceIsFolder && sftp.hasProfiles"
         },
         {
           "command": "sftp.upload.folder.to.allProfiles",
           "group": "sftp.trans@1",
           "alt": "sftp.forceUpload.to.allProfiles",
-          "when": "sftp.enabled && explorerResourceIsFolder"
+          "when": "sftp.enabled && explorerResourceIsFolder && sftp.hasProfiles"
         },
         {
           "command": "sftp.download.file",
@@ -718,7 +720,7 @@
         {
           "command": "sftp.upload.file.to.allProfiles",
           "group": "sftp.trans@1",
-          "when": "sftp.enabled && resourceScheme == file"
+          "when": "sftp.enabled && resourceScheme == file && sftp.hasProfiles"
         },
         {
           "command": "sftp.download.file",
@@ -769,6 +771,11 @@
         {
           "command": "sftp.remoteExplorer.refresh",
           "when": "view == remoteExplorer",
+          "group": "navigation"
+        },
+        {
+          "command": "sftp.clearFailedTransfers",
+          "when": "view == sftpTransfers && sftp.transfers.hasFailed",
           "group": "navigation"
         },
         {
@@ -828,12 +835,12 @@
           "command": "sftp.upload.folder.to.allProfiles",
           "group": "3_trans@1",
           "alt": "sftp.forceUpload.to.allProfiles",
-          "when": "sftp.enabled && viewItem != file"
+          "when": "sftp.enabled && viewItem != file && sftp.hasProfiles"
         },
         {
           "command": "sftp.upload.file.to.allProfiles",
           "group": "3_trans@1",
-          "when": "view == remoteExplorer && viewItem != root && viewItem == file"
+          "when": "view == remoteExplorer && viewItem != root && viewItem == file && sftp.hasProfiles"
         },
         {
           "command": "sftp.download.folder",

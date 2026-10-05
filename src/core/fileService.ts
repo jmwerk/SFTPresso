@@ -807,7 +807,8 @@ export default class FileService {
     }
 
     if (activeProfile) {
-      logger.info(`Using profile: ${activeProfile}`);
+      // a reload resolves every profile, so this is not a switch; that's logged on change
+      logger.debug(`resolving config for profile: ${activeProfile}`);
       const profile = config.profiles![activeProfile];
       if (!profile) {
         throw new Error(

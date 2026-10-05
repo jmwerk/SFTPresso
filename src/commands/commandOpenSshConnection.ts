@@ -65,7 +65,7 @@ export default checkCommand({
       }
 
       const item = await vscode.window.showQuickPick(remoteItems, {
-        placeHolder: 'Select a folder...',
+        placeHolder: 'Select a folder…',
       });
       if (item === undefined) {
         return;

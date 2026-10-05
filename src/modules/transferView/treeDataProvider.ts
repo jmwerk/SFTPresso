@@ -6,19 +6,16 @@ import { onTransferEvent } from '../serviceManager';
 
 type TransferStatus = 'queued' | 'transferring' | 'error';
 
-const ERROR_DISPLAY_DURATION = 5000;
-
 export default class TransferTreeDataProvider implements vscode.TreeDataProvider<TransferTask> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<TransferTask | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private readonly _items: Map<TransferTask, TransferStatus> = new Map();
-  // pending "remove failed item" timers, so a retried task keeps its row
-  private readonly _errorTimers: Map<TransferTask, ReturnType<typeof setTimeout>> = new Map();
+  // failed rows stay until retried or cleared, so Retry is always reachable
+  private readonly _errors: Map<TransferTask, string> = new Map();
 
-  // Failures the user hasn't seen yet -- the tree row itself disappears after
-  // ERROR_DISPLAY_DURATION, so this is what drives the activity-bar badge and
-  // survives independently of that timer until the Transfers view is opened.
+  // Failures the user hasn't seen yet. Drives the view badge until the Transfers
+  // view is opened.
   private _unseenFailedCount = 0;
   private readonly _onDidChangeUnseenFailedCount = new vscode.EventEmitter<number>();
   readonly onDidChangeUnseenFailedCount = this._onDidChangeUnseenFailedCount.event;
@@ -27,11 +24,11 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
     onTransferEvent(({ type, task, error }) => {
       switch (type) {
         case 'queued':
-          this._clearErrorTimer(task);
+          this._errors.delete(task);
           this._items.set(task, 'queued');
           break;
         case 'start':
-          this._clearErrorTimer(task);
+          this._errors.delete(task);
           this._items.set(task, 'transferring');
           break;
         case 'progress':
@@ -43,12 +40,7 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
         case 'done':
           if (error && !task.isCancelled()) {
             this._items.set(task, 'error');
-            const timer = setTimeout(() => {
-              this._errorTimers.delete(task);
-              this._items.delete(task);
-              this._onDidChangeTreeData.fire(undefined);
-            }, ERROR_DISPLAY_DURATION);
-            this._errorTimers.set(task, timer);
+            this._errors.set(task, error.message || String(error));
             this._unseenFailedCount++;
             this._onDidChangeUnseenFailedCount.fire(this._unseenFailedCount);
           } else {
@@ -69,12 +61,17 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
     this._onDidChangeUnseenFailedCount.fire(0);
   }
 
-  private _clearErrorTimer(task: TransferTask) {
-    const timer = this._errorTimers.get(task);
-    if (timer) {
-      clearTimeout(timer);
-      this._errorTimers.delete(task);
+  hasFailed(): boolean {
+    return this._errors.size > 0;
+  }
+
+  clearFailed(): void {
+    for (const task of this._errors.keys()) {
+      this._items.delete(task);
     }
+    this._errors.clear();
+    this.clearUnseenFailures();
+    this._onDidChangeTreeData.fire(undefined);
   }
 
   private _progressDescription(task: TransferTask): string {
@@ -82,13 +79,19 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
     const total = task.totalBytes;
     const bytesPerSecond = task.bytesPerSecond;
 
+    // the sidebar truncates long descriptions, so lead with what changes
     const parts: string[] = [];
+    // live rows re-render on every tick, which closes hovers, so the total lives here
     if (total && total > 0) {
       const percent = Math.min(100, Math.floor((transferred / total) * 100));
-      parts.push(`${percent}% — ${formatBytes(transferred)} / ${formatBytes(total)}`);
+      parts.push(`${percent}% of ${formatBytes(total)}`);
     } else {
-      // unknown total size: show bytes only
       parts.push(formatBytes(transferred));
+    }
+
+    // state first: the sidebar truncates from the end
+    if (task.isStalled) {
+      return ['stalled', ...parts].join(' · ');
     }
 
     // omit the speed segment until a second sample lands, rather than
@@ -96,36 +99,49 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
     if (bytesPerSecond !== undefined) {
       parts.push(`${formatBytes(bytesPerSecond)}/s`);
       if (total && total > 0 && bytesPerSecond > 0) {
-        const remainingSeconds = Math.max(0, total - transferred) / bytesPerSecond;
-        parts.push(`ETA ${formatDuration(remainingSeconds)}`);
+        parts.push(formatDuration(Math.max(0, total - transferred) / bytesPerSecond));
       }
     }
 
-    return parts.join(' — ');
+    return parts.join(' · ');
+  }
+
+  private _tooltip(task: TransferTask, status: TransferStatus): vscode.MarkdownString {
+    const isUpload = task.transferType === TransferDirection.LOCAL_TO_REMOTE;
+    const tooltip = new vscode.MarkdownString();
+    tooltip.appendMarkdown(`**${isUpload ? 'Upload' : 'Download'}**\n\n`);
+    tooltip.appendText(`From: ${task.srcFsPath}\n\nTo: ${task.targetFsPath}`);
+
+    if (status === 'error') {
+      tooltip.appendText(`\n\nFailed: ${this._errors.get(task)}`);
+    }
+    return tooltip;
   }
 
   getTreeItem(task: TransferTask): vscode.TreeItem {
     const status = this._items.get(task) || 'queued';
     const item = new vscode.TreeItem(path.basename(task.localFsPath));
+    const isUpload = task.transferType === TransferDirection.LOCAL_TO_REMOTE;
 
-    const direction = task.transferType === TransferDirection.LOCAL_TO_REMOTE ? 'uploading' : 'downloading';
     if (status === 'transferring') {
-      item.description = task.transferredBytes > 0 ? this._progressDescription(task) : direction;
+      item.description =
+        task.transferredBytes > 0
+          ? this._progressDescription(task)
+          : isUpload
+          ? 'uploading'
+          : 'downloading';
+      item.iconPath = task.isStalled
+        ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
+        : new vscode.ThemeIcon(isUpload ? 'cloud-upload' : 'cloud-download');
     } else if (status === 'error') {
       item.description = 'failed';
+      item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else {
       item.description = 'queued';
+      item.iconPath = new vscode.ThemeIcon('clock');
     }
-    item.tooltip = task.localFsPath;
+    item.tooltip = this._tooltip(task, status);
     item.contextValue = status === 'error' ? 'failedTransfer' : 'activeTransfer';
-
-    if (status === 'transferring') {
-      item.iconPath = new (vscode.ThemeIcon as any)('sync~spin');
-    } else if (status === 'error') {
-      item.iconPath = new (vscode.ThemeIcon as any)('error');
-    } else {
-      item.iconPath = new (vscode.ThemeIcon as any)('clock');
-    }
 
     return item;
   }

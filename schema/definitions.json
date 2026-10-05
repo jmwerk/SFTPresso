@@ -196,8 +196,8 @@
       },
       "stallTimeout": {
         "type": "number",
-        "description": "Milliseconds without a single byte moving before a transfer is treated as stalled and failed, so it can be retried instead of waiting forever on a connection that died mid-transfer. The clock resets on every chunk, so a slow but progressing transfer is never interrupted. 0 (the default) waits indefinitely.",
-        "default": 0
+        "description": "Milliseconds without a single byte moving before a transfer is treated as stalled and failed, so it can be retried instead of waiting forever on a connection that died mid-transfer. The clock resets on every chunk, so a slow but progressing transfer is never interrupted. Defaults to 30000. Set to 0 to wait indefinitely.",
+        "default": 30000
       },
       "operationTimeout": {
         "type": "number",

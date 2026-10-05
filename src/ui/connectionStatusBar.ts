@@ -1,11 +1,13 @@
 import * as vscode from 'vscode';
 import { COMMAND_TEST_CONNECTION } from '../constants';
+import { STATUS_PRIORITY } from './statusBarPriority';
 
 export enum ConnectionState {
   Idle = 'idle',
   Connecting = 'connecting',
   Reconnecting = 'reconnecting',
   Connected = 'connected',
+  Lost = 'lost',
   Error = 'error',
 }
 
@@ -15,6 +17,7 @@ const STATE_PRIORITY = [
   ConnectionState.Reconnecting,
   ConnectionState.Connecting,
   ConnectionState.Error,
+  ConnectionState.Lost,
   ConnectionState.Connected,
   ConnectionState.Idle,
 ];
@@ -25,23 +28,31 @@ interface StatePresentation {
   background?: string;
 }
 
+// Icon-only: the profile item next to it already says "SFTP", and the tooltip
+// plus accessibility label carry the words.
 function present(state: ConnectionState): StatePresentation {
   switch (state) {
     case ConnectionState.Connecting:
-      return { text: '$(sync~spin) SFTP', tooltip: 'connecting…' };
+      return { text: '$(sync~spin)', tooltip: 'connecting…' };
     case ConnectionState.Reconnecting:
-      return { text: '$(sync~spin) SFTP', tooltip: 'reconnecting…' };
+      return { text: '$(sync~spin)', tooltip: 'reconnecting…' };
     case ConnectionState.Connected:
-      return { text: '$(vm-active) SFTP', tooltip: 'connected' };
+      return { text: '$(vm-active)', tooltip: 'connected' };
+    case ConnectionState.Lost:
+      return {
+        text: '$(debug-disconnect)',
+        // no background: servers routinely close idle connections, which is benign
+        tooltip: 'connection lost, reconnects on next use',
+      };
     case ConnectionState.Error:
       return {
-        text: '$(error) SFTP',
+        text: '$(error)',
         tooltip: 'connection error',
         background: 'statusBarItem.errorBackground',
       };
     case ConnectionState.Idle:
     default:
-      return { text: '$(plug) SFTP', tooltip: 'idle' };
+      return { text: '$(plug)', tooltip: 'idle' };
   }
 }
 
@@ -53,7 +64,12 @@ export default class ConnectionStatusBar {
   private states: Map<string, ConnectionState> = new Map();
 
   constructor() {
-    this.statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
+    this.statusBarItem = vscode.window.createStatusBarItem(
+      'sftpresso.connection',
+      vscode.StatusBarAlignment.Left,
+      STATUS_PRIORITY.connection
+    );
+    this.statusBarItem.name = 'SFTPresso Connection';
     this.statusBarItem.command = COMMAND_TEST_CONNECTION;
     this._render();
   }
@@ -94,6 +110,10 @@ export default class ConnectionStatusBar {
     const { text, tooltip, background } = present(this._aggregate());
     this.statusBarItem.text = text;
     this.statusBarItem.tooltip = `SFTPresso: ${tooltip} — click to test connection`;
+    this.statusBarItem.accessibilityInformation = {
+      label: `SFTPresso connection: ${tooltip}`,
+      role: 'button',
+    };
     this.statusBarItem.backgroundColor = background
       ? new vscode.ThemeColor(background)
       : undefined;

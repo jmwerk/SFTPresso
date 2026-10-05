@@ -50,7 +50,7 @@ export default checkCommand({
       return;
     }
 
-    const item = await vscode.window.showQuickPick(profiles, { placeHolder: 'select a profile' });
+    const item = await vscode.window.showQuickPick(profiles, { placeHolder: 'Select a profile' });
     if (item === undefined) return;
     app.state.profile = item.value;
   },
