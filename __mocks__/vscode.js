@@ -57,6 +57,12 @@ const Nothing = (() => {
 				}
 			}
 			return o.hasOwnProperty(key) ? o[key] : Nothing
+		},
+		// `fn.name` / `fn.length` are read-only, but API objects like StatusBarItem
+		// get a `name` assigned; swallow those writes instead of throwing
+		set: (o, key, value) => {
+			if (key !== 'name' && key !== 'length') o[key] = value
+			return true
 		}
 	})
 })()
