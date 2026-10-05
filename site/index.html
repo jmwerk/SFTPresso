@@ -36,6 +36,9 @@
     <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20a2 2 0 0 0 4 0"/></symbol>
     <symbol id="i-branch" viewBox="0 0 24 24"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="9" r="2.2"/><path d="M6 7.2v9.6"/><path d="M18 11.2c0 4-12 2-12 6"/></symbol>
     <symbol id="i-cloud-upload" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8a4.5 4.5 0 0 1 0 9h-1"/><path d="M12 12v9"/><path d="m8.5 15.5 3.5-3.5 3.5 3.5"/></symbol>
+    <symbol id="i-cloud-download" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8a4.5 4.5 0 0 1 0 9h-1"/><path d="M12 12v9"/><path d="m8.5 17.5 3.5 3.5 3.5-3.5"/></symbol>
+    <symbol id="i-disconnect" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/><path d="M3 3l18 18"/></symbol>
+    <symbol id="i-clear-all" viewBox="0 0 24 24"><path d="M4 6h11M4 11h11M4 16h6"/><path d="m14 15 5 5M19 15l-5 5"/></symbol>
     <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5"/><path d="M6 8h12v3a6 6 0 0 1-12 0z"/><path d="M12 17v4"/></symbol>
     <symbol id="i-vm-active" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="12" rx="1.5"/><path d="M8 21h8"/><path d="m9 11 2 2 4-4"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></symbol>
@@ -249,10 +252,11 @@
           <p>Queues a batch in the <strong>Transfers</strong> view with per-file progress, speed, and ETA.</p>
           <h3 class="debug-heading">When something goes wrong</h3>
           <button class="btn btn-block" data-command="sftpresso.demo.failedTransfer"><svg class="icon"><use href="#i-error"/></svg> Failed transfer and retry</button>
+          <button class="btn btn-block" data-command="sftpresso.demo.droppedConnection"><svg class="icon"><use href="#i-disconnect"/></svg> Dropped connection</button>
           <button class="btn btn-block" data-command="sftpresso.demo.conflict"><svg class="icon"><use href="#i-diff"/></svg> Upload conflict</button>
           <button class="btn btn-block" data-command="sftp.sync.localToRemote"><svg class="icon"><use href="#i-sync"/></svg> Sync with a dry-run preview</button>
           <button class="btn btn-block" data-command="sftpresso.demo.hostKeyChanged"><svg class="icon"><use href="#i-shield"/></svg> Changed host key</button>
-          <p>Each one shows what SFTPresso does before it touches the server: retry only what failed, compare before overwriting, preview a sync, refuse a key it doesn't trust.</p>
+          <p>Each one shows what SFTPresso does before it touches the server: retry only what failed, notice a stalled connection and resume, compare before overwriting, preview a sync, refuse a key it doesn't trust.</p>
           <p class="muted">Want the real thing? Open a folder in VS Code and run <strong>SFTP: Config</strong>.</p>
         </div>
       </section>
@@ -292,7 +296,7 @@
             <div class="pane-head">
               <button class="pane-header" aria-expanded="true">
                 <svg class="icon twistie"><use href="#i-chevron-right"/></svg>
-                <span class="pane-title">Explorer</span>
+                <span class="pane-title">Remote Explorer</span>
                 <span class="pane-desc" id="remote-filter-label"></span>
               </button>
               <span class="pane-actions">
@@ -331,6 +335,7 @@
                 <span class="pane-title">Transfers</span>
               </button>
               <span class="pane-actions">
+                <button class="icon-btn" id="clear-failed-transfers" title="Clear Failed Transfers" data-command="sftp.clearFailedTransfers" aria-label="Clear Failed Transfers" hidden><svg class="icon"><use href="#i-clear-all"/></svg></button>
                 <button class="icon-btn" title="Cancel All Transfers" data-command="sftp.cancelAllTransfer" aria-label="Cancel All Transfers"><svg class="icon"><use href="#i-close"/></svg></button>
               </span>
             </div>
@@ -376,7 +381,7 @@
           </div>
           <div class="panel-actions">
             <select class="panel-select" id="output-channel" aria-label="Output channel" hidden>
-              <option>sftp</option>
+              <option>SFTPresso</option>
               <option>Extension Host</option>
             </select>
             <button class="icon-btn" data-action="toggle-panel-max" title="Maximize Panel Size"><svg class="icon"><use href="#i-chevron-down"/></svg></button>
@@ -1003,8 +1008,8 @@ SOFTWARE.</div>
         <p>VS Code, VSCodium, Cursor and other VS Code-based editors (Marketplace); VSCodium, Gitpod, Eclipse Theia and friends (Open VSX).</p>
         <h2>Contributes</h2>
         <ul>
-          <li><strong>Views:</strong> SFTP Activity Bar container with <em>Explorer</em> and <em>Transfers</em> views.</li>
-          <li><strong>Commands:</strong> 58 under the <em>SFTP</em> category — see <button class="link-btn" data-file="commands.md">commands.md</button>.</li>
+          <li><strong>Views:</strong> SFTP Activity Bar container with <em>Remote Explorer</em> and <em>Transfers</em> views.</li>
+          <li><strong>Commands:</strong> 59 under the <em>SFTP</em> category — see <button class="link-btn" data-file="commands.md">commands.md</button>.</li>
           <li><strong>Settings:</strong> <code>sftp.debug</code>, <code>sftp.downloadWhenOpenInRemoteExplorer</code>.</li>
           <li><strong>JSON schema:</strong> validation and completions for <code>.vscode/sftp.json</code>.</li>
           <li><strong>Walkthrough:</strong> <em>Get started with SFTPresso</em>.</li>

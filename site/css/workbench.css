@@ -3295,3 +3295,7 @@ html[data-theme="light"] .badge-v {
     --statusbar-h: 28px;
   }
 }
+.transfer.stalled .transfer-row .icon,
+.transfer.stalled .transfer-status {
+  color: var(--text-warning);
+}
