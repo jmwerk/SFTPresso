@@ -89,9 +89,9 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
       parts.push(formatBytes(transferred));
     }
 
+    // state first: the sidebar truncates from the end
     if (task.isStalled) {
-      parts.push('stalled, waiting for server');
-      return parts.join(' · ');
+      return ['stalled', ...parts].join(' · ');
     }
 
     // omit the speed segment until a second sample lands, rather than
