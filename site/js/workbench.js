@@ -13,7 +13,7 @@
   const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
   const MOD = isMac ? '⌘' : 'Ctrl';
-  const VERSION = '1.34.2';
+  const VERSION = '1.35.0';
 
   // ------------------------------------------------------------------ files
   const FILES = {

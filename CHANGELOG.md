@@ -1,4 +1,4 @@
-## 1.35.0 - Unreleased
+## 1.35.0 - 2026-10-05
 
 * Improvement : **`stallTimeout` now defaults to `30000` (30 seconds) instead of `0`.** A connection that died mid-transfer used to leave the batch hanging forever, still showing its last speed and ETA, because nothing ever noticed the bytes had stopped. Now a transfer that moves no data at all for 30 seconds fails and is retried like any dropped connection. A slow transfer that is still moving is never cut off, since the clock resets on every chunk. Set `"stallTimeout": 0` to wait indefinitely as before.
 * Improvement : **Stalled transfers are visible.** After 5 seconds without data, a Transfers row switches to a warning icon and reads `stalled · 42% of 300 MB`, and the status-bar counter reads `Transferring 2/4 files — stalled` instead of freezing on the last speed.
