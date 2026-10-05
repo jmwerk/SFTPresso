@@ -1,6 +1,10 @@
 jest.mock('fs');
 
-import TransferTask, { TransferDirection, isRetryable } from '../transferTask';
+import TransferTask, {
+  TransferDirection,
+  isRetryable,
+  STALL_DISPLAY_THRESHOLD,
+} from '../transferTask';
 import { FileType } from '../fs/fileSystem';
 
 // Drives a transfer by hand: `put` reports progress whenever the test says so
@@ -167,5 +171,31 @@ describe('stallTimeout', () => {
 
     finish();
     expect(await outcome).toBe('resolved');
+  });
+});
+
+describe('isStalled', () => {
+  test('flags a transfer whose bytes stopped, without failing it', async () => {
+    // stallTimeout 0: the UI still needs to show the stall even when nothing gives up
+    const { task, progress, finish } = createTask(0);
+
+    const run = task.run();
+    await settle();
+    // nothing has moved yet, so there is nothing to call stalled
+    expect(task.isStalled).toBe(false);
+
+    progress(1024);
+    expect(task.isStalled).toBe(false);
+
+    await jest.advanceTimersByTimeAsync(STALL_DISPLAY_THRESHOLD);
+    expect(task.isStalled).toBe(true);
+    // the last window's rate would otherwise freeze on screen
+    expect(task.bytesPerSecond).toBe(0);
+
+    progress(2048);
+    expect(task.isStalled).toBe(false);
+
+    finish();
+    await run;
   });
 });
