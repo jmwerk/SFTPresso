@@ -1,3 +1,7 @@
+## 1.36.1 - Unreleased
+
+* Fix : **The first sync to a `remotePath` that doesn't exist yet works again with `syncConfirm`.** The sync preview failed with `list /path failed: No such file` instead of showing every file as an upload. A missing destination folder is now compared as empty (the sync creates it); a missing source folder, or any other listing error, still stops the sync.
+
 ## 1.36.0 - 2026-10-06
 
 * New Feature : **Compare and sync by file contents with `"compareMode": "content"`.** Compare Folders, the sync preview, and all three Sync commands decided a file had changed from its size and modification time, so anything that touched a file without changing it — a `git checkout`, a build step, a server that doesn't keep timestamps — showed up as modified and was transferred again, and Sync Both Directions could copy an unchanged file back and forth. In content mode, files of different sizes are known to differ without reading anything, and same-size files are compared by SHA-256 whatever their timestamps say, which also catches an edit that kept the size and mtime. Over SFTP the remote side is hashed on the server with `sha256sum` or `shasum`, a directory's worth per command, so nothing is downloaded; servers without either, SFTP-only accounts, and FTP fall back to streaming the files. A sync reuses the hashes its preview just computed, local hashes are cached across runs, and a file that can't be read is reported as **Could not read** and stops the sync instead of being guessed at. The default stays `"mtime"`.
