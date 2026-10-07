@@ -16,6 +16,8 @@ function result(
     remoteFsPath: `/remote/${relativePath}`,
     localMtime,
     remoteMtime,
+    localSize: 1,
+    remoteSize: 1,
   };
 }
 

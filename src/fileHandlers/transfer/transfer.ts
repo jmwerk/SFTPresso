@@ -11,6 +11,7 @@ import { FileHandleOption } from '../option';
 import { flatten, createLimiter, Limiter } from '../../utils';
 import logger from '../../logger';
 import { getOpenTextDocuments } from '../../host';
+import { ContentHasher } from '../../core/contentHash';
 
 interface InternalTransferOption extends FileHandleOption, TransferTaskTransferOption {}
 
@@ -66,6 +67,9 @@ interface BaseTransferHandleConfig {
   // shared by the whole walk, same as `limiter`. Passed in by the caller so it
   // can read the accumulated list back once the walk finishes.
   skipped?: SkippedEntry[];
+  // Set for `compareMode: "content"`: a file on both sides is only transferred
+  // when its contents differ, not whenever size + mtime do.
+  hasher?: ContentHasher;
 }
 
 interface TransferHandleConfig<T> extends BaseTransferHandleConfig {
@@ -360,7 +364,9 @@ async function _sync(
   }
 
   const altDirection = getAltDirection(transferDirection);
-  const syncFiles = (srcFileEntries: FileEntry[], desFileEntries: FileEntry[]) => {
+  const fsFor = (direction: TransferDirection) =>
+    direction === transferDirection ? [srcFs, targetFs] : [targetFs, srcFs];
+  const syncFiles = async (srcFileEntries: FileEntry[], desFileEntries: FileEntry[]) => {
     const srcFileTable = toHash(srcFileEntries, 'id', fileEntry => ({
       ...fileEntry,
       id: fileEntry.name,
@@ -372,6 +378,26 @@ async function _sync(
     }));
 
     const file2trans: [string, string, TransferDirection, InternalTransferOption][] = [];
+    // files on both sides whose contents decide whether they are transferred
+    const file2verify: Array<{ from: FileEntry; to: FileEntry; direction: TransferDirection }> = [];
+    const queueOverwrite = (from: FileEntry, to: FileEntry, direction: TransferDirection) => {
+      if (exceedsMaxSize(from.size, transferOption.maxFileSize)) {
+        recordSkipped(config, from.fspath, from.size);
+        return;
+      }
+      file2trans.push([
+        from.fspath,
+        to.fspath,
+        direction,
+        {
+          ...transferOption,
+          mode: to.mode, // prefer target mode
+          mtime: from.mtime,
+          atime: from.atime,
+          size: from.size,
+        },
+      ]);
+    };
     const dir2trans: [string, string][] = [];
     const dir2sync: [string, string][] = [];
 
@@ -413,24 +439,25 @@ async function _sync(
               }
             }
 
+            // Comparing by content: same-size regular files are hashed below,
+            // whatever their mtimes say. Ignored files are left out first --
+            // transferFile would drop them anyway, and they may not even be
+            // readable.
+            if (
+              config.hasher &&
+              from.type === FileType.File &&
+              to.type === FileType.File &&
+              from.size === to.size
+            ) {
+              if (!(transferOption.ignore && transferOption.ignore(from.fspath))) {
+                file2verify.push({ from, to, direction });
+              }
+              break;
+            }
+
             // only transfer changed files
             if (isFileModified(from, to)) {
-              if (exceedsMaxSize(from.size, transferOption.maxFileSize)) {
-                recordSkipped(config, from.fspath, from.size);
-                return;
-              }
-              file2trans.push([
-                from.fspath,
-                to.fspath,
-                direction,
-                {
-                  ...transferOption,
-                  mode: to.mode, // prefer target mode
-                  mtime: from.mtime,
-                  atime: from.atime,
-                  size: from.size,
-                },
-              ]);
+              queueOverwrite(from, to, direction);
             }
             break;
           default:
@@ -525,10 +552,7 @@ async function _sync(
       });
     }
 
-    // awaited below with everything else, so a failed delete fails the sync
-    const removePromise = removeMissing(config, fileMissed, dirMissed);
-
-    const transFilePromise = file2trans.map(([src, target, direction, option]) =>
+    const transferOne = ([src, target, direction, option]: typeof file2trans[number]) =>
       transferFile(
         {
           ...config,
@@ -539,8 +563,41 @@ async function _sync(
         },
         FileType.File,
         collect
-      )
-    );
+      );
+
+    // Hashed alongside the subtree walk below rather than ahead of it. A file
+    // that cannot be hashed fails the sync for this directory, the same as one
+    // that cannot be listed: guessing either way could overwrite the newer
+    // copy or leave a stale one in place without a word.
+    const verifyContents = async () => {
+      const outcomes = await config.hasher!.contentDiffers(
+        file2verify.map(({ from, to, direction }) => {
+          const [fromFs, toFs] = fsFor(direction);
+          return [
+            { fs: fromFs, entry: from },
+            { fs: toFs, entry: to },
+          ];
+        })
+      );
+      const queuedBefore = file2trans.length;
+      outcomes.forEach((outcome, index) => {
+        const { from, to, direction } = file2verify[index];
+        if (outcome instanceof Error) {
+          throw describeFailure(outcome, 'hash', from.fspath);
+        }
+        if (outcome) {
+          queueOverwrite(from, to, direction);
+        }
+      });
+      await Promise.all(file2trans.slice(queuedBefore).map(transferOne));
+    };
+
+    // awaited below with everything else, so a failed delete fails the sync
+    const removePromise = removeMissing(config, fileMissed, dirMissed);
+
+    const transFilePromise = file2trans.map(transferOne);
+    const verifyPromise =
+      config.hasher && file2verify.length > 0 ? verifyContents() : undefined;
 
     const transDirPromise = dir2trans.map(([src, target]) =>
       transferFolder(
@@ -567,6 +624,7 @@ async function _sync(
 
     return Promise.all([
       removePromise,
+      verifyPromise,
       ...transFilePromise,
       ...transDirPromise,
       ...syncPromise,

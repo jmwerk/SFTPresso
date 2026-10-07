@@ -3,6 +3,7 @@ import { window, ProgressLocation } from 'vscode';
 import app from '../../app';
 import StatusBarItem from '../../ui/statusBarItem';
 import { FileEntry, TransferTask } from '../../core';
+import { ContentHasher, createContentHasher } from '../../core/contentHash';
 import logger from '../../logger';
 import { refreshRemoteExplorer } from '../shared';
 import createFileHandler, { FileHandlerContext } from '../createFileHandler';
@@ -226,14 +227,25 @@ const downloadFolderHandle = createTransferHandle(
   ctx => `SFTP: downloading ${path.basename(ctx.target.localFsPath)}`
 );
 
+// The preview's progress notification is gone once it is answered.
+function detachProgress(hasher: ContentHasher | undefined): void {
+  if (hasher) {
+    hasher.onProgress(undefined);
+  }
+}
+
 export const sync2Remote = createFileHandler<SyncOption>({
   name: 'sync local ➞ remote',
   async handle(option) {
     // Dry-run preview + confirmation (gated by syncConfirm). Cancelling here
     // leaves everything untouched.
-    if (!(await confirmSyncOrProceed(this, TransferDirection.LOCAL_TO_REMOTE, option))) {
+    // One hasher for the preview and the sync, so a content compare reads
+    // each file once. Undefined unless compareMode is "content".
+    const hasher = createContentHasher(this.config);
+    if (!(await confirmSyncOrProceed(this, TransferDirection.LOCAL_TO_REMOTE, option, hasher))) {
       return;
     }
+    detachProgress(hasher);
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
@@ -262,6 +274,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
             walkConcurrency: this.config.concurrency,
             token: { isCancelled: () => scheduler.isStopped() },
             skipped,
+            hasher,
           },
           t => {
             trackTask(t);
@@ -303,9 +316,13 @@ export const sync2Local = createFileHandler<SyncOption>({
   async handle(option) {
     // Dry-run preview + confirmation (gated by syncConfirm). Cancelling here
     // leaves everything untouched.
-    if (!(await confirmSyncOrProceed(this, TransferDirection.REMOTE_TO_LOCAL, option))) {
+    // One hasher for the preview and the sync, so a content compare reads
+    // each file once. Undefined unless compareMode is "content".
+    const hasher = createContentHasher(this.config);
+    if (!(await confirmSyncOrProceed(this, TransferDirection.REMOTE_TO_LOCAL, option, hasher))) {
       return;
     }
+    detachProgress(hasher);
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
     const localFs = this.fileService.getLocalFileSystem();
     const { localFsPath, remoteFsPath } = this.target;
@@ -338,6 +355,7 @@ export const sync2Local = createFileHandler<SyncOption>({
               walkConcurrency: this.config.concurrency,
               token: { isCancelled: () => scheduler.isStopped() },
               skipped,
+              hasher,
             },
             t => {
               trackTask(t);
