@@ -13,7 +13,7 @@
   const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
   const MOD = isMac ? '⌘' : 'Ctrl';
-  const VERSION = '1.35.0';
+  const VERSION = '1.36.0';
 
   // ------------------------------------------------------------------ files
   const FILES = {
@@ -52,6 +52,7 @@
     autoDelete: ['boolean', 'Delete on the remote when a watched file is removed locally.'],
     autoRename: ['boolean', 'Turn a rename or move made in VS Code\'s Explorer into a single server-side <code>rename()</code> instead of delete-and-re-upload. Default <code>false</code>.'],
     syncOption: ['object', 'Tunes the Sync commands: <code>delete</code> extraneous files, <code>skipCreate</code>, <code>ignoreExisting</code>, and <code>update</code> (only overwrite when the source is newer). All off by default.'],
+    compareMode: ['"mtime" | "content"', 'How Compare Folders, the sync preview, and Sync decide a file changed. <code>"content"</code> compares SHA-256 of the contents — hashed on the server over SSH when it can, so nothing is downloaded — and leaves files whose only difference is a timestamp alone. Default <code>"mtime"</code>.'],
     syncConfirm: ['boolean', 'Show a dry-run preview — uploads, overwrites, deletions — and ask before a sync runs. Defaults to <code>true</code> whenever <code>syncOption.delete</code> is enabled.'],
     strictHostKeyChecking: ['true | false | "ask" | "accept-new"', 'How SSH host keys are checked, mirroring OpenSSH. Default <code>"accept-new"</code>: unknown hosts are remembered silently, a changed key is refused.'],
     transferMode: ['"auto" | "parallel" | "stream"', 'How a file\'s bytes move on SFTP. <code>"auto"</code> chunks files over ~256 KB into concurrent requests so latency stops bounding throughput. Default <code>"auto"</code>.'],
@@ -1544,7 +1545,7 @@
     { id: 'sftpresso.demo.hostKeyChanged', label: 'Demo: Changed Host Key', desc: 'The server offers a different key', run: demoHostKeyChanged },
     { id: 'sftp.sync.localToRemote', label: 'SFTP: Sync Local → Remote', desc: 'Copy files that differ by timestamp', run: syncPreview },
     { id: 'sftp.diff.activeFile', label: 'SFTP: Diff Active File with Remote', desc: "Open VS Code's diff view", run: () => notify('In VS Code this opens the built-in diff editor: your local file on the left, the remote copy on the right.', { timeout: 5000 }) },
-    { id: 'sftp.compareFolders', label: 'SFTP: Compare Folders with Remote', desc: 'Recursive local/remote diff', run: () => openFile('features.md', { anchor: 'feat-explore' }) },
+    { id: 'sftp.compareFolders', label: 'SFTP: Compare Folders with Remote', desc: 'Recursive local/remote diff, by timestamp or content', run: () => openFile('features.md', { anchor: 'feat-explore' }) },
     { id: 'sftp.remoteExplorer.filter', label: 'SFTP: Filter Remote Explorer', desc: 'Live substring search across the remote tree', run: () => { showView('sftp', { force: true }); openQuickInput('filter:'); } },
     { id: 'sftp.remoteExplorer.clearFilter', label: 'SFTP: Clear Filter', desc: 'Restore the full remote listing', run: () => applyRemoteFilter('') },
     { id: 'sftp.remoteExplorer.refresh', label: 'SFTP: Refresh Remote Explorer', desc: '', run: () => { showView('sftp', { force: true }); logOutput('debug', 'remote explorer refreshed (acme.example.com)'); } },
