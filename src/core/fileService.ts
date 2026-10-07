@@ -58,6 +58,9 @@ interface ServiceOption {
   maxFileSize?: number;
   // 'auto' (default), 'parallel', or 'stream' -- see schema/definitions.json.
   transferMode?: 'auto' | 'parallel' | 'stream';
+  // how Compare Folders and Sync decide a file differs -- see
+  // schema/definitions.json. Unset means 'mtime'.
+  compareMode?: 'mtime' | 'content';
   remoteExplorer: {
     filesExclude?: string[];
     order: number;

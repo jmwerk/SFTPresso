@@ -240,6 +240,8 @@ async function compareFoldersSequentially(
           remoteFsPath: remoteEntry.fspath,
           localMtime: localEntry.mtime,
           remoteMtime: remoteEntry.mtime,
+          localSize: localEntry.size,
+          remoteSize: remoteEntry.size,
         });
       } else if (localEntry) {
         results.push({
@@ -251,6 +253,8 @@ async function compareFoldersSequentially(
           remoteFsPath: remoteFs.pathResolver.join(remoteDir, name),
           localMtime: localEntry.mtime,
           remoteMtime: 0,
+          localSize: localEntry.size,
+          remoteSize: 0,
         });
       } else if (remoteEntry) {
         results.push({
@@ -262,6 +266,8 @@ async function compareFoldersSequentially(
           remoteFsPath: remoteEntry.fspath,
           localMtime: 0,
           remoteMtime: remoteEntry.mtime,
+          localSize: 0,
+          remoteSize: remoteEntry.size,
         });
       }
     }

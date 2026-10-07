@@ -14,6 +14,11 @@ export interface ExecOptions {
   // ms before the command is killed and the promise resolves with
   // timedOut: true. 0 or undefined waits indefinitely.
   timeout?: number;
+  // Send EOF on the command's stdin as soon as the channel opens. For commands
+  // that never read input; it also makes an account restricted to
+  // `ForceCommand internal-sftp` exit at once instead of waiting on stdin
+  // until the timeout.
+  closeStdin?: boolean;
   onStdout?(chunk: Buffer): void;
   onStderr?(chunk: Buffer): void;
 }
@@ -112,6 +117,10 @@ export function execCommand(
           options.onStderr(chunk);
         }
       });
+
+      if (options.closeStdin) {
+        stream.end();
+      }
     });
   });
 }

@@ -1,6 +1,8 @@
-import { window } from 'vscode';
+import { window, ProgressLocation } from 'vscode';
 import { TransferDirection } from '../core';
+import { ContentHasher } from '../core/contentHash';
 import { compareFolders, CompareResult } from './compareFolders';
+import { describeHashProgress } from './hashProgress';
 import { FileHandlerContext } from './createFileHandler';
 
 // The subset of a sync's transferOption that affects what a sync would do.
@@ -16,10 +18,14 @@ export interface SyncPlan {
   create: string[];
   overwrite: string[];
   delete: string[];
-  // directories the compare could not read. They are never classified as
-  // anything else -- in particular never as a deletion -- but the user is told
-  // the preview is incomplete, because the real sync will fail on them.
+  // directories (or, comparing by content, files) the compare could not read.
+  // They are never classified as anything else -- in particular never as a
+  // deletion -- but the user is told the preview is incomplete, because the
+  // real sync will fail on them.
   unreadable: string[];
+  // files a size + mtime check would have overwritten, skipped because their
+  // contents are identical
+  identical: number;
 }
 
 const MAX_DETAIL_LINES = 40;
@@ -33,7 +39,13 @@ export function computeSyncPlan(
   direction: TransferDirection,
   option: SyncPreviewOption
 ): SyncPlan {
-  const plan: SyncPlan = { create: [], overwrite: [], delete: [], unreadable: [] };
+  const plan: SyncPlan = {
+    create: [],
+    overwrite: [],
+    delete: [],
+    unreadable: [],
+    identical: results.filter(r => r.timestampOnly).length,
+  };
 
   if (option.bothDiretions) {
     // Both-directions keeps the newest copy on each side and never deletes;
@@ -80,6 +92,11 @@ function pluralize(count: number, noun: string): string {
 
 function buildDetail(plan: SyncPlan, createLabel: string): string {
   const lines: string[] = [];
+  if (plan.identical > 0) {
+    lines.push(
+      `= ${pluralize(plan.identical, 'file')} with different timestamps but identical contents, skipped`
+    );
+  }
   // first, so an incomplete preview is the first thing read
   plan.unreadable.forEach(p => lines.push(`! could not read: ${p}`));
   plan.create.forEach(p => lines.push(`+ ${createLabel}: ${p}`));
@@ -101,7 +118,9 @@ function buildDetail(plan: SyncPlan, createLabel: string): string {
 export async function confirmSyncOrProceed(
   ctx: FileHandlerContext,
   direction: TransferDirection,
-  option: SyncPreviewOption
+  option: SyncPreviewOption,
+  // the sync's own hasher when comparing by content, so it reuses these hashes
+  hasher?: ContentHasher
 ): Promise<boolean> {
   const deleteEnabled = !!option.delete && !option.bothDiretions;
 
@@ -113,7 +132,28 @@ export async function confirmSyncOrProceed(
     return true;
   }
 
-  const results = await compareFolders(ctx);
+  let cancelled = false;
+  const results = await window.withProgress(
+    {
+      location: ProgressLocation.Notification,
+      title: 'SFTP: preparing sync preview',
+      cancellable: true,
+    },
+    (progress, token) => {
+      const isCancelled = () => {
+        cancelled = cancelled || token.isCancellationRequested;
+        return cancelled;
+      };
+      if (hasher) {
+        token.onCancellationRequested(() => hasher.cancel());
+        hasher.onProgress(stats => progress.report({ message: describeHashProgress(stats) }));
+      }
+      return compareFolders(ctx, { isCancelled }, { hasher });
+    }
+  );
+  if (cancelled) {
+    return false;
+  }
   const plan = computeSyncPlan(results, direction, option);
   const total = plan.create.length + plan.overwrite.length + plan.delete.length;
 
@@ -151,7 +191,7 @@ export async function confirmSyncOrProceed(
     // on these directories rather than acting on the gap.
     summary =
       `Sync ${dirLabel}: ${plan.unreadable.length}` +
-      ` ${plan.unreadable.length === 1 ? 'directory' : 'directories'} could not be read,` +
+      ` ${plan.unreadable.length === 1 ? 'entry' : 'entries'} could not be read,` +
       ` so this preview is incomplete. Of what could be read: ${parts.join(', ')}. Proceed?`;
   }
   const detail = buildDetail(plan, createLabel);

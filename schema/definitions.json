@@ -111,6 +111,16 @@
         "type": "boolean",
         "description": "Show a dry-run preview (uploads / overwrites / deletions) and ask for confirmation before a Sync command runs. Defaults to true when syncOption.delete is enabled, false otherwise."
       },
+      "compareMode": {
+        "type": "string",
+        "enum": ["mtime", "content"],
+        "enumDescriptions": [
+          "A file differs when its size or modification time (to the second) differs. Fast: only directory listings are read.",
+          "A file differs when its contents differ. Same-size files are compared by SHA-256, hashed on the server over SSH when it has sha256sum or shasum and downloaded otherwise. Files whose only difference is their timestamp are left alone."
+        ],
+        "description": "How Compare Folders, the sync preview and the Sync commands decide that a file on both sides differs.",
+        "default": "mtime"
+      },
       "conflictCheck": {
         "type": "boolean",
         "description": "Before uploading a file, check whether the remote copy changed since you last downloaded or uploaded it, and prompt (Overwrite / Open Diff / Cancel) if it did. Applies to single-file uploads, including uploadOnSave.",

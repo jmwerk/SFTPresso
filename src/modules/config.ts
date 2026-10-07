@@ -105,6 +105,7 @@ const configScheme = Joi.object({
     update: Joi.boolean(),
   },
   syncConfirm: Joi.boolean(),
+  compareMode: Joi.any().valid('mtime', 'content'),
   conflictCheck: Joi.boolean(),
   remoteTimeOffsetInHours: Joi.number(),
 

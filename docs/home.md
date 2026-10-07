@@ -86,6 +86,7 @@ Most of the time that's deploying while editing locally — same editor, same sh
 | Status-bar progress | Status bar during bulk transfers | "Transferring X/Y files" counter plus combined transfer speed; click to open the Transfers view |
 | Diff local ↔ remote | `SFTP: Diff with Remote` | Opens VS Code's diff view against the remote copy |
 | Compare Folders | `SFTP: Compare Folders with Remote` | Recursive local/remote diff with per-file actions — see [Comparing folders](#comparing-folders-with-the-remote) |
+| Compare by content | [`compareMode`](#comparemode) | Compare Folders and Sync go by SHA-256 of the contents instead of timestamps, so a touched-but-unchanged file is never re-transferred |
 | Test Connection | `SFTP: Test Connection` / CodeLens on `sftp.json` | Verifies the active profile can connect |
 | Connection status | Status bar (when enabled) | An icon reflects the live remote connection state — idle, connecting/reconnecting, connected, lost, or error; click it to run `SFTP: Test Connection` |
 | Guided config setup | `SFTP: Config` → **Quick setup** | Step-by-step wizard that generates `sftp.json` and tests the connection — see [First-time setup](#first-time-setup) |
@@ -251,13 +252,13 @@ Uploads overwrite the remote copy unconditionally. Enable [`conflictCheck`](#con
 
 ### Sync commands
 
-Sync compares timestamps and transfers only what differs; behavior is tuned with [`syncOption`](#syncoption). Enable [`syncConfirm`](#syncconfirm) to preview and confirm exactly what a sync will upload, overwrite, and delete before it runs.
+Sync compares timestamps and transfers only what differs; behavior is tuned with [`syncOption`](#syncoption). Set [`compareMode`](#comparemode) to `"content"` to compare file contents instead, so files whose only difference is a timestamp are left alone. Enable [`syncConfirm`](#syncconfirm) to preview and confirm exactly what a sync will upload, overwrite, and delete before it runs.
 
 | Command | ID | Description |
 | --- | --- | --- |
-| `SFTP: Sync Local → Remote` | `sftp.sync.localToRemote` | Copies files that differ by timestamp, plus files that exist only locally. |
+| `SFTP: Sync Local → Remote` | `sftp.sync.localToRemote` | Copies files that differ (by timestamp, or by content with [`compareMode`](#comparemode)), plus files that exist only locally. |
 | `SFTP: Sync Remote → Local` | `sftp.sync.remoteToLocal` | Same, in the opposite direction. |
-| `SFTP: Sync Both Directions` | `sftp.sync.bothDirections` | Compares modification times and always keeps the **newest** version on both sides. Only `syncOption.skipCreate` and `syncOption.ignoreExisting` apply to this command. |
+| `SFTP: Sync Both Directions` | `sftp.sync.bothDirections` | Compares modification times and always keeps the **newest** version on both sides. With [`compareMode`](#comparemode) `"content"`, files with identical contents are skipped whatever their timestamps. Only `syncOption.skipCreate` and `syncOption.ignoreExisting` apply to this command. |
 
 > If local and remote clocks disagree (server in another timezone, clock drift), set [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) so timestamp comparison stays accurate.
 
@@ -504,11 +505,33 @@ Get a dry-run preview before a [Sync command](#sync-commands) actually runs — 
 
 Default's conservative on purpose — a sync that can delete things asks first, one that can't doesn't bother you. Set it explicitly if you want the opposite either way.
 
-One caveat: if a directory can't be read while building the preview, it shows up as `! could not read:` and the summary says so up front — the rest of the preview is only as complete as what it could actually see.
+One caveat: if a directory can't be read while building the preview (or, with [`compareMode`](#comparemode) `"content"`, a file), it shows up as `! could not read:` and the summary says so up front — the rest of the preview is only as complete as what it could actually see. Comparing by content, the preview also lists how many files it skipped because only their timestamps differ, and the sync that follows reuses the preview's hashes instead of reading every file again.
 
 ```json
 {
   "syncConfirm": true
+}
+```
+
+#### compareMode
+How [Compare Folders](#comparing-folders-with-the-remote), the [`syncConfirm`](#syncconfirm) preview, and the [Sync commands](#sync-commands) decide that a file present on both sides has changed.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `compareMode` | `"mtime"` \| `"content"` | `"mtime"` |
+
+- **`"mtime"`** — a file differs when its size or modification time (to the second) differs. Only directory listings are read, so it's fast, but anything that touches a file without changing it — `git checkout`, a build step, a server that doesn't preserve timestamps — makes it look modified.
+- **`"content"`** — a file differs when its *contents* differ. Files of different sizes are known to differ without reading anything; same-size files are compared by SHA-256, whatever their timestamps say (so it also catches a change that kept the size and mtime).
+
+Over SFTP, remote files are hashed **on the server** with `sha256sum` (or `shasum -a 256`), a directory's worth per command, so nothing is downloaded. If the server has neither, refuses command execution (an SFTP-only or `internal-sftp` account), or is too slow, the extension quietly falls back to streaming the files to hash them locally — correct, but it costs as much as downloading them. Over FTP it always streams. Local hashes are cached between runs, keyed on path, size, and modification time.
+
+A file that can't be read is reported as **Could not read** rather than guessed at, and a Sync stops on it instead of overwriting either copy.
+
+Don't want to switch modes? Compare Folders offers **Check Contents** on its results to clear out timestamp-only differences once.
+
+```json
+{
+  "compareMode": "content"
 }
 ```
 
@@ -1374,6 +1397,11 @@ During bulk operations (folder upload/download, sync, project transfers):
 
 Right-click any folder (or run **`SFTP: Compare Folders with Remote`**) to get a recursive diff against its remote counterpart. Results are grouped into **new-local**, **new-remote**, and **modified** files; picking a file offers per-file actions to open a diff, upload, or download. Use it before a sync to preview exactly what would change.
 
+Two actions sit at the top of the list when they apply:
+
+- **Open All Diffs** opens every modified file side by side with its remote copy, one pinned tab each (it asks first above ten).
+- **Check Contents** hashes the modified files whose sizes match and drops the ones whose only difference is a timestamp. It's there when comparing by timestamp; with [`compareMode`](#comparemode) `"content"` the list is already content-accurate, and the summary says how many files differed only in timestamp.
+
 A directory that couldn't be listed on either side is reported as **Could not read** rather than being folded into the diff, and its subtree is left out entirely — nothing is known about what is inside it, so it offers no transfer actions. If the folder you are comparing can't be read at all, the command reports the error instead of showing an empty comparison.
 
 ---
@@ -1388,7 +1416,7 @@ A few habits that'll save you a bad afternoon:
 - On a live site, turn on [`useTempFile`](#usetempfile) (and `openSsh` if the server supports it) so nobody ever loads a half-written file mid-deploy.
 - Don't run [`uploadOnSave`](#uploadonsave) and a broad `watcher` (`"**/*"` + `autoUpload`) at the same time — that's just double uploads for no reason, pick one.
 - `syncOption.delete` and `watcher.autoDelete` actually remove things on the other end, so keep [`syncConfirm`](#syncconfirm) on (it already defaults on whenever `delete` is) and run [Compare Folders](#comparing-folders-with-the-remote) first if you're not sure what a sync is about to do.
-- If the server's clock is off, set [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) — otherwise timestamp-based sync can end up copying in the wrong direction.
+- If the server's clock is off, set [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) — otherwise timestamp-based sync can end up copying in the wrong direction. If timestamps are hopeless (checkouts, build steps, servers that don't keep them), switch to [`compareMode`](#comparemode) `"content"`.
 - Shared hosts often choke on too many simultaneous SFTP operations; dropping `concurrency` to 1–3 trades some speed for not getting rate-limited.
 - After touching `sftp.json`, just run `SFTP: Test Connection` — cheaper than finding the typo mid-upload.
 - Profiles beat juggling several config files for dev/staging/prod, and don't forget the `… To All Profiles` commands exist for the day a release needs to land everywhere at once.
