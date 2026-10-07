@@ -205,9 +205,9 @@
             <button class="pane-header" aria-expanded="false"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="pane-title">Timeline</span></button>
             <div class="pane-body">
               <ul class="tree timeline">
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.35.0</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(transfers): Transfers view, status bar, and stall handling</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.34.2</span><span class="tree-desc">4d</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.36.0</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(compare): compare and sync by file contents</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.35.0</span><span class="tree-desc">1d</span></li>
               </ul>
             </div>
           </div>
@@ -273,7 +273,7 @@
                 <button class="ext-card" data-file="extension">
                   <img src="assets/icon.png" alt="" width="42" height="42">
                   <span class="ext-card-body">
-                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.35.0</span></span>
+                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.36.0</span></span>
                     <span class="ext-card-desc">Sync files over SFTP, FTP/FTPS, or SSH from VS Code</span>
                     <span class="ext-card-footer"><span class="ext-card-publisher">jmwerk</span><span class="btn btn-primary btn-xs">Install</span></span>
                   </span>
@@ -425,7 +425,7 @@
       <button class="status-item hide-narrow">UTF-8</button>
       <button class="status-item hide-narrow">LF</button>
       <button class="status-item" id="status-language">Markdown</button>
-      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.35.0</span></button>
+      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.36.0</span></button>
       <button class="status-item" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       <button class="status-item" id="status-bell" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
     </div>
@@ -468,7 +468,7 @@
         </div>
         <p class="hero-alt">Also on <a href="https://open-vsx.org/extension/jmwerk/sftpresso" target="_blank" rel="noopener">Open VSX</a> for VSCodium and other VS Code–based editors. Source on <a href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener">GitHub</a>.</p>
         <div class="hero-badges">
-          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.35.0</span></span>
+          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.36.0</span></span>
           <span class="badge"><span class="badge-k">license</span><span class="badge-v badge-blue">MIT</span></span>
           <span class="badge"><span class="badge-k">vscode</span><span class="badge-v">^1.138</span></span>
         </div>
@@ -536,7 +536,7 @@
     <div class="feature-grid">
       <div class="feature"><svg class="icon"><use href="#i-cloud-upload"/></svg><h3>Upload on save</h3><p>Mirror every save to the server. Flip it with <strong>SFTP: Toggle Upload on Save</strong> — no JSON editing — and watch the status bar indicator.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-eye"/></svg><h3>File watcher</h3><p>React to changes made <em>outside</em> VS Code — build output, <code>git checkout</code>, other tools — with <code>autoUpload</code>, <code>autoDelete</code>, and <code>autoRename</code>.</p></div>
-      <div class="feature"><svg class="icon"><use href="#i-sync"/></svg><h3>Sync either or both ways</h3><p>Timestamp-based sync with real control over deletes, creates, and overwrites. <code>syncConfirm</code> shows a dry-run preview before anything runs.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-sync"/></svg><h3>Sync either or both ways</h3><p>Sync by timestamp or, with <code>"compareMode": "content"</code>, by what's actually in the files — with real control over deletes, creates, and overwrites. <code>syncConfirm</code> shows a dry-run preview before anything runs.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-zap"/></svg><h3>Parallel-chunk transfers</h3><p>Files over ~256 KB move as concurrent chunked requests on SFTP, so a high-latency link is no longer bounded by round-trip time.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-upload-here"/></svg><h3>Upload from anywhere</h3><p>Drag files in from Finder or Explorer onto a Remote Explorer folder, or right-click → <strong>Upload File Here</strong>. No workspace mapping needed.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-swap"/></svg><h3>Server-side rename &amp; move</h3><p>A single remote <code>rename()</code> regardless of size — from the context menu, by dragging in the tree, or automatically via <code>watcher.autoRename</code>.</p></div>
@@ -546,7 +546,7 @@
     <div class="feature-grid">
       <div class="feature"><svg class="icon"><use href="#i-server"/></svg><h3>Remote Explorer</h3><p>Browse, create, delete, multi-select download and upload. Hide noise with <code>filesExclude</code>, open files read-only or <strong>Edit in Local</strong>.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-filter"/></svg><h3>Live filter</h3><p><strong>SFTP: Filter Remote Explorer</strong> narrows the whole remote tree as you type — including folders you haven't expanded yet.</p></div>
-      <div class="feature"><svg class="icon"><use href="#i-diff"/></svg><h3>Diff &amp; Compare Folders</h3><p>Open VS Code's diff view against the remote copy, or recursively compare a folder and act on each new, missing, or modified file.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-diff"/></svg><h3>Diff &amp; Compare Folders</h3><p>Open VS Code's diff view against the remote copy, or recursively compare a folder and act on each new, missing, or modified file — or open every diff at once. Compare by content and a touched-but-unchanged file never shows up.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-loading"/></svg><h3>Transfers view</h3><p>Byte-level per-file progress, live speed and ETA, per-file cancel and retry. Cancelling stops the directory scan too, not just the queue.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-warning"/></svg><h3>Conflict check</h3><p>Before an upload overwrites a remote file someone else changed, get a modal with both timestamps and an <strong>Open Diff</strong> button.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-terminal"/></svg><h3>Run Remote Command</h3><p>Run a shell command over the existing SSH connection — no re-authentication. Save the usual ones under <code>remoteCommands</code> as a quick pick.</p></div>
@@ -670,7 +670,7 @@
         <tr><td><code>SFTP: Sync Local → Remote</code> / <code>Remote → Local</code></td><td>Copy files that differ by timestamp, plus files that exist only on the source side.</td></tr>
         <tr><td><code>SFTP: Sync Both Directions</code></td><td>Keep the newest version on both sides.</td></tr>
         <tr><td><code>SFTP: Diff Active File with Remote</code></td><td>Open VS Code's diff view against the remote counterpart.</td></tr>
-        <tr><td><code>SFTP: Compare Folders with Remote</code></td><td>Recursive diff listing new-local, new-remote, and modified files with per-file actions.</td></tr>
+        <tr><td><code>SFTP: Compare Folders with Remote</code></td><td>Recursive diff listing new-local, new-remote, and modified files with per-file actions, <strong>Open All Diffs</strong>, and <strong>Check Contents</strong> to drop timestamp-only differences.</td></tr>
       </tbody>
     </table>
 
@@ -831,6 +831,11 @@
     <h1>Changelog</h1>
     <p class="lede">Recent highlights. The <a href="https://github.com/jmwerk/SFTPresso/blob/develop/CHANGELOG.md" target="_blank" rel="noopener">full changelog</a> goes back to the very first release, and each tag is published to the Marketplace and Open VSX automatically.</p>
 
+    <div class="release"><h2>1.36.0 <small>2026-10-06</small></h2>
+      <ul>
+        <li><span class="tag tag-feat">Feature</span> <code>"compareMode": "content"</code> makes Compare Folders, the sync preview, and every Sync command compare files by SHA-256 instead of timestamps, so a <code>git checkout</code> or build step that touches a file without changing it no longer re-transfers it. Over SFTP the remote side is hashed on the server, so nothing is downloaded.</li>
+        <li><span class="tag tag-feat">Feature</span> Compare Folders can <strong>Open All Diffs</strong> at once, and <strong>Check Contents</strong> clears timestamp-only differences without changing your config.</li>
+      </ul></div>
     <div class="release"><h2>1.35.0 <small>2026-10-05</small></h2>
       <ul>
         <li><span class="tag tag-feat">Feature</span> A dropped connection no longer hangs a transfer forever: rows show <em>stalled</em> after 5 seconds without data, and <code>stallTimeout</code> now defaults to 30 seconds so the transfer fails and retries. Set it to <code>0</code> to wait indefinitely.</li>
@@ -942,6 +947,7 @@ SOFTWARE.</div>
 
   "syncOption": { "delete": true, "update": true },
   "syncConfirm": true,                   // dry-run preview before a sync runs
+  "compareMode": "content",              // compare by SHA-256, not timestamps
 
   "strictHostKeyChecking": "accept-new", // true | false | "ask" | "accept-new"
   "transferMode": "auto",                // "auto" | "parallel" | "stream"
@@ -986,7 +992,7 @@ SOFTWARE.</div>
         <div class="ext-meta">
           <a href="https://marketplace.visualstudio.com/publishers/jmwerk" target="_blank" rel="noopener">jmwerk</a>
           <span class="ext-meta-sep">|</span>
-          <span title="Version">v1.35.0</span>
+          <span title="Version">v1.36.0</span>
           <span class="ext-meta-sep">|</span>
           <span>MIT</span>
           <span class="ext-meta-sep">|</span>
@@ -1036,7 +1042,7 @@ SOFTWARE.</div>
         <h3>Tags</h3>
         <p class="chips"><span class="chip">sftp</span><span class="chip">ftp</span><span class="chip">ftps</span><span class="chip">ssh</span><span class="chip">sync</span><span class="chip">deploy</span><span class="chip">upload</span><span class="chip">remote explorer</span></p>
         <h3>More info</h3>
-        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.35.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
+        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.36.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
       </aside>
     </div>
   </article>
