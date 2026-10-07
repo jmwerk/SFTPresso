@@ -1,4 +1,4 @@
-## 1.36.1 - Unreleased
+## 1.36.1 - 2026-10-07
 
 * Fix : **The first sync to a `remotePath` that doesn't exist yet works again with `syncConfirm`.** The sync preview failed with `list /path failed: No such file` instead of showing every file as an upload. A missing destination folder is now compared as empty (the sync creates it); a missing source folder, or any other listing error, still stops the sync.
 
