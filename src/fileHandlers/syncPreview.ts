@@ -148,7 +148,12 @@ export async function confirmSyncOrProceed(
         token.onCancellationRequested(() => hasher.cancel());
         hasher.onProgress(stats => progress.report({ message: describeHashProgress(stats) }));
       }
-      return compareFolders(ctx, { isCancelled }, { hasher });
+      // the sync creates its destination root, so a missing one is not an error
+      const missingRoot =
+        direction === TransferDirection.REMOTE_TO_LOCAL && !option.bothDiretions
+          ? 'local'
+          : 'remote';
+      return compareFolders(ctx, { isCancelled }, { hasher, missingRoot });
     }
   );
   if (cancelled) {

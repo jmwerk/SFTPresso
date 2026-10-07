@@ -14,6 +14,19 @@ function errorMessage(error: any): string {
   return error && error.message ? error.message : String(error);
 }
 
+// ENOENT from the local fs; status 2 (NO_SUCH_FILE) from ssh2's SFTP client
+function isNotFound(error: any): boolean {
+  return !!error && (error.code === 'ENOENT' || error.code === 2);
+}
+
+function emptyIfNotFound(
+  listing: PromiseSettledResult<FileEntry[]>
+): PromiseSettledResult<FileEntry[]> {
+  return listing.status === 'rejected' && isNotFound(listing.reason)
+    ? { status: 'fulfilled', value: [] }
+    : listing;
+}
+
 // `error` marks a directory whose listing failed on at least one side, or a
 // file whose contents could not be read for a content compare. It is
 // deliberately its own status rather than an absent entry: a directory we could
@@ -48,6 +61,7 @@ interface WalkContext {
   ignore?: ((fsPath: string) => boolean) | null;
   // set when comparing by content (`compareMode: "content"`)
   hasher?: ContentHasher;
+  missingRoot?: 'local' | 'remote';
 }
 
 export interface CompareOption {
@@ -55,6 +69,11 @@ export interface CompareOption {
   // the config's compareMode; a sync passes the hasher it will reuse, so the
   // preview's hashes are not computed twice.
   hasher?: ContentHasher;
+  // The side whose top-level folder may not exist yet (a sync's destination, e.g. a first sync to a
+  // new remotePath); it is compared as empty instead of failing the compare. Only safe for a
+  // destination: that adds creates, and deletions come from destination-only entries, of which
+  // there are then none.
+  missingRoot?: 'local' | 'remote';
 }
 
 export interface CompareResult {
@@ -107,10 +126,15 @@ async function walk(
   // the other side as one-sided, and the sync preview built on top of it
   // presented that as a delete plan. A directory we could not read is reported
   // as such and its subtree is left alone.
-  const [local, remote] = await Promise.allSettled([
+  let [local, remote] = await Promise.allSettled([
     limiter(() => localFs.list(localDir)),
     limiter(() => remoteFs.list(remoteDir)),
   ]);
+  if (!relativeDir && ctx.missingRoot === 'local') {
+    local = emptyIfNotFound(local);
+  } else if (!relativeDir && ctx.missingRoot === 'remote') {
+    remote = emptyIfNotFound(remote);
+  }
 
   if (local.status === 'rejected' || remote.status === 'rejected') {
     const failures = [
@@ -340,6 +364,7 @@ export async function compareFolders(
       createContentHasher(ctx.config, {
         isCancelled: token ? () => token.isCancelled() : undefined,
       }),
+    missingRoot: option.missingRoot,
   };
   await walk(walkCtx, localFsPath, remoteFsPath, '', results);
   // `results` now arrives in completion order rather than depth-first order, so

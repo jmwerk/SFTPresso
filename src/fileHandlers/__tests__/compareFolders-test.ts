@@ -434,6 +434,94 @@ describe('compareFolders — a failed listing is not an empty directory', () => 
   });
 });
 
+describe('compareFolders — a sync destination root that does not exist yet', () => {
+  // what ssh2 rejects with for a missing directory
+  const noSuchFile = () => Object.assign(new Error('No such file'), { code: 2 });
+
+  function trees() {
+    const meter = new Meter();
+    const localFs = new FakeFs(meter, false)
+      .addDir('/local')
+      .addFile('/local/a.txt')
+      .addDir('/local/sub')
+      .addFile('/local/sub/b.txt');
+    const remoteFs = new FakeFs(meter, false).addDir('/remote').addDir('/remote/sub');
+    return { localFs, remoteFs };
+  }
+
+  function failList(fs: FakeFs, dir: string, error: () => Error) {
+    jest.spyOn(fs, 'list').mockImplementation(async (listed: string) => {
+      if (listed === dir) {
+        throw error();
+      }
+      return FakeFs.prototype.list.call(fs, listed);
+    });
+  }
+
+  test('is compared as empty, so everything is a create', async () => {
+    const { localFs, remoteFs } = trees();
+    failList(remoteFs, '/remote', noSuchFile);
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4), undefined, {
+      missingRoot: 'remote',
+    });
+
+    expect(results.map(r => [r.relativePath, r.status])).toEqual([
+      ['a.txt', 'localOnly'],
+      ['sub', 'localOnly'],
+    ]);
+  });
+
+  test('a missing local destination root is handled the same way', async () => {
+    const { localFs, remoteFs } = trees();
+    remoteFs.addFile('/remote/c.txt');
+    failList(localFs, '/local', () =>
+      Object.assign(new Error('ENOENT: no such file or directory'), { code: 'ENOENT' })
+    );
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4), undefined, {
+      missingRoot: 'local',
+    });
+
+    expect(results.map(r => [r.relativePath, r.status])).toEqual([
+      ['c.txt', 'remoteOnly'],
+      ['sub', 'remoteOnly'],
+    ]);
+  });
+
+  test('still fails when the missing root is not the destination', async () => {
+    const { localFs, remoteFs } = trees();
+    failList(remoteFs, '/remote', noSuchFile);
+
+    await expect(
+      compareFolders(contextFor(localFs, remoteFs, 4), undefined, { missingRoot: 'local' })
+    ).rejects.toThrow('list /remote failed: No such file');
+    await expect(compareFolders(contextFor(localFs, remoteFs, 4))).rejects.toThrow(
+      'list /remote failed: No such file'
+    );
+  });
+
+  test('any other failure at the destination root still fails the compare', async () => {
+    const { localFs, remoteFs } = trees();
+    failList(remoteFs, '/remote', () => new Error('Permission denied'));
+
+    await expect(
+      compareFolders(contextFor(localFs, remoteFs, 4), undefined, { missingRoot: 'remote' })
+    ).rejects.toThrow('list /remote failed: Permission denied');
+  });
+
+  test('a missing subdirectory is still reported as an error', async () => {
+    const { localFs, remoteFs } = trees();
+    failList(remoteFs, '/remote/sub', noSuchFile);
+
+    const results = await compareFolders(contextFor(localFs, remoteFs, 4), undefined, {
+      missingRoot: 'remote',
+    });
+
+    expect(results.find(r => r.relativePath === 'sub')!.status).toBe('error');
+  });
+});
+
 describe('compareFolders — cancellation', () => {
   test('an already cancelled token does no work at all', async () => {
     const { localFs, remoteFs } = buildTrees(new Meter(), { width: 4, depth: 3 });
