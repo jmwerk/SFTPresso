@@ -1162,6 +1162,8 @@ When a config defines profiles, the status bar item shows the active profile (e.
 
 The Remote Explorer shows it too: its first row shows the active profile with where it points dimmed after it, e.g. **staging** `203.0.113.10:2223` (the port appears when it isn't 22, so live and staging on one host look different). Click that row to switch, like Source Control's branch button; the picker lists each profile with its address too. Connections from configs without profiles show their own `host:port` after the name instead. Hover a connection's row for its profile, host and remote path.
 
+To add a profile without editing JSON, run **`SFTP: Config`** on a workspace that already has an `sftp.json` and pick **Add Profile**. The wizard starts from the base config's answers, so for a staging site on the same server you typically just change the port. It doesn't ask for a connection name (the profile keeps the site's name, and the Remote Explorer shows the profile next to it), and it writes only the settings that differ into `profiles.<name>`. Everything else is inherited, so a later change to the base config (a new `remotePath`, say) applies to the profile too.
+
 ```json
 {
   "username": "username",
