@@ -29,6 +29,7 @@ const configScheme = Joi.object({
   connectTimeout: Joi.number().integer(),
   username: Joi.string().required(),
   password: nullable(Joi.string()),
+  warnPlaintextPassword: Joi.boolean(),
 
   agent: nullable(Joi.string()),
   privateKeyPath: nullable(Joi.string()),
@@ -232,6 +233,9 @@ export function validateConfig(config) {
 
 const plaintextPasswordWarned = new Set<string>();
 
+const MIGRATE_PASSWORD_LABEL = 'Migrate Password';
+const DONT_SHOW_AGAIN_LABEL = "Don't Show Again";
+
 function hasPlaintextPassword(config): boolean {
   if (typeof config.password === 'string' && config.password.length > 0) {
     return true;
@@ -247,8 +251,12 @@ function hasPlaintextPassword(config): boolean {
   );
 }
 
+function shouldWarnPlaintextPassword(config): boolean {
+  return config.warnPlaintextPassword !== false && hasPlaintextPassword(config);
+}
+
 function warnPlaintextPassword(configPath: string, configs: any[]) {
-  if (plaintextPasswordWarned.has(configPath) || !configs.some(hasPlaintextPassword)) {
+  if (plaintextPasswordWarned.has(configPath) || !configs.some(shouldWarnPlaintextPassword)) {
     return;
   }
 
@@ -261,12 +269,30 @@ function warnPlaintextPassword(configPath: string, configs: any[]) {
 
   showWarningMessage(
     `A plaintext password was found in ${configPath}.`,
-    'Migrate Password'
+    MIGRATE_PASSWORD_LABEL,
+    DONT_SHOW_AGAIN_LABEL
   ).then(choice => {
-    if (choice === 'Migrate Password') {
-      executeCommand(COMMAND_MIGRATE_PASSWORD);
+    switch (choice) {
+      case MIGRATE_PASSWORD_LABEL:
+        executeCommand(COMMAND_MIGRATE_PASSWORD);
+        break;
+      case DONT_SHOW_AGAIN_LABEL:
+        silencePlaintextPasswordWarning(configPath, configs).catch(error =>
+          reportError(error, `Failed to update ${configPath}`)
+        );
+        break;
     }
   });
+}
+
+async function silencePlaintextPasswordWarning(configPath: string, configs: any[]) {
+  const indexes = configs
+    .map((config, index) => (shouldWarnPlaintextPassword(config) ? index : -1))
+    .filter(index => index >= 0);
+  // sequential: each edit re-reads the file the previous one wrote
+  for (const target of indexes) {
+    await writeConfigValue(configPath, 'warnPlaintextPassword', false, (_, index) => index === target);
+  }
 }
 
 function offsetToLineColumn(text: string, offset: number): { line: number; column: number } {
@@ -316,7 +342,7 @@ async function editConfigProperty(
   configPath: string,
   keyPath: JSONPath,
   value: any,
-  matchConfig?: (config: any) => boolean
+  matchConfig?: (config: any, index: number) => boolean
 ): Promise<void> {
   const text = await fse.readFile(configPath, 'utf8');
   const root = parseTree(text, [], { allowTrailingComma: true });
@@ -349,7 +375,7 @@ export function writeConfigValue(
   configPath: string,
   key: string,
   value: any,
-  matchConfig?: (config: any) => boolean
+  matchConfig?: (config: any, index: number) => boolean
 ): Promise<void> {
   return editConfigProperty(configPath, [key], value, matchConfig);
 }

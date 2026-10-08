@@ -186,7 +186,7 @@ Instead of writing `password` into `sftp.json` (which is plain text), you can ke
 - Already have a plaintext `password` in `sftp.json`? Run **`SFTP: Migrate Plaintext Password`** (or click **Migrate Password** on the warning) to move it into secret storage and strip the `password` key from the file in one step — comments and formatting are preserved, and you're asked to confirm first.
 - Run **`SFTP: Clear Password`** to delete a saved password (for example after it changed on the server).
 
-Saved passwords are keyed by `protocol://username@host:port` — so any config or profile pointing at the same server/user shares one, and it's only used when nothing else in the config already provides auth (`password`, `privateKeyPath`, `agent`, `interactiveAuth` all still work exactly as before). Still got a plaintext `password` sitting in `sftp.json`? You'll get a one-time reminder in the output channel with a Migrate Password button.
+Saved passwords are keyed by `protocol://username@host:port` — so any config or profile pointing at the same server/user shares one, and it's only used when nothing else in the config already provides auth (`password`, `privateKeyPath`, `agent`, `interactiveAuth` all still work exactly as before). Still got a plaintext `password` sitting in `sftp.json`? You'll get a reminder when the config loads, with a **Migrate Password** button. If you've secured the file another way, click **Don't Show Again** to add [`"warnPlaintextPassword": false`](#warnplaintextpassword) to that config.
 
 ### Host key verification
 
@@ -403,6 +403,13 @@ Password for password-based authentication. **Optional** — omit it to use a pa
 | Key | Type |
 | --- | --- |
 | `password` | string |
+
+#### warnPlaintextPassword
+Show a notification when the config has a plaintext [`password`](#password), at the top level or in a profile. Set it to `false` if you've secured `sftp.json` another way (for example, it's never committed); **Don't Show Again** on the notification writes it for you. The warning is still logged to the output channel.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `warnPlaintextPassword` | boolean | `true` |
 
 #### remotePath
 The absolute path on the remote host that maps to your local [`context`](#context). This is what `SFTP: Download Project` downloads.
