@@ -257,6 +257,11 @@
         "description": "Password for password-based user authentication.",
         "default": ""
       },
+      "warnPlaintextPassword": {
+        "type": "boolean",
+        "description": "Show a notification when this config has a plaintext password. Set to false to silence it for this config; the warning is still written to the output channel.",
+        "default": true
+      },
       "remotePath": {
         "type": "string",
         "description": "The absolute path on remote.",
