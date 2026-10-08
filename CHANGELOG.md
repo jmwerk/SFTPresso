@@ -1,4 +1,4 @@
-## 1.37.0 - Unreleased
+## 1.37.0 - 2026-10-07
 
 * Improvement : **The plaintext password warning can be turned off per config.** If `sftp.json` holds a `password`, the "plaintext password found" notification appeared every time the project opened, with no way to dismiss it for good. It now has a **Don't Show Again** button that adds `"warnPlaintextPassword": false` to that config (comments and formatting preserved), or you can set the option yourself. The warning is still written to the output channel. ([#117](https://github.com/jmwerk/SFTPresso/issues/117))
 
