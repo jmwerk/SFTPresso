@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'util';
+
 const DEEP_MERGE_KEYS = new Set(['watcher', 'syncOption', 'remoteExplorer']);
 
 type ProfileConfig = Record<string, any>;
@@ -27,4 +29,46 @@ export default function mergeProfile<T extends ProfileConfig>(target: T, source:
   });
 
   return result as T;
+}
+
+// The inverse of mergeProfile: strips from `profile` whatever the base config already
+// supplies, so a profile only records what is different and later base edits still reach it.
+export function omitInherited(profile: ProfileConfig, base: ProfileConfig): ProfileConfig {
+  const result: ProfileConfig = {};
+
+  Object.keys(profile).forEach(key => {
+    const value = profile[key];
+    const baseValue = base[key];
+    if (key === 'profiles' || isDeepStrictEqual(value, baseValue)) {
+      return;
+    }
+    if (key === 'ignore' && Array.isArray(value)) {
+      // merged by appending, so base patterns repeated here would only be duplicates
+      const baseIgnore: string[] = Array.isArray(baseValue) ? baseValue : [];
+      const extra = value.filter(pattern => !baseIgnore.includes(pattern));
+      if (extra.length > 0) {
+        result.ignore = extra;
+      }
+      return;
+    }
+    if (
+      DEEP_MERGE_KEYS.has(key) &&
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      baseValue &&
+      typeof baseValue === 'object'
+    ) {
+      const changed = Object.keys(value).filter(
+        subKey => !isDeepStrictEqual(value[subKey], baseValue[subKey])
+      );
+      if (changed.length > 0) {
+        result[key] = changed.reduce((acc, subKey) => ({ ...acc, [subKey]: value[subKey] }), {});
+      }
+      return;
+    }
+    result[key] = value;
+  });
+
+  return result;
 }

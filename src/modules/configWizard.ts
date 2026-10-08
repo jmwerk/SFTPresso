@@ -17,6 +17,7 @@ import {
   reconcileActiveProfile,
 } from './serviceManager';
 import { InputStep, MultiStepInput } from './multiStepInput';
+import { omitInherited } from '../core/mergeProfile';
 
 const AUTH_PASSWORD = 'Password';
 const AUTH_PRIVATE_KEY = 'Private Key';
@@ -86,6 +87,8 @@ interface WizardState {
   concurrency?: number;
   hopEnabled?: boolean;
   hop: HostAuthState;
+  // Add Profile: the profile name is asked up front and the site name is inherited
+  isProfile?: boolean;
 }
 
 // A single field-collecting step (host/port/username/auth) is shared between
@@ -157,7 +160,10 @@ function computeStepPlan(wizard: WizardState): string[] {
     }
   }
 
-  plan.push('name', 'review');
+  if (!wizard.isProfile) {
+    plan.push('name');
+  }
+  plan.push('review');
   return plan;
 }
 
@@ -430,7 +436,7 @@ function stepProtocol(wizard: WizardState): InputStep {
     ];
     const active = items.find(i => i.label === (wizard.protocol || defaults.protocol)) || items[0];
     const picked = await input.showQuickPick({
-      title: 'New SFTP/FTP Connection',
+      title: wizard.isProfile ? 'New Profile' : 'New SFTP/FTP Connection',
       step,
       totalSteps,
       items,
@@ -743,6 +749,9 @@ function afterHopAuthMethod(wizard: WizardState): InputStep {
 }
 
 function stepName(wizard: WizardState): InputStep {
+  if (wizard.isProfile) {
+    return stepReview(wizard);
+  }
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'name');
     const value = await input.showInputBox({
@@ -782,7 +791,10 @@ function stepReview(wizard: WizardState): InputStep {
     type ReviewItem = vscode.QuickPickItem & { jump?: () => InputStep };
 
     const items: ReviewItem[] = [
-      { label: '$(check) Looks good, create the connection', description: '' },
+      {
+        label: `$(check) Looks good, create the ${wizard.isProfile ? 'profile' : 'connection'}`,
+        description: '',
+      },
       {
         label: 'Connection',
         description: summarizeConnection(wizard.connection, wizard.protocol),
@@ -807,7 +819,9 @@ function stepReview(wizard: WizardState): InputStep {
         jump: () => stepHost(wizard, hopTarget(wizard), 'hopHost', () => afterHopHost(wizard)),
       });
     }
-    items.push({ label: 'Name', description: wizard.name, jump: () => stepName(wizard) });
+    if (!wizard.isProfile) {
+      items.push({ label: 'Name', description: wizard.name, jump: () => stepName(wizard) });
+    }
 
     const picked = await input.showQuickPick({
       title: 'Review',
@@ -846,6 +860,43 @@ function buildHostAuthConfig(auth: HostAuthState, basePath: string): any {
   return out;
 }
 
+function hostAuthStateFromConfig(config: any): HostAuthState {
+  let authMethod: string | undefined;
+  if (config.privateKeyPath) {
+    authMethod = AUTH_PRIVATE_KEY;
+  } else if (config.agent) {
+    authMethod = AUTH_AGENT;
+  } else if (config.host) {
+    authMethod = AUTH_PASSWORD;
+  }
+  return {
+    host: config.host,
+    port: config.port,
+    username: config.username,
+    authMethod,
+    privateKeyPath: config.privateKeyPath,
+    agent: config.agent,
+    // a literal passphrase in sftp.json is left alone: the profile inherits it
+    passphraseChoice: config.passphrase === true ? 'prompt' : undefined,
+  };
+}
+
+// Starts a new profile from the base config's answers, so only what differs needs typing.
+// Advanced options aren't prefilled: left at "No", the profile simply inherits them.
+function wizardStateFromBase(basePath: string, base: any): WizardState {
+  return {
+    basePath,
+    protocol: base.protocol,
+    connection: hostAuthStateFromConfig(base),
+    name: base.name,
+    remotePath: base.remotePath,
+    uploadOnSave: base.uploadOnSave,
+    strictHostKeyChecking: base.strictHostKeyChecking,
+    hop: {},
+    isProfile: true,
+  };
+}
+
 function buildConfigFromState(wizard: WizardState): any {
   const config: any = {
     name: wizard.name,
@@ -855,7 +906,8 @@ function buildConfigFromState(wizard: WizardState): any {
     uploadOnSave: wizard.uploadOnSave,
   };
 
-  if (wizard.protocol === 'sftp') {
+  // A profile left unset inherits the base config's policy instead of being made stricter.
+  if (wizard.protocol === 'sftp' && !(wizard.isProfile && wizard.strictHostKeyChecking === undefined)) {
     // Written explicitly rather than left to the default so a config created
     // today gets the stricter behaviour, and so the option is visible in the
     // file the user is about to read. "ask" rather than true: true refuses
@@ -1022,6 +1074,19 @@ export async function quickSetupConfig(basePath: string) {
   }
 }
 
+// What a new profile writes: only what differs from the base config. The wizard stores key
+// paths resolved, so a base "~/.ssh/id_rsa" pointing at the same file still counts as equal.
+function profileConfig(config: any, base: any, basePath: string): any {
+  const comparable = { ...config };
+  if (
+    base.privateKeyPath &&
+    comparable.privateKeyPath === path.resolve(basePath, replaceHomePath(base.privateKeyPath))
+  ) {
+    comparable.privateKeyPath = base.privateKeyPath;
+  }
+  return omitInherited(comparable, base);
+}
+
 export async function addProfileConfig(basePath: string) {
   try {
     const configPath = getConfigPath(basePath);
@@ -1047,7 +1112,7 @@ export async function addProfileConfig(basePath: string) {
     }
     const name = profileName.trim();
 
-    const wizard: WizardState = { basePath, connection: {}, hop: {} };
+    const wizard = wizardStateFromBase(basePath, rootConfig);
     let entry: InputStep = stepProtocol(wizard);
 
     for (;;) {
@@ -1065,8 +1130,9 @@ export async function addProfileConfig(basePath: string) {
       }
 
       // edits just the new profile's span, leaving the rest of the file --
-      // including any comments -- untouched
-      await setConfigValueAtPath(configPath, ['profiles', name], config);
+      // including any comments -- untouched. Only what differs from the base
+      // config is written; the rest is inherited.
+      await setConfigValueAtPath(configPath, ['profiles', name], profileConfig(config, rootConfig, basePath));
       const services = await reloadFileServices(basePath, configPath);
 
       for (const secret of collectPendingSecrets(wizard, config)) {
