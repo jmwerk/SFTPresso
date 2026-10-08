@@ -30,6 +30,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 - **Upload on save** — with a one-click **`SFTP: Toggle Upload on Save`** command and a status-bar indicator — and a **file watcher** for changes made outside the editor
 - **Server-side rename and move** — a single remote `rename()` call regardless of size, from the Remote Explorer context menu, by dragging within the Remote Explorer (`remoteExplorer.enableDragAndDrop`), or automatically via `watcher.autoRename`, instead of a full re-upload
 - **Add to Ignore** from the file-explorer right-click menu — appends a file or folder to `ignore` without hand-editing `sftp.json`
+- **Copy Remote Path** from the file-explorer, editor, or Remote Explorer context menus — puts the remote absolute path on the clipboard
 - **Conflict check** (`conflictCheck`) to catch uploads that would overwrite a remote changed by someone else
 - **Transfers view** with byte-level per-file progress, live speed/ETA, cancellation, and retry — cancelling stops the directory scan too, not just the queued files
 - **Test Connection** from a command or a CodeLens on `sftp.json`, plus a **connection-status indicator** in the status bar

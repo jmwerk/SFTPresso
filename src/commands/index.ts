@@ -24,6 +24,7 @@ import commandToggleOutputPanel from './commandToggleOutputPanel';
 import commandToggleUploadOnSave from './commandToggleUploadOnSave';
 import commandUploadChangedFiles from './commandUploadChangedFiles';
 import fileCommandCompareFolders from './fileCommandCompareFolders';
+import fileCommandCopyRemotePath from './fileCommandCopyRemotePath';
 import fileCommandCreateFile from './fileCommandCreateFile';
 import fileCommandCreateFolder from './fileCommandCreateFolder';
 import fileCommandDeleteRemote from './fileCommandDeleteRemote';
@@ -84,6 +85,7 @@ export default {
   commandToggleUploadOnSave,
   commandUploadChangedFiles,
   fileCommandCompareFolders,
+  fileCommandCopyRemotePath,
   fileCommandCreateFile,
   fileCommandCreateFolder,
   fileCommandDeleteRemote,
