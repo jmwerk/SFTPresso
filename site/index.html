@@ -205,9 +205,9 @@
             <button class="pane-header" aria-expanded="false"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="pane-title">Timeline</span></button>
             <div class="pane-body">
               <ul class="tree timeline">
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.37.0</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(config): allow silencing plaintext password warning</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.36.1</span><span class="tree-desc">12h</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.38.0</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">fix(status): count only active connections</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.37.0</span><span class="tree-desc">14h</span></li>
               </ul>
             </div>
           </div>
@@ -273,7 +273,7 @@
                 <button class="ext-card" data-file="extension">
                   <img src="assets/icon.png" alt="" width="42" height="42">
                   <span class="ext-card-body">
-                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.37.0</span></span>
+                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.38.0</span></span>
                     <span class="ext-card-desc">Sync files over SFTP, FTP/FTPS, or SSH from VS Code</span>
                     <span class="ext-card-footer"><span class="ext-card-publisher">jmwerk</span><span class="btn btn-primary btn-xs">Install</span></span>
                   </span>
@@ -307,8 +307,11 @@
             </div>
             <div class="pane-body">
               <ul class="tree remote-tree" role="tree" id="remote-tree">
+                <li class="tree-item profile-row" role="treeitem" title="Active profile: staging. Click to switch.">
+                  <div class="tree-row" style="--depth:0"><svg class="icon"><use href="#i-branch"/></svg><span class="tree-label">staging</span><span class="tree-desc">staging.example.com</span></div>
+                </li>
                 <li class="tree-item folder expanded root" role="treeitem" aria-expanded="true">
-                  <div class="tree-row" style="--depth:0"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="tree-label">Acme Widgets — staging</span><span class="tree-desc">sftp://staging.example.com</span></div>
+                  <div class="tree-row" style="--depth:0"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="tree-label">Acme Widgets</span></div>
                   <ul role="group">
                     <li class="tree-item folder" role="treeitem" data-name=".vscode"><div class="tree-row" style="--depth:1"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="file-icon fi-folder-vscode"></span><span class="tree-label">.vscode</span></div><ul role="group"><li class="tree-item file" data-name="sftp.json"><div class="tree-row" style="--depth:2"><span class="file-icon fi-json"></span><span class="tree-label">sftp.json</span></div></li></ul></li>
                     <li class="tree-item folder expanded" role="treeitem" data-name="assets"><div class="tree-row" style="--depth:1"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="file-icon fi-folder"></span><span class="tree-label">assets</span><span class="row-actions"><span class="icon-btn" title="Download Folder" aria-hidden="true"><svg class="icon"><use href="#i-folder"/></svg></span></span></div>
@@ -425,7 +428,7 @@
       <button class="status-item hide-narrow">UTF-8</button>
       <button class="status-item hide-narrow">LF</button>
       <button class="status-item" id="status-language">Markdown</button>
-      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.37.0</span></button>
+      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.38.0</span></button>
       <button class="status-item" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       <button class="status-item" id="status-bell" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
     </div>
@@ -468,7 +471,7 @@
         </div>
         <p class="hero-alt">Also on <a href="https://open-vsx.org/extension/jmwerk/sftpresso" target="_blank" rel="noopener">Open VSX</a> for VSCodium and other VS Code–based editors. Source on <a href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener">GitHub</a>.</p>
         <div class="hero-badges">
-          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.37.0</span></span>
+          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.38.0</span></span>
           <span class="badge"><span class="badge-k">license</span><span class="badge-v badge-blue">MIT</span></span>
           <span class="badge"><span class="badge-k">vscode</span><span class="badge-v">^1.138</span></span>
         </div>
@@ -544,12 +547,12 @@
 
     <h2 id="feat-explore">Explore &amp; compare</h2>
     <div class="feature-grid">
-      <div class="feature"><svg class="icon"><use href="#i-server"/></svg><h3>Remote Explorer</h3><p>Browse, create, delete, multi-select download and upload. Hide noise with <code>filesExclude</code>, open files read-only or <strong>Edit in Local</strong>.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-server"/></svg><h3>Remote Explorer</h3><p>Browse, create, delete, copy remote paths, multi-select download and upload. Hide noise with <code>filesExclude</code>, open files read-only or <strong>Edit in Local</strong>.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-filter"/></svg><h3>Live filter</h3><p><strong>SFTP: Filter Remote Explorer</strong> narrows the whole remote tree as you type — including folders you haven't expanded yet.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-diff"/></svg><h3>Diff &amp; Compare Folders</h3><p>Open VS Code's diff view against the remote copy, or recursively compare a folder and act on each new, missing, or modified file — or open every diff at once. Compare by content and a touched-but-unchanged file never shows up.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-loading"/></svg><h3>Transfers view</h3><p>Byte-level per-file progress, live speed and ETA, per-file cancel and retry. Cancelling stops the directory scan too, not just the queue.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-warning"/></svg><h3>Conflict check</h3><p>Before an upload overwrites a remote file someone else changed, get a modal with both timestamps and an <strong>Open Diff</strong> button.</p></div>
-      <div class="feature"><svg class="icon"><use href="#i-terminal"/></svg><h3>Run Remote Command</h3><p>Run a shell command over the existing SSH connection — no re-authentication. Save the usual ones under <code>remoteCommands</code> as a quick pick.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-terminal"/></svg><h3>SSH terminal &amp; remote commands</h3><p><strong>SFTP: Open SSH in Terminal</strong> opens a shell over the same connection as your transfers, so passwords, key passphrases, and jump hosts all apply, from any Remote Explorer folder. <strong>Run Remote Command</strong> runs one-offs, with favorites under <code>remoteCommands</code>.</p></div>
     </div>
 
     <h2 id="feat-secure">Secure &amp; connected</h2>
@@ -559,7 +562,7 @@
       <div class="feature"><svg class="icon"><use href="#i-hop"/></svg><h3>Connection hopping</h3><p>Reach a target through one or more SSH bastions with <code>hop</code>. Every host in the chain has its own key checked.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-lock"/></svg><h3>Workspace Trust aware</h3><p><code>uploadOnSave</code>, <code>downloadOnOpen</code>, and remote commands stay off until the workspace is trusted. Manual transfers still work.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-plug"/></svg><h3>Resilient connections</h3><p>Keepalives, idle probes, stall and operation timeouts, and automatic retry with backoff — a dropped connection no longer fails a whole batch.</p></div>
-      <div class="feature"><svg class="icon"><use href="#i-branch"/></svg><h3>Profiles &amp; multi-config</h3><p>One config, many targets: switch <code>dev</code> / <code>staging</code> / <code>prod</code> from the status bar, or map workspace subfolders to different servers.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-branch"/></svg><h3>Profiles &amp; multi-config</h3><p>One config, many targets: switch <code>dev</code> / <code>staging</code> / <code>prod</code> from the status bar or the Remote Explorer, which shows the active profile and where it points. Or map workspace subfolders to different servers.</p></div>
     </div>
 
     <h2 id="feat-setup">Setup &amp; polish</h2>
@@ -650,7 +653,7 @@
         <tr><td><code>SFTP: Test Connection</code></td><td>Connect with the active profile and report success or a plain-language failure. Also a CodeLens on <code>sftp.json</code>.</td></tr>
         <tr><td><code>SFTP: Disconnect</code></td><td>Drop every pooled connection so the next command reconnects fresh.</td></tr>
         <tr><td><code>SFTP: Toggle Upload on Save</code></td><td>Flip <code>uploadOnSave</code> and write it back to <code>sftp.json</code>, comments preserved.</td></tr>
-        <tr><td><code>SFTP: Open SSH in Terminal</code></td><td>Open a VS Code terminal auto-logged-in to the server.</td></tr>
+        <tr><td><code>SFTP: Open SSH in Terminal</code></td><td>Open a shell on the server over the existing SSH connection, starting in <code>remotePath</code>. Also on any SFTP connection or folder in the Remote Explorer.</td></tr>
         <tr><td><code>SFTP: Run Remote Command</code></td><td>Run a shell command over the existing SSH connection; pick from <code>remoteCommands</code> or type one.</td></tr>
         <tr><td><code>SFTP: Save / Clear Password</code></td><td>Store or remove a password in VS Code secret storage (OS keychain).</td></tr>
         <tr><td><code>SFTP: Migrate Plaintext Password</code></td><td>Move a plaintext <code>password</code> out of <code>sftp.json</code> into secret storage in one step.</td></tr>
@@ -831,6 +834,13 @@
     <h1>Changelog</h1>
     <p class="lede">Recent highlights. The <a href="https://github.com/jmwerk/SFTPresso/blob/develop/CHANGELOG.md" target="_blank" rel="noopener">full changelog</a> goes back to the very first release, and each tag is published to the Marketplace and Open VSX automatically.</p>
 
+    <div class="release"><h2>1.38.0 <small>2026-10-08</small></h2>
+      <ul>
+        <li><span class="tag tag-feat">Feature</span> <strong>Open SSH in Terminal</strong> runs a real shell over SFTPresso's own connection: no second login, saved passwords, key passphrases and jump hosts all apply, and it starts in <code>remotePath</code>. Open one from any SFTP connection or folder in the Remote Explorer.</li>
+        <li><span class="tag tag-feat">Feature</span> <strong>Copy Remote Path</strong> from the file explorer, editor, and Remote Explorer menus. Thanks, @luckaicode!</li>
+        <li><span class="tag tag-feat">Feature</span> The Remote Explorer's first row shows the active profile and where it points, port included; click it to switch. Add Profile now starts from the base config and saves only what differs.</li>
+        <li><span class="tag tag-fix">Fix</span> The connection indicator no longer shows a stale error from another profile while you're connected.</li>
+      </ul></div>
     <div class="release"><h2>1.37.0 <small>2026-10-07</small></h2>
       <ul>
         <li><span class="tag tag-feat">Feature</span> The plaintext password warning has a <strong>Don't Show Again</strong> button that adds <code>"warnPlaintextPassword": false</code> to <code>sftp.json</code>, so a project whose password is secured another way stops warning on every open.</li>
@@ -1000,7 +1010,7 @@ SOFTWARE.</div>
         <div class="ext-meta">
           <a href="https://marketplace.visualstudio.com/publishers/jmwerk" target="_blank" rel="noopener">jmwerk</a>
           <span class="ext-meta-sep">|</span>
-          <span title="Version">v1.37.0</span>
+          <span title="Version">v1.38.0</span>
           <span class="ext-meta-sep">|</span>
           <span>MIT</span>
           <span class="ext-meta-sep">|</span>
@@ -1050,7 +1060,7 @@ SOFTWARE.</div>
         <h3>Tags</h3>
         <p class="chips"><span class="chip">sftp</span><span class="chip">ftp</span><span class="chip">ftps</span><span class="chip">ssh</span><span class="chip">sync</span><span class="chip">deploy</span><span class="chip">upload</span><span class="chip">remote explorer</span></p>
         <h3>More info</h3>
-        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.37.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
+        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.38.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
       </aside>
     </div>
   </article>
