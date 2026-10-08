@@ -5,7 +5,7 @@ import { upath, Resource, UResource } from '../../core';
 import { isRemotePathAtOrUnder, reportError } from '../../helper';
 import { showWarningMessage } from '../../host';
 import { handleCtxFromUri, renameRemote, upload } from '../../fileHandlers';
-import { ExplorerItem, ExplorerRoot } from './treeDataProvider';
+import { ExplorerItem, ExplorerRoot, isProfileRow } from './treeDataProvider';
 
 // Must be application/vnd.code.tree.<view id, lowercased> for VS Code to
 // treat it as this view's own drag data.
@@ -173,7 +173,7 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
 
   handleDrag(source: readonly ExplorerItem[], dataTransfer: vscode.DataTransfer): void {
     const draggable = source.filter(item => {
-      if (isRoot(item)) {
+      if (isRoot(item) || isProfileRow(item)) {
         return false;
       }
       const root = this._findRoot(item.resource.uri);

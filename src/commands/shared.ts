@@ -3,7 +3,7 @@ import { Uri, window } from 'vscode';
 import { FileService, FileType } from '../core';
 import logger from '../logger';
 import { getAllFileService, getFileService } from '../modules/serviceManager';
-import { ExplorerItem } from '../modules/remoteExplorer';
+import { ExplorerItem, isProfileRow } from '../modules/remoteExplorer';
 import { getActiveTextEditor, showInformationMessage } from '../host';
 import { connectionToken, ConnectIdentity } from '../credentialStore';
 import { listFiles, toLocalPath, simplifyPath } from '../helper';
@@ -219,10 +219,11 @@ export function uriFromExplorerContextOrEditorContext(item, items): undefined | 
       return item;
     }
   } else if ((item as ExplorerItem).resource) {
-    // from remote explorer
-    if (Array.isArray(items) && (items[0] as ExplorerItem).resource) {
+    // from remote explorer; the profile row can be part of a selection but isn't a file
+    const files = Array.isArray(items) ? items.filter(_ => !isProfileRow(_)) : [];
+    if (files.length && (files[0] as ExplorerItem).resource) {
       // multi-select in remote explorer
-      return items.map(_ => _.resource.uri);
+      return files.map(_ => _.resource.uri);
     } else {
       return item.resource.uri;
     }

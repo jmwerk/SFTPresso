@@ -12,6 +12,7 @@ import {
 import AppState from './modules/appState';
 import RemoteExplorer from './modules/remoteExplorer';
 import TransferView from './modules/transferView';
+import { BASE_CONFIG } from './modules/remoteExplorer/profileLabel';
 
 interface App {
   vscodeContext: ExtensionContext;
@@ -36,7 +37,7 @@ app.sftpBarItem = new StatusBarItem(
     if (app.state.profile) {
       return `SFTP: ${app.state.profile}`;
     }
-    return app.state.availableProfiles.length > 0 ? 'SFTP: (no profile)' : 'SFTP';
+    return app.state.availableProfiles.length > 0 ? `SFTP: ${BASE_CONFIG}` : 'SFTP';
   },
   // upload on save has its own toggle item next to this one
   () =>

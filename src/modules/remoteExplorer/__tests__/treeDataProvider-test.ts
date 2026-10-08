@@ -23,6 +23,9 @@ jest.mock('vscode', () => {
     Uri: URI,
     EventEmitter,
     TreeItemCollapsibleState: { None: 0, Collapsed: 1, Expanded: 2 },
+    ThemeIcon: class ThemeIcon {
+      constructor(public id: string) {}
+    },
   };
 });
 
@@ -58,7 +61,7 @@ jest.mock('../../../host', () => ({
 
 import { FileType, upath, UResource } from '../../../core';
 import { getAllFileService } from '../../serviceManager';
-import RemoteTreeData, { ExplorerItem, ExplorerRoot } from '../treeDataProvider';
+import RemoteTreeData, { ExplorerItem, ExplorerRoot, isProfileRow } from '../treeDataProvider';
 
 const ROOT = '/srv/www';
 
@@ -129,11 +132,12 @@ function fakeConfig(filesExclude: string[] = []) {
   } as any;
 }
 
-function fakeFileService(config = fakeConfig()) {
+function fakeFileService(config = fakeConfig(), profiles: string[] = []) {
   return {
     id: 1,
     name: 'test-server',
     getConfig: () => config,
+    getAvailableProfiles: () => profiles,
     getRemoteFileSystem: async () => ({ list }),
   } as any;
 }
@@ -392,5 +396,78 @@ describe('RemoteTreeData.findRoot before the view has ever rendered', () => {
     await expect(
       provider.provideTextDocumentContent(uri, {} as any)
     ).resolves.toBeDefined();
+  });
+});
+
+describe('RemoteTreeData profile row', () => {
+  test('is absent when no config uses profiles', async () => {
+    getAllFileServiceMock.mockReturnValue([fakeFileService()]);
+    const provider = new RemoteTreeData();
+
+    const top = await provider.getChildren();
+
+    expect(top.some(isProfileRow)).toBe(false);
+  });
+
+  test('leads the top level and opens Set Profile when clicked', async () => {
+    getAllFileServiceMock.mockReturnValue([
+      fakeFileService({ ...fakeConfig(), port: 2223 }, ['staging']),
+    ]);
+    const provider = new RemoteTreeData();
+    provider.setActiveProfile('staging', ['staging']);
+
+    const [first, ...rest] = await provider.getChildren();
+    const item = provider.getTreeItem(first);
+
+    expect(isProfileRow(first)).toBe(true);
+    expect(item.label).toBe('staging');
+    expect(item.description).toBe('example.com:2223');
+    expect(item.command).toMatchObject({ command: 'sftp.setProfile' });
+    expect(item.contextValue).toBe('profile');
+    expect(rest).toHaveLength(1);
+  });
+
+  test('reads (base config) when no profile is active', async () => {
+    getAllFileServiceMock.mockReturnValue([fakeFileService()]);
+    const provider = new RemoteTreeData();
+    provider.setActiveProfile(null, ['staging']);
+
+    const [first] = await provider.getChildren();
+
+    expect(provider.getTreeItem(first).label).toBe('(base config)');
+
+    // the address only comes from configs that use profiles
+    getAllFileServiceMock.mockReturnValue([fakeFileService(fakeConfig(), ['staging'])]);
+    const withProfiles = new RemoteTreeData();
+    withProfiles.setActiveProfile(null, ['staging']);
+    const [row] = await withProfiles.getChildren();
+    expect(withProfiles.getTreeItem(row)).toMatchObject({
+      label: '(base config)',
+      description: 'example.com',
+    });
+  });
+
+  test('has no children or parent', async () => {
+    getAllFileServiceMock.mockReturnValue([fakeFileService()]);
+    const provider = new RemoteTreeData();
+    provider.setActiveProfile('staging', ['staging']);
+    const [first] = await provider.getChildren();
+
+    await expect(provider.getChildren(first)).resolves.toEqual([]);
+    await expect(provider.getParent(first)).resolves.toBeUndefined();
+  });
+
+  test('roots show their address only when their config has no profiles', async () => {
+    getAllFileServiceMock.mockReturnValue([
+      { ...fakeFileService({ ...fakeConfig(), port: 2222 }), id: 1 },
+      { ...fakeFileService(fakeConfig(), ['staging']), id: 2 },
+    ]);
+    const provider = new RemoteTreeData();
+    provider.setActiveProfile('staging', ['staging']);
+
+    const [, ...roots] = await provider.getChildren();
+    const descriptions = roots.map(root => provider.getTreeItem(root).description);
+
+    expect(descriptions).toEqual(['example.com:2222', undefined]);
   });
 });
