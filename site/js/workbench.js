@@ -1611,7 +1611,7 @@
   }
   function setProfile(name) {
     state.profile = name;
-    $('#status-profile span').textContent = name ? `SFTP: ${name}` : 'SFTP: (no profile)';
+    $('#status-profile span').textContent = name ? `SFTP: ${name}` : 'SFTP: (base config)';
     setConnection('idle');
     logOutput('info', `active profile → ${name || '(none)'} (${activeHost()})`);
     if (editorInstances['sftp.json']) $$('.code-editor', editorInstances['sftp.json']).forEach(renderCodeEditor);

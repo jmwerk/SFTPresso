@@ -4,24 +4,37 @@ import { showInformationMessage } from '../host';
 import app from '../app';
 import logger from '../logger';
 import { getAllFileService } from '../modules/serviceManager';
+import { BASE_CONFIG, addressList, hostAddress } from '../modules/remoteExplorer/profileLabel';
+import { FileService } from '../core';
 import { checkCommand } from './abstract/createCommand';
+
+// Where `service` points under `profile` (null for the base config), for the picker.
+function addressUnder(service: FileService, profile: string | null): string | undefined {
+  try {
+    return hostAddress(service.getConfig(profile));
+  } catch {
+    // an invalid profile still gets listed, just without an address
+    return undefined;
+  }
+}
 
 export default checkCommand({
   id: COMMAND_SET_PROFILE,
 
   async handleCommand(definedProfile) {
-    const profiles = getAllFileService().reduce<
+    const services = getAllFileService().filter(service => service.getAvailableProfiles().length > 0);
+    const baseAddresses = services
+      .map(service => addressUnder(service, null))
+      .filter((address): address is string => !!address);
+    const profiles = services.reduce<
       Array<vscode.QuickPickItem & { value: string | null }>
     >(
       (acc, service) => {
-        if (service.getAvailableProfiles().length <= 0) {
-          return acc;
-        }
-
         service.getAvailableProfiles().forEach(profile => {
           acc.push({
             value: profile,
             label: app.state.profile === profile ? `${profile} (active)` : profile,
+            description: addressUnder(service, profile),
           });
         });
         return acc;
@@ -29,7 +42,9 @@ export default checkCommand({
       [
         {
           value: null,
-          label: 'UNSET',
+          label: app.state.profile === null ? `${BASE_CONFIG} (active)` : BASE_CONFIG,
+          description: addressList(baseAddresses),
+          detail: "The config's top-level settings",
         },
       ]
     );
@@ -39,7 +54,9 @@ export default checkCommand({
       return;
     }
 
-    if (definedProfile !== undefined) {
+    // Only a string names a profile. A view title button passes an object, which used to be
+    // taken as an unknown profile and silently reset to the base config.
+    if (typeof definedProfile === 'string') {
       const index = profiles.findIndex(a => a.value === definedProfile);
       if (index !== -1) {
         app.state.profile = definedProfile;

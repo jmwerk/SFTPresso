@@ -96,7 +96,7 @@ Most of the time that's deploying while editing locally — same editor, same sh
 | File watcher | [`watcher`](#watcher) | Reacts to changes made *outside* VS Code (build tools, git checkout, …) |
 | Server-side rename/move | Remote Explorer context menu → **Rename**, drag-and-drop ([`remoteExplorer.enableDragAndDrop`](#remoteexplorer)), or [`watcher.autoRename`](#watcher) | Renames or moves a file/folder with a single remote `rename()` call, regardless of size — no re-upload — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote) |
 | Multiple configurations | [Array config](#multiple-contexts-array-config) | Different servers per workspace subfolder |
-| Switchable profiles | [`profiles`](#profiles) + `SFTP: Set Profile` | One config, many targets — the status bar shows the active profile; click it to switch |
+| Switchable profiles | [`profiles`](#profiles) + `SFTP: Set Profile` | One config, many targets — the status bar and Remote Explorer show the active profile; click either to switch |
 | Temp-file / atomic uploads | [`useTempFile`](#usetempfile), [`openSsh`](#openssh) | Avoid serving half-written files |
 | Connection hopping | [`hop`](#connection-hopping-ssh-proxy--bastion) | Reach a target server through one or more SSH bastions |
 | Upload to all profiles | `SFTP: Upload … To All Profiles` | Push one file/folder/project to every profile at once |
@@ -1158,7 +1158,9 @@ If others deploy to the same server, add [`conflictCheck`](#conflictcheck) so a 
 
 One config, several environments. Profile values merge over the top-level config; switch with **`SFTP: Set Profile`**.
 
-When a config defines profiles, the status bar item shows the active profile (e.g. **`SFTP: dev`**, or **`SFTP: (no profile)`** when none is active), and clicking it opens the profile picker — same as running `SFTP: Set Profile`. Without profiles, the status bar keeps its usual behavior (shows `SFTP`, click to toggle the output panel).
+When a config defines profiles, the status bar item shows the active profile (e.g. **`SFTP: dev`**, or **`SFTP: (base config)`** when none is active, meaning the config's top-level settings apply), and clicking it opens the profile picker — same as running `SFTP: Set Profile`. Without profiles, the status bar keeps its usual behavior (shows `SFTP`, click to toggle the output panel).
+
+The Remote Explorer shows it too: its first row shows the active profile with where it points dimmed after it, e.g. **staging** `203.0.113.10:2223` (the port appears when it isn't 22, so live and staging on one host look different). Click that row to switch, like Source Control's branch button; the picker lists each profile with its address too. Connections from configs without profiles show their own `host:port` after the name instead. Hover a connection's row for its profile, host and remote path.
 
 ```json
 {

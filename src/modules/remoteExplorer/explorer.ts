@@ -9,11 +9,11 @@ import { UResource } from '../../core';
 import { toRemotePath } from '../../helper';
 import { REMOTE_SCHEME } from '../../constants';
 import { getFileService } from '../serviceManager';
-import RemoteTreeDataProvider, { ExplorerItem } from './treeDataProvider';
+import RemoteTreeDataProvider, { ExplorerItem, ExplorerNode, isProfileRow } from './treeDataProvider';
 import { RemoteExplorerDragAndDropController } from './dragAndDrop';
 
 export default class RemoteExplorer {
-  private _explorerView: vscode.TreeView<ExplorerItem>;
+  private _explorerView: vscode.TreeView<ExplorerNode>;
   private _treeDataProvider: RemoteTreeDataProvider;
 
   constructor(context: vscode.ExtensionContext) {
@@ -66,6 +66,11 @@ export default class RemoteExplorer {
     this._treeDataProvider.refresh(item);
   }
 
+  // Takes effect on the next refresh, which the caller triggers on every profile change.
+  setProfiles(activeProfile: string | null, availableProfiles: string[]) {
+    this._treeDataProvider.setActiveProfile(activeProfile, availableProfiles);
+  }
+
   reveal(item: ExplorerItem): Thenable<void> {
     return item ? this._explorerView.reveal(item) : Promise.resolve();
   }
@@ -96,7 +101,11 @@ export default class RemoteExplorer {
 
   private _refreshSelection() {
     if (this._explorerView.selection.length) {
-      this._explorerView.selection.forEach(item => this.refresh(item));
+      this._explorerView.selection.forEach(item => {
+        if (!isProfileRow(item)) {
+          this.refresh(item);
+        }
+      });
     } else {
       this.refresh();
     }

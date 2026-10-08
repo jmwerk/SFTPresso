@@ -96,6 +96,7 @@ export async function activate(context: vscode.ExtensionContext) {
       app.sftpBarItem.reset();
     }
     if (app.remoteExplorer) {
+      app.remoteExplorer.setProfiles(state.profile, state.availableProfiles);
       app.remoteExplorer.refresh();
     }
   });
@@ -103,6 +104,7 @@ export async function activate(context: vscode.ExtensionContext) {
     await setup(workspaceFolders);
     refreshUploadOnSaveState();
     app.remoteExplorer = new RemoteExplorer(context);
+    app.remoteExplorer.setProfiles(app.state.profile, app.state.availableProfiles);
     app.transferView = new TransferView(context);
   } catch (error) {
     reportError(error);

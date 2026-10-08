@@ -15,9 +15,11 @@ import { previewImage } from '../../fileHandlers';
 import {
   COMMAND_REMOTEEXPLORER_VIEW_CONTENT,
   COMMAND_REMOTEEXPLORER_EDITINLOCAL,
+  COMMAND_SET_PROFILE,
 } from '../../constants';
 import { getAllFileService } from '../serviceManager';
 import { getExtensionSetting } from '../ext';
+import { BASE_CONFIG, addressList, hostAddress, rootTooltip } from './profileLabel';
 
 type Id = number;
 
@@ -57,6 +59,20 @@ export interface ExplorerRoot extends ExplorerChild {
 
 export type ExplorerItem = ExplorerRoot | ExplorerChild;
 
+// The clickable "active profile" row at the top of the tree, like Source Control's branch
+// button. Not a file, so everything that acts on rows must skip it (see isProfileRow).
+export interface ProfileRow {
+  profileRow: true;
+}
+
+export type ExplorerNode = ExplorerItem | ProfileRow;
+
+const PROFILE_ROW: ProfileRow = { profileRow: true };
+
+export function isProfileRow(node: unknown): node is ProfileRow {
+  return !!node && (node as ProfileRow).profileRow === true;
+}
+
 // SFTP roots and folders are told apart so menus can offer what FTP can't, like a shell.
 function contextValue(kind: 'root' | 'folder', root: ExplorerRoot | null | undefined): string {
   return root && root.explorerContext.config.protocol === 'sftp' ? `${kind}.sftp` : kind;
@@ -71,7 +87,7 @@ function dirFirstSort(fileA: ExplorerItem, fileB: ExplorerItem) {
 }
 
 export default class RemoteTreeData
-  implements vscode.TreeDataProvider<ExplorerItem>, vscode.TextDocumentContentProvider {
+  implements vscode.TreeDataProvider<ExplorerNode>, vscode.TextDocumentContentProvider {
   private _roots: ExplorerRoot[] | null;
   private _rootsMap: Map<Id, ExplorerRoot> | null;
   private _map: Map<vscode.Uri['query'], ExplorerItem>;
@@ -81,6 +97,9 @@ export default class RemoteTreeData
   // fsPath. Only alive during an active filter session -- normal (unfiltered)
   // browsing always re-lists, unchanged from before filtering existed.
   private _searchCache: Map<string, Promise<FileEntry[]>> | null = null;
+  // pushed in by RemoteExplorer rather than read from app, which imports this module
+  private _activeProfile: string | null = null;
+  private _availableProfiles: string[] = [];
 
   private _onDidChangeFolder: vscode.EventEmitter<
     ExplorerItem | undefined | null | void
@@ -123,7 +142,11 @@ export default class RemoteTreeData
     }
   }
 
-  getTreeItem(item: ExplorerItem): vscode.TreeItem {
+  getTreeItem(node: ExplorerNode): vscode.TreeItem {
+    if (isProfileRow(node)) {
+      return this._profileRowItem();
+    }
+    const item = node;
     const isRoot = (item as ExplorerRoot).explorerContext !== undefined;
     let customLabel;
     if (isRoot) {
@@ -132,8 +155,13 @@ export default class RemoteTreeData
     if (!customLabel) {
       customLabel = upath.basename(item.resource.fsPath);
     }
+    const root = isRoot ? (item as ExplorerRoot).explorerContext : undefined;
+    const profiles = root ? root.fileService.getAvailableProfiles() : [];
     return {
       label: customLabel,
+      // configs with profiles have their address in the profile row; the rest show it here
+      description: root && profiles.length === 0 ? hostAddress(root.config) : undefined,
+      tooltip: root && rootTooltip(this._activeProfile, profiles, root.config),
       resourceUri: item.resource.uri,
       collapsibleState: item.isDirectory ? vscode.TreeItemCollapsibleState.Collapsed : undefined,
       contextValue: isRoot
@@ -172,13 +200,27 @@ export default class RemoteTreeData
     return true;
   }
 
+  setActiveProfile(profile: string | null, availableProfiles: string[] = []) {
+    this._activeProfile = profile;
+    this._availableProfiles = availableProfiles;
+  }
+
   getFilter(): string | null {
     return this._filter;
   }
 
-  async getChildren(item?: ExplorerItem): Promise<ExplorerItem[]> {
+  // Only the top level holds the profile row; below it every child is a file or folder.
+  getChildren(): Promise<ExplorerNode[]>;
+  getChildren(node: ExplorerItem): Promise<ExplorerItem[]>;
+  getChildren(node?: ExplorerNode): Promise<ExplorerNode[]>;
+  async getChildren(node?: ExplorerNode): Promise<ExplorerNode[]> {
+    if (isProfileRow(node)) {
+      return [];
+    }
+    const item = node;
     if (!item) {
-      return this._getRoots();
+      const roots: ExplorerNode[] = this._getRoots();
+      return this._availableProfiles.length > 0 ? [PROFILE_ROW, ...roots] : roots;
     }
 
     const root = this.findRoot(item.resource.uri);
@@ -310,7 +352,13 @@ export default class RemoteTreeData
     return cached;
   }
 
-  async getParent(item: ExplorerChild): Promise<ExplorerItem> {
+  getParent(node: ExplorerItem): Promise<ExplorerItem>;
+  getParent(node: ExplorerNode): Promise<ExplorerItem | undefined>;
+  async getParent(node: ExplorerNode): Promise<ExplorerItem | undefined> {
+    if (isProfileRow(node)) {
+      return undefined;
+    }
+    const item = node;
     const resourceUri = item.resource.uri;
     const root = this.findRoot(resourceUri);
     if (!root) {
@@ -337,6 +385,24 @@ export default class RemoteTreeData
       await this.getChildren(newMapItem);
       return newMapItem;
     }
+  }
+
+  private _profileRowItem(): vscode.TreeItem {
+    const addresses = this._getRoots()
+      .filter(root => root.explorerContext.fileService.getAvailableProfiles().length > 0)
+      .map(root => hostAddress(root.explorerContext.config));
+    return {
+      label: this._activeProfile || BASE_CONFIG,
+      description: addressList(addresses),
+      iconPath: new vscode.ThemeIcon('versions'),
+      tooltip: `Active profile: ${this._activeProfile || BASE_CONFIG}. Click to switch.`,
+      contextValue: 'profile',
+      accessibilityInformation: {
+        label: `Active profile ${this._activeProfile || BASE_CONFIG}, switch profile`,
+        role: 'button',
+      },
+      command: { command: COMMAND_SET_PROFILE, title: 'Set Profile' },
+    };
   }
 
   findRoot(uri: vscode.Uri): ExplorerRoot | null | undefined {
