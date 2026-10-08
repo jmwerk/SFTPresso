@@ -891,7 +891,7 @@
         {
           "command": "sftp.copyRemotePath",
           "group": "3_trans@3",
-          "when": "view == remoteExplorer && viewItem != root"
+          "when": "view == remoteExplorer && viewItem =~ /^(folder|file)\\b/"
         },
         {
           "command": "sftp.create.folder",
