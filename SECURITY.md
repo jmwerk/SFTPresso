@@ -94,7 +94,7 @@ noticed is a bug or just how this is built:
   permissions locked down is on you.
 - **SSH host keys are checked.** Every connection is verified against your own
   `~/.ssh/known_hosts` (or SFTPresso's own store, for keys you've only accepted here) —
-  see [Host key verification](https://github.com/jmwerk/SFTPresso/wiki#host-key-verification)
+  see [Host key verification](https://github.com/jmwerk/SFTPresso/wiki/Installation-and-Setup#host-key-verification)
   in the wiki for exactly how that works and what `strictHostKeyChecking` changes about
   it.
 - **FTP is unencrypted, by protocol.** Set `"secure": true` for FTPS if your server

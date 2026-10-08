@@ -41,7 +41,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 - **Multiple configurations**, switchable **profiles**, SSH **connection hopping**, and temp-file/atomic uploads
 - **Legacy-extension conflict detection** — warns on startup if an older `sftp` extension from `@liximomo` or `@Natizyskunk` is also enabled, since both claim the same `sftp.*` commands
 
-See the [command reference](https://github.com/jmwerk/SFTPresso/wiki#3-command-reference) for the full list.
+See the [command reference](https://github.com/jmwerk/SFTPresso/wiki/Commands) for the full list.
 
 ## Installation
 
@@ -87,12 +87,12 @@ Prefer to sideload a specific build? Grab a `.vsix` from [Releases](https://gith
 
 Full setup, all configuration options, usage examples, troubleshooting, and FAQ live in the **[project wiki](https://github.com/jmwerk/SFTPresso/wiki)**:
 
-- [Installation and setup](https://github.com/jmwerk/SFTPresso/wiki#2-installation-and-setup)
-- [Command reference](https://github.com/jmwerk/SFTPresso/wiki#3-command-reference)
-- [Configuration reference (`sftp.json`)](https://github.com/jmwerk/SFTPresso/wiki#4-configuration-reference-sftpjson)
-- [Usage examples and common workflows](https://github.com/jmwerk/SFTPresso/wiki#5-usage-examples-and-common-workflows)
-- [Troubleshooting and known issues](https://github.com/jmwerk/SFTPresso/wiki#7-troubleshooting-and-known-issues)
-- [FAQ](https://github.com/jmwerk/SFTPresso/wiki#8-frequently-asked-questions)
+- [Installation and setup](https://github.com/jmwerk/SFTPresso/wiki/Installation-and-Setup)
+- [Command reference](https://github.com/jmwerk/SFTPresso/wiki/Commands)
+- [Configuration reference (`sftp.json`)](https://github.com/jmwerk/SFTPresso/wiki/Configuration)
+- [Usage examples and common workflows](https://github.com/jmwerk/SFTPresso/wiki/Workflows)
+- [Troubleshooting and known issues](https://github.com/jmwerk/SFTPresso/wiki/Troubleshooting)
+- [FAQ](https://github.com/jmwerk/SFTPresso/wiki/FAQ)
 
 ## Contributing
 
