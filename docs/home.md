@@ -220,7 +220,7 @@ All commands live under the **SFTP** category in the Command Palette. Most are a
 | `SFTP: Disconnect` | `sftp.disconnect` | Drop every pooled connection (all configs/profiles, not just the active one) so the next command reconnects fresh. Manual escape hatch for a stuck connection — [`operationTimeout`](#operationtimeout) usually catches that on its own, but this is faster than reloading the window when it doesn't. |
 | `SFTP: Toggle Upload on Save` | `sftp.toggleUploadOnSave` | Flip the active config's [`uploadOnSave`](#uploadonsave) and write it back to `sftp.json` (comments and formatting preserved). Also available as the `$(cloud-upload)` status bar button, which is dimmed while it's off. |
 | Add to Ignore | `sftp.addToIgnore` | File-explorer context menu command. Appends the right-clicked file or folder's workspace-relative path to the active config's [`ignore`](#ignore) array in `sftp.json` (folders as `path/**`), preserving comments and formatting; a no-op if the entry is already listed. |
-| `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal auto-logged-in to the server. Extra CLI flags can be added via [`sshCustomParams`](#sshcustomparams). |
+| `SFTP: Open SSH in Terminal` | `sftp.openConnectInTerminal` | Open a VS Code terminal with a shell on the server, starting in `remotePath`. It runs over SFTPresso's own connection, so it uses the same password, key, passphrase, agent, [`hop`](#hop) and [host key](#host-key-verification) settings as file transfers, with nothing to type again. Also in the Remote Explorer context menu. SFTP only. Type `exit` to close it; `SFTP: Disconnect` also ends it. If [`sshCustomParams`](#sshcustomparams) is set, the command instead types an `ssh` command into a regular terminal, as before. |
 | `SFTP: Save Password` | `sftp.savePassword` | Store a password for a remote in VS Code's secret storage (OS keychain). See [Storing passwords securely](#storing-passwords-securely). |
 | `SFTP: Migrate Plaintext Password` | `sftp.migratePassword` | Move a plaintext `password` out of `sftp.json` into secret storage and strip the key (comments/formatting preserved, confirms first). Same thing the **Migrate Password** button on the plaintext warning does. See [Storing passwords securely](#storing-passwords-securely). |
 | `SFTP: Clear Password` | `sftp.clearPassword` | Remove a saved password from secret storage. |
@@ -965,7 +965,7 @@ Except for `HostName`, a value you set in `sftp.json` wins — the ssh config on
 > ℹ️ Both `ServerAliveInterval` and wildcard/`Match`-style `Host` entries are read correctly as of 1.30.1 — earlier versions parsed them and then quietly threw the values away. If you're setting a short `ServerAliveInterval` for the first time on an upgrade, expect more keepalive traffic than before; that's this taking effect, not a bug.
 
 #### sshCustomParams
-Extra parameters appended to the `ssh` command used by `SFTP: Open SSH in Terminal`.
+Extra parameters appended to the `ssh` command used by `SFTP: Open SSH in Terminal`. Setting it switches that command back to running your system's `ssh` in a regular terminal (which ignores `password`, `passphrase`, `hop` and SFTPresso's host key store) instead of the built-in terminal. Requires a trusted workspace.
 
 | Key | Type |
 | --- | --- |

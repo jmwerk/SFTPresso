@@ -406,8 +406,7 @@
       },
       "sshCustomParams": {
         "type": "string",
-        "description": "Extra parameters append to SSH command using by \"Open SSH in Terminal\"",
-        "default": "\"cd \"${remotePath}\"; exec \\$SHELL -l\""
+        "description": "Extra parameters appended to the ssh command used by \"Open SSH in Terminal\". Setting it makes that command run your system's ssh in a regular terminal instead of the built-in one."
       },
       "strictHostKeyChecking": {
         "enum": [true, false, "ask", "accept-new"],
