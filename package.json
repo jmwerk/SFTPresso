@@ -121,7 +121,8 @@
       {
         "command": "sftp.openConnectInTerminal",
         "title": "Open SSH in Terminal",
-        "category": "SFTP"
+        "category": "SFTP",
+        "icon": "$(terminal)"
       },
       {
         "command": "sftp.testConnection",
@@ -797,8 +798,13 @@
         },
         {
           "command": "sftp.openConnectInTerminal",
+          "group": "inline",
+          "when": "view == remoteExplorer && viewItem == root.sftp"
+        },
+        {
+          "command": "sftp.openConnectInTerminal",
           "group": "navigation",
-          "when": "view == remoteExplorer && viewItem == root"
+          "when": "view == remoteExplorer && viewItem =~ /^(root|folder)\\.sftp$/"
         },
         {
           "command": "sftp.remoteExplorer.editInLocal",
@@ -813,7 +819,7 @@
         {
           "command": "sftp.revealInExplorer",
           "group": "2_files",
-          "when": "view == remoteExplorer && viewItem != root"
+          "when": "view == remoteExplorer && viewItem =~ /^(folder|file)\\b/"
         },
         {
           "command": "sftp.upload.folder",
@@ -856,12 +862,12 @@
         {
           "command": "sftp.rename.remote",
           "group": "7_modification",
-          "when": "view == remoteExplorer && viewItem != root"
+          "when": "view == remoteExplorer && viewItem =~ /^(folder|file)\\b/"
         },
         {
           "command": "sftp.delete.remote",
           "group": "7_modification",
-          "when": "view == remoteExplorer && viewItem != root"
+          "when": "view == remoteExplorer && viewItem =~ /^(folder|file)\\b/"
         },
         {
           "command": "sftp.create.folder",
@@ -881,7 +887,7 @@
         {
           "command": "sftp.download.folder",
           "group": "inline",
-          "when": "sftp.enabled && view == remoteExplorer && viewItem == folder"
+          "when": "sftp.enabled && view == remoteExplorer && viewItem =~ /^folder\\b/"
         }
       ],
       "scm/title": [

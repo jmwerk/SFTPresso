@@ -57,6 +57,11 @@ export interface ExplorerRoot extends ExplorerChild {
 
 export type ExplorerItem = ExplorerRoot | ExplorerChild;
 
+// SFTP roots and folders are told apart so menus can offer what FTP can't, like a shell.
+function contextValue(kind: 'root' | 'folder', root: ExplorerRoot | null | undefined): string {
+  return root && root.explorerContext.config.protocol === 'sftp' ? `${kind}.sftp` : kind;
+}
+
 function dirFirstSort(fileA: ExplorerItem, fileB: ExplorerItem) {
   if (fileA.isDirectory === fileB.isDirectory) {
     return fileA.resource.fsPath.localeCompare(fileB.resource.fsPath);
@@ -131,7 +136,11 @@ export default class RemoteTreeData
       label: customLabel,
       resourceUri: item.resource.uri,
       collapsibleState: item.isDirectory ? vscode.TreeItemCollapsibleState.Collapsed : undefined,
-      contextValue: isRoot ? 'root' : item.isDirectory ? 'folder' : 'file',
+      contextValue: isRoot
+        ? contextValue('root', item as ExplorerRoot)
+        : item.isDirectory
+        ? contextValue('folder', this.findRoot(item.resource.uri))
+        : 'file',
       command: item.isDirectory
         ? undefined
         : {

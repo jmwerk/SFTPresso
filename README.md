@@ -36,6 +36,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 - **Secure password storage** backed by the OS keychain (`SFTP: Save Password` / `Clear Password`), plus one-click `SFTP: Migrate Plaintext Password` to move a password out of `sftp.json`
 - **SSH host key verification** (`strictHostKeyChecking`) — reads your own `~/.ssh/known_hosts` so trusted hosts never prompt, and refuses to connect if a server's key ever changes
 - **`SFTP: Run Remote Command`** — run a shell command on the server over the existing SSH connection, no re-authentication; save common ones (`remoteCommands`) as a quick pick
+- **`SFTP: Open SSH in Terminal`** — an interactive shell on the server in a VS Code terminal, over the same SSH connection (password, key, agent, and jump hosts included, no second login), starting in `remotePath`; or right-click Remote Explorer folders to open a terminal in each
 - **Multiple configurations**, switchable **profiles**, SSH **connection hopping**, and temp-file/atomic uploads
 - **Legacy-extension conflict detection** — warns on startup if an older `sftp` extension from `@liximomo` or `@Natizyskunk` is also enabled, since both claim the same `sftp.*` commands
 

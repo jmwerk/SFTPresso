@@ -4,9 +4,10 @@ import { FileService } from '../core';
 import { RemoteFileSystem } from '../core/fs';
 import { SSHClient } from '../core/remote-client';
 import { openShell } from '../core/remote-client/shell';
-import { getAllFileService } from '../modules/serviceManager';
-import { ExplorerRoot } from '../modules/remoteExplorer';
-import { isWorkspaceTrusted, showErrorMessage } from '../host';
+import upath from '../core/upath';
+import { getAllFileService, getFileService } from '../modules/serviceManager';
+import { ExplorerItem, ExplorerRoot } from '../modules/remoteExplorer';
+import { isWorkspaceTrusted, showConfirmMessage, showErrorMessage } from '../host';
 import logger from '../logger';
 import RemoteTerminal from '../ui/remoteTerminal';
 import { interpolate } from '../utils';
@@ -98,11 +99,21 @@ async function connectShell(
   });
 }
 
-async function pickService(exploreItem?: ExplorerRoot): Promise<FileService | undefined> {
-  if (exploreItem && exploreItem.explorerContext) {
-    return exploreItem.explorerContext.fileService;
-  }
+// Above this many terminals at once, ask first: each is a session on one connection, and
+// OpenSSH's default MaxSessions is 10.
+const CONFIRM_TERMINAL_COUNT = 5;
 
+// The folders to open a terminal in: the whole selection when the clicked item is part of
+// it, else just the clicked item. Files are skipped, since a shell can't start in one.
+export function terminalTargets(clicked?: ExplorerItem, selection?: ExplorerItem[]): ExplorerItem[] {
+  if (!clicked) {
+    return [];
+  }
+  const items = Array.isArray(selection) && selection.includes(clicked) ? selection : [clicked];
+  return items.filter(item => item.isDirectory);
+}
+
+async function pickService(): Promise<FileService | undefined> {
   const items = getAllFileService().reduce<
     { label: string; description: string; fileService: FileService }[]
   >((result, fileService) => {
@@ -126,41 +137,89 @@ async function pickService(exploreItem?: ExplorerRoot): Promise<FileService | un
   return item && item.fileService;
 }
 
+interface TerminalTarget {
+  fileService: FileService;
+  // undefined for a root or the Command Palette, which start in remotePath
+  folder?: string;
+}
+
+function toTarget(item: ExplorerItem): TerminalTarget | undefined {
+  if ((item as ExplorerRoot).explorerContext) {
+    return { fileService: (item as ExplorerRoot).explorerContext.fileService };
+  }
+  const fileService = getFileService(item.resource.uri);
+  return fileService && { fileService, folder: item.resource.fsPath };
+}
+
+function openTerminal({ fileService, folder }: TerminalTarget, preserveFocus: boolean) {
+  // re-read so the active profile is used, not the one the item was built with
+  const config = fileService.getConfig();
+  const cwd = folder === undefined ? config.remotePath : folder;
+  const baseName = config.name || config.host;
+
+  const pty = new RemoteTerminal({
+    host: config.host,
+    connect: dimensions =>
+      connectShell(fileService, config, cwd, dimensions).catch(error => {
+        logger.error(error, 'openConnectInTerminal');
+        throw error;
+      }),
+  });
+  const terminal = vscode.window.createTerminal({
+    name: folder === undefined ? baseName : `${baseName}: ${upath.basename(cwd)}`,
+    pty,
+    iconPath: new vscode.ThemeIcon('remote'),
+  });
+  terminal.show(preserveFocus);
+}
+
 export default checkCommand({
   id: COMMAND_OPEN_CONNECTION_IN_TERMINAL,
 
-  async handleCommand(exploreItem?: ExplorerRoot) {
-    const fileService = await pickService(exploreItem);
-    if (!fileService) {
+  // From the Remote Explorer (the clicked item plus the selection) or the Command Palette.
+  async handleCommand(clicked?: ExplorerItem, selection?: ExplorerItem[]) {
+    let targets: TerminalTarget[];
+    if (clicked) {
+      targets = terminalTargets(clicked, selection)
+        .map(toTarget)
+        .filter((target): target is TerminalTarget => !!target);
+    } else {
+      const fileService = await pickService();
+      targets = fileService ? [{ fileService }] : [];
+    }
+    if (targets.length <= 0) {
       showErrorMessage('No SFTP config found.');
       return;
     }
 
-    // re-read so the active profile is used, not the one the item was built with
-    const config = fileService.getConfig();
-    if (config.protocol !== 'sftp') {
+    // FTP has no shell; a mixed selection opens the SFTP ones
+    targets = targets.filter(target => target.fileService.getConfig().protocol === 'sftp');
+    if (targets.length <= 0) {
       showErrorMessage('SFTP: Open SSH in Terminal is not supported over FTP.');
       return;
     }
 
-    if (config.sshCustomParams) {
-      openSystemSshTerminal(config);
+    // the system-ssh fallback can't start in a folder, so it opens once per config
+    const legacy = new Set<FileService>();
+    targets = targets.filter(target => {
+      if (!target.fileService.getConfig().sshCustomParams) {
+        return true;
+      }
+      if (!legacy.has(target.fileService)) {
+        legacy.add(target.fileService);
+        openSystemSshTerminal(target.fileService.getConfig());
+      }
+      return false;
+    });
+
+    if (
+      targets.length > CONFIRM_TERMINAL_COUNT &&
+      !(await showConfirmMessage(`Open ${targets.length} terminals?`, 'Open', 'Cancel'))
+    ) {
       return;
     }
 
-    const pty = new RemoteTerminal({
-      host: config.host,
-      connect: dimensions =>
-        connectShell(fileService, config, config.remotePath, dimensions).catch(error => {
-          logger.error(error, 'openConnectInTerminal');
-          throw error;
-        }),
-    });
-    const terminal = vscode.window.createTerminal({
-      name: config.name || config.host,
-      pty,
-      iconPath: new vscode.ThemeIcon('remote'),
-    });
-    terminal.show();
+    // focus only the last one, so the user ends up in a terminal and not mid-list
+    targets.forEach((target, index) => openTerminal(target, index < targets.length - 1));
   },
 });
