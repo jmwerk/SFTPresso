@@ -13,7 +13,7 @@
   const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
   const MOD = isMac ? '⌘' : 'Ctrl';
-  const VERSION = '1.37.0';
+  const VERSION = '1.38.0';
 
   // ------------------------------------------------------------------ files
   const FILES = {
@@ -552,6 +552,8 @@
     if (item.dataset.file) {
       openFile(item.dataset.file);
       if (window.matchMedia('(max-width: 900px)').matches) workbench.classList.add('sidebar-hidden');
+    } else if (item.classList.contains('profile-row')) {
+      pickProfile();
     } else if (item.closest('#remote-tree')) {
       $$('#remote-tree .tree-item').forEach((li) => li.classList.remove('selected'));
       item.classList.add('selected');
@@ -584,12 +586,20 @@
     if (!row) return;
     e.preventDefault();
     const item = row.parentElement;
+    // the profile row isn't a file: no menu, like the extension
+    if (item.classList.contains('profile-row')) return;
     $$('#remote-tree .tree-item').forEach((li) => li.classList.remove('selected'));
     item.classList.add('selected');
-    const name = item.dataset.name || 'Acme Widgets — production';
+    const name = item.dataset.name || 'Acme Widgets';
     const isFolder = item.classList.contains('folder');
+    const isRoot = item.classList.contains('root');
+    const openTerminal = { label: 'Open SSH in Terminal', run: () => { showPanel('terminal'); startTerminal('ssh'); } };
+    const copyPath = { label: 'Copy Remote Path', run: () => copyRemotePath(item) };
     const demo = (what) => () => notify(`<strong>${what}</strong> on <code>${escapeHtml(name)}</code> — in VS Code this runs against the server. Nothing happens in this demo.`, { timeout: 5000 });
     const items = isFolder ? [
+      openTerminal,
+      ...(isRoot ? [] : [copyPath]),
+      { sep: true },
       { label: 'Upload File Here', run: demo('Upload File Here') },
       { label: 'Download Folder', run: () => startTransfers(demoFilesFor(name), 'download') },
       { sep: true },
@@ -606,6 +616,7 @@
       { label: 'Upload File', run: () => startTransfers([{ name, size: 8_000 + Math.random() * 400_000 }], 'upload') },
       { label: 'Upload File To All Profiles', run: () => startTransfers([{ name: `${name} → staging`, size: 120_000 }, { name: `${name} → prod`, size: 120_000 }], 'upload') },
       { label: 'Download File', run: () => startTransfers([{ name, size: 8_000 + Math.random() * 400_000 }], 'download') },
+      copyPath,
       { sep: true },
       { label: 'Delete', run: demo('Delete') },
       { label: 'Rename', run: demo('Rename') },
@@ -1609,20 +1620,31 @@
     logOutput('info', `uploadOnSave set to ${state.uploadOnSave} in .vscode/sftp.json (comments and formatting preserved)`);
     if (editorInstances['sftp.json']) $$('.code-editor', editorInstances['sftp.json']).forEach(renderCodeEditor);
   }
+  function copyRemotePath(item) {
+    const parts = [];
+    for (let li = item; li && !li.classList.contains('root'); li = li.parentElement.closest('.tree-item')) parts.unshift(li.dataset.name);
+    const root = state.profile === 'staging' ? '/var/www/staging' : '/var/www/acme';
+    const path = [root, ...parts].join('/');
+    navigator.clipboard?.writeText(path).catch(() => { /* clipboard may be unavailable */ });
+    notify(`Copied <code>${escapeHtml(path)}</code>`, { timeout: 3000 });
+  }
   function setProfile(name) {
     state.profile = name;
     $('#status-profile span').textContent = name ? `SFTP: ${name}` : 'SFTP: (base config)';
     setConnection('idle');
     logOutput('info', `active profile → ${name || '(none)'} (${activeHost()})`);
     if (editorInstances['sftp.json']) $$('.code-editor', editorInstances['sftp.json']).forEach(renderCodeEditor);
-    $('#remote-tree .root > .tree-row .tree-desc').textContent = `sftp://${activeHost()}`;
-    $('#remote-tree .root > .tree-row .tree-label').textContent = `Acme Widgets — ${name === 'prod' ? 'production' : name || 'default'}`;
+    const profileRow = $('#remote-tree .profile-row');
+    $('.tree-label', profileRow).textContent = name || '(base config)';
+    $('.tree-desc', profileRow).textContent = activeHost();
+    profileRow.title = `Active profile: ${name || '(base config)'}. Click to switch.`;
   }
   function pickProfile() {
     openQuickPick('Select a profile', [
-      { label: 'staging', desc: 'staging.example.com — /var/www/staging', run: () => setProfile('staging') },
-      { label: 'prod', desc: 'acme.example.com — uploadOnSave: false', run: () => setProfile('prod') },
-    ], { current: state.profile });
+      { label: '(base config)', desc: 'acme.example.com', run: () => setProfile(null) },
+      { label: 'staging', desc: 'staging.example.com', run: () => setProfile('staging') },
+      { label: 'prod', desc: 'acme.example.com', run: () => setProfile('prod') },
+    ], { current: state.profile || '(base config)' });
   }
   function pickRemoteCommand() {
     const run = (label, cmd, output) => () => notify(`Run <code>${escapeHtml(cmd)}</code> on <strong>${activeHost()}</strong>?`, {
@@ -1945,7 +1967,7 @@
     $$('.tree-item', tree).forEach((li) => li.classList.remove('hidden-by-filter'));
     if (!q) return;
     const lower = q.toLowerCase();
-    $$('.tree-item:not(.root)', tree).forEach((li) => {
+    $$('.tree-item:not(.root):not(.profile-row)', tree).forEach((li) => {
       const name = (li.dataset.name || '').toLowerCase();
       const selfMatch = name.includes(lower);
       const descendantMatch = $$('.tree-item', li).some((d) => (d.dataset.name || '').toLowerCase().includes(lower));
