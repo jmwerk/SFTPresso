@@ -12,6 +12,7 @@ import Ignore from './ignore';
 import { FileSystem } from './fs';
 import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
+import { connectionIdentity } from './connectionIdentity';
 import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
 import mergeProfile from './mergeProfile';
@@ -785,6 +786,11 @@ export default class FileService {
 
   getLocalFileSystem(): FileSystem {
     return localFs;
+  }
+
+  // Identity of the pooled connection this config uses, as the pool and status bar key it.
+  getConnectionId(config: ServiceConfig = this.getConfig()): string {
+    return connectionIdentity(getHostInfo(config));
   }
 
   getRemoteFileSystem(config: ServiceConfig): Promise<FileSystem> {

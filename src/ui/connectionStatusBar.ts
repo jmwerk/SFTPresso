@@ -62,6 +62,9 @@ function present(state: ConnectionState): StatePresentation {
 export default class ConnectionStatusBar {
   private statusBarItem: vscode.StatusBarItem;
   private states: Map<string, ConnectionState> = new Map();
+  // Which connections count. The pool keeps one per target, so without this a connection
+  // that failed under another profile would keep showing an error over the live one.
+  private isRelevant: (id: string) => boolean = () => true;
 
   constructor() {
     this.statusBarItem = vscode.window.createStatusBarItem(
@@ -84,6 +87,16 @@ export default class ConnectionStatusBar {
     this._render();
   }
 
+  setRelevance(isRelevant: (id: string) => boolean) {
+    this.isRelevant = isRelevant;
+    this._render();
+  }
+
+  // re-render after what isRelevant answers may have changed, e.g. a profile switch
+  refresh() {
+    this._render();
+  }
+
   show() {
     this.statusBarItem.show();
   }
@@ -97,7 +110,12 @@ export default class ConnectionStatusBar {
   }
 
   private _aggregate(): ConnectionState {
-    const active = new Set(this.states.values());
+    const active = new Set<ConnectionState>();
+    this.states.forEach((state, id) => {
+      if (this.isRelevant(id)) {
+        active.add(state);
+      }
+    });
     for (const state of STATE_PRIORITY) {
       if (active.has(state)) {
         return state;

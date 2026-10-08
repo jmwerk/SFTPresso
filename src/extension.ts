@@ -29,6 +29,19 @@ async function setupWorkspaceFolder(dir) {
   });
 }
 
+// The connections the current configs (under the active profile) would use.
+function activeConnectionIds(): Set<string> {
+  const ids = new Set<string>();
+  getAllFileService().forEach(service => {
+    try {
+      ids.add(service.getConnectionId());
+    } catch {
+      // an invalid config has no connection to report on
+    }
+  });
+  return ids;
+}
+
 function setup(workspaceFolders: readonly vscode.WorkspaceFolder[]) {
   fileActivityMonitor.init();
   const pendingInits = workspaceFolders.map(folder => setupWorkspaceFolder(folder.uri.fsPath));
@@ -73,6 +86,7 @@ export async function activate(context: vscode.ExtensionContext) {
   setContextValue('enabled', true);
   app.sftpBarItem.show();
   app.connectionBarItem.show();
+  app.connectionBarItem.setRelevance(id => activeConnectionIds().has(id));
   context.subscriptions.push(app.connectionBarItem, app.uploadOnSaveBarItem);
   let lastProfile = app.state.profile;
   app.state.subscribe(state => {
@@ -95,6 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
     if (currentText.startsWith('SFTP')) {
       app.sftpBarItem.reset();
     }
+    app.connectionBarItem.refresh();
     if (app.remoteExplorer) {
       app.remoteExplorer.setProfiles(state.profile, state.availableProfiles);
       app.remoteExplorer.refresh();
