@@ -5,6 +5,7 @@ import commandCancelAllTransfer from './commandCancelAllTransfer';
 import commandCancelTransfer from './commandCancelTransfer';
 import commandClearPassword from './commandClearPassword';
 import commandConfig from './commandConfig';
+import commandCopyRemotePath from './commandCopyRemotePath';
 import commandDisconnect from './commandDisconnect';
 import commandForgetHostKey from './commandForgetHostKey';
 import commandListActiveFolder from './commandListActiveFolder';
@@ -24,7 +25,6 @@ import commandToggleOutputPanel from './commandToggleOutputPanel';
 import commandToggleUploadOnSave from './commandToggleUploadOnSave';
 import commandUploadChangedFiles from './commandUploadChangedFiles';
 import fileCommandCompareFolders from './fileCommandCompareFolders';
-import fileCommandCopyRemotePath from './fileCommandCopyRemotePath';
 import fileCommandCreateFile from './fileCommandCreateFile';
 import fileCommandCreateFolder from './fileCommandCreateFolder';
 import fileCommandDeleteRemote from './fileCommandDeleteRemote';
@@ -66,6 +66,7 @@ export default {
   commandCancelTransfer,
   commandClearPassword,
   commandConfig,
+  commandCopyRemotePath,
   commandDisconnect,
   commandForgetHostKey,
   commandListActiveFolder,
@@ -85,7 +86,6 @@ export default {
   commandToggleUploadOnSave,
   commandUploadChangedFiles,
   fileCommandCompareFolders,
-  fileCommandCopyRemotePath,
   fileCommandCreateFile,
   fileCommandCreateFolder,
   fileCommandDeleteRemote,
