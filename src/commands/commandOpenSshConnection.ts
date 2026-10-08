@@ -10,6 +10,8 @@ import { ExplorerItem, ExplorerRoot } from '../modules/remoteExplorer';
 import { isWorkspaceTrusted, showConfirmMessage, showErrorMessage } from '../host';
 import logger from '../logger';
 import RemoteTerminal from '../ui/remoteTerminal';
+import app from '../app';
+import { configProfile } from '../modules/remoteExplorer/profileLabel';
 import { interpolate } from '../utils';
 import { checkCommand } from './abstract/createCommand';
 
@@ -155,7 +157,10 @@ function openTerminal({ fileService, folder }: TerminalTarget, preserveFocus: bo
   // re-read so the active profile is used, not the one the item was built with
   const config = fileService.getConfig();
   const cwd = folder === undefined ? config.remotePath : folder;
-  const baseName = config.name || config.host;
+  // the site name, not config.name, which a profile can override
+  const site = fileService.name || config.host;
+  const profile = configProfile(app.state.profile, fileService.getAvailableProfiles());
+  const baseName = profile ? `${site} (${profile})` : site;
 
   const pty = new RemoteTerminal({
     host: config.host,
