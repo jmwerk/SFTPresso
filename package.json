@@ -12,6 +12,7 @@
   "bugs": {
     "url": "https://github.com/jmwerk/SFTPresso/issues"
   },
+  "qna": "https://github.com/jmwerk/SFTPresso/discussions/categories/q-a",
   "homepage": "https://jmwerk.github.io/SFTPresso/",
   "repository": {
     "type": "git",
