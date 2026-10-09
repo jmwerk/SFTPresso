@@ -1,0 +1,7 @@
+contact_links:
+  - name: Question or help
+    url: https://github.com/jmwerk/SFTPresso/discussions/categories/q-a
+    about: Ask how to set up or use SFTPresso in Discussions Q&A.
+  - name: FAQ and documentation
+    url: https://github.com/jmwerk/SFTPresso/wiki/FAQ
+    about: Check the FAQ, configuration and troubleshooting pages in the wiki.
