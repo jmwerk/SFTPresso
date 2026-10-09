@@ -1,8 +1,8 @@
 diff --git a/node_modules/@jsonjoy.com/fs-node/lib/volume.js b/node_modules/@jsonjoy.com/fs-node/lib/volume.js
-index ab91ead..50e0d35 100644
+index 3ac2198..ba332e7 100644
 --- a/node_modules/@jsonjoy.com/fs-node/lib/volume.js
 +++ b/node_modules/@jsonjoy.com/fs-node/lib/volume.js
-@@ -108,7 +108,17 @@ class Volume {
+@@ -105,7 +105,17 @@ class Volume {
          };
          this.close = (fd, callback) => {
              (0, fs_core_1.validateFd)(fd);
@@ -20,8 +20,8 @@ index ab91ead..50e0d35 100644
 +            }
              this.wrapAsync(this._core.close, [file.fd], callback);
          };
-         this.readSync = (fd, buffer, offset, length, position) => {
-@@ -1620,7 +1630,13 @@ FsWriteStream.prototype.close = function (cb) {
+         this.readv = (fd, buffers, a, b) => {
+@@ -1502,7 +1512,13 @@ FsWriteStream.prototype.close = function (cb) {
      }
      this.fd = null;
  };
