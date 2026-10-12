@@ -72,3 +72,12 @@ export function omitInherited(profile: ProfileConfig, base: ProfileConfig): Prof
 
   return result;
 }
+
+// The profile that changes nothing about the base config (e.g. "Live" repeating the top-level
+// port), so selecting it and selecting the base config are the same target.
+export function baseEquivalentProfile(config: ProfileConfig): string | undefined {
+  const profiles: Record<string, ProfileConfig> = config.profiles || {};
+  return Object.keys(profiles).find(
+    name => profiles[name] && Object.keys(omitInherited(profiles[name], config)).length === 0
+  );
+}

@@ -38,3 +38,27 @@ describe('createFileService — defaultProfile', () => {
     disposeFileService(service);
   });
 });
+
+describe('createFileService — profile identical to the base config', () => {
+  const liveMatchesBase = {
+    name: 'test',
+    host: 'h',
+    port: 62909,
+    username: 'u',
+    remotePath: '/r',
+    context: '/workspace',
+    profiles: { Live: { port: 62909 }, Staging: { port: 15526 } },
+  };
+
+  it('starts on that profile', () => {
+    const service = createFileService({ ...liveMatchesBase }, '/workspace');
+    expect(app.state.profile).toBe('Live');
+    disposeFileService(service);
+  });
+
+  it('still lets defaultProfile win', () => {
+    const service = createFileService({ ...liveMatchesBase, defaultProfile: 'Staging' }, '/workspace');
+    expect(app.state.profile).toBe('Staging');
+    disposeFileService(service);
+  });
+});

@@ -15,7 +15,7 @@ import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
 import { connectionIdentity } from './connectionIdentity';
 import TransferTask, { isRetryable } from './transferTask';
 import localFs from './localFs';
-import mergeProfile from './mergeProfile';
+import mergeProfile, { baseEquivalentProfile } from './mergeProfile';
 import TransferSchedulerGroup, { GateTicket } from './transferSchedulerGroup';
 
 type Omit<T, U> = Pick<T, Exclude<keyof T, U>>;
@@ -535,6 +535,10 @@ export default class FileService {
 
   getAvailableProfiles(): string[] {
     return this._profiles || [];
+  }
+
+  getBaseEquivalentProfile(): string | undefined {
+    return baseEquivalentProfile(this._config);
   }
 
   getPendingTransferTasks(): TransferTask[] {
