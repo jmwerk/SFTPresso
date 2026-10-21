@@ -85,6 +85,18 @@
         "contents": "No transfers in progress.\nUploads and downloads appear here with progress, speed, and time remaining. Failed transfers stay until you retry or clear them.\n[Show Log](command:sftp.toggleOutput)"
       }
     ],
+    "colors": [
+      {
+        "id": "sftp.remoteFileForeground",
+        "description": "Tab title color of a file opened from the Remote Explorer, which saves straight to the server.",
+        "defaults": {
+          "dark": "charts.orange",
+          "light": "charts.orange",
+          "highContrast": "charts.orange",
+          "highContrastLight": "charts.orange"
+        }
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "sftp configuration",
