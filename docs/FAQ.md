@@ -36,7 +36,7 @@ See [SSH connection error messages](Troubleshooting.md#ssh-connection-error-mess
 
 ## Can I edit files directly in the Remote Explorer?
 
-Files open read-only by default — use `SFTP: Edit in Local`, or set `sftp.downloadWhenOpenInRemoteExplorer` to make opening a file download it. See [Using the Remote Explorer](Workflows.md#using-the-remote-explorer).
+Yes. Opening a file in the Remote Explorer edits it on the server: saving writes it straight back, with no local copy. If the file changed on the server since you opened it, VS Code asks before overwriting. To work on a local copy instead, use `SFTP: Edit in Local`, or set `sftp.downloadWhenOpenInRemoteExplorer` to make that the default. Set `sftp.openRemoteFilesReadOnly` to open remote files read-only. See [Using the Remote Explorer](Workflows.md#using-the-remote-explorer).
 
 ## Sync copies files in the wrong direction / re-uploads unchanged files.
 

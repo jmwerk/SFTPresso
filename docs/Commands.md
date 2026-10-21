@@ -72,8 +72,8 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Delete | `sftp.delete.remote` | Delete the selected file/folder **on the remote** (Remote Explorer context menu). |
 | Create Folder / Create File | `sftp.create.folder` / `sftp.create.file` | Create a remote folder or file from the Remote Explorer. |
 | Upload File Here | `sftp.remoteExplorer.uploadHere` | Right-click a folder (or a connection root) in the Remote Explorer and pick local files/folders to upload directly into it, via the OS file picker — no local workspace mapping needed. See [Using the Remote Explorer](Workflows.md#using-the-remote-explorer). |
-| Edit in Local | `sftp.remoteExplorer.editInLocal` | Download the remote file into the workspace so it can be edited (Remote Explorer opens files read-only by default). |
-| View Content | `sftp.viewContent` | Open a read-only view of a remote file. |
+| Edit in Local | `sftp.remoteExplorer.editInLocal` | Download the remote file into the workspace and edit the local copy. |
+| Edit Remotely | `sftp.viewContent` | Open a remote file for editing on the server; saving writes it straight back. See [Using the Remote Explorer](Workflows.md#using-the-remote-explorer). |
 | Reveal in Explorer | `sftp.revealInExplorer` | Jump from a remote file to its local counterpart in the file explorer. |
 | Reveal in Remote Explorer | `sftp.revealInRemoteExplorer` | Jump from a local file to its remote counterpart in the Remote Explorer. |
 | Refresh | `sftp.remoteExplorer.refresh` | Refresh the Remote Explorer tree. |

@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { showTextDocument } from '../../host';
+import { openFile } from '../../host';
 import {
   upath,
   UResource,
@@ -10,8 +10,6 @@ import {
   Ignore,
   ServiceConfig,
 } from '../../core';
-import { isImageFile, reportError } from '../../helper';
-import { previewImage } from '../../fileHandlers';
 import {
   COMMAND_REMOTEEXPLORER_VIEW_CONTENT,
   COMMAND_REMOTEEXPLORER_EDITINLOCAL,
@@ -23,27 +21,7 @@ import { BASE_CONFIG, addressList, hostAddress, rootTooltip } from './profileLab
 
 type Id = number;
 
-const previewDocumentPathPrefix = '/~ ';
-
 const DEFAULT_FILES_EXCLUDE = ['.git', '.svn', '.hg', 'CVS', '.DS_Store', '.ssh'];
-/**
- * covert the url path for a customed docuemnt title
- *
- *  There is no api to custom title.
- *  So we change url path for custom title.
- *  This is not break anything because we get fspth from uri.query.'
- */
-function makePreivewUrl(uri: vscode.Uri) {
-  // const query = querystring.parse(uri.query);
-  // query.originPath = uri.path;
-  // query.originQuery = uri.query;
-
-  return uri.with({
-    path: previewDocumentPathPrefix + upath.basename(uri.path),
-    // query: querystring.stringify(query),
-  });
-}
-
 interface ExplorerChild {
   resource: Resource;
   isDirectory: boolean;
@@ -86,8 +64,7 @@ function dirFirstSort(fileA: ExplorerItem, fileB: ExplorerItem) {
   return fileA.isDirectory ? -1 : 1;
 }
 
-export default class RemoteTreeData
-  implements vscode.TreeDataProvider<ExplorerNode>, vscode.TextDocumentContentProvider {
+export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerNode> {
   private _roots: ExplorerRoot[] | null;
   private _rootsMap: Map<Id, ExplorerRoot> | null;
   private _map: Map<vscode.Uri['query'], ExplorerItem>;
@@ -104,6 +81,7 @@ export default class RemoteTreeData
   private _onDidChangeFolder: vscode.EventEmitter<
     ExplorerItem | undefined | null | void
   > = new vscode.EventEmitter<ExplorerItem | undefined | null | void>();
+  // files whose open editors should reload; RemoteExplorer forwards these to the file system
   private _onDidChangeFile: vscode.EventEmitter<vscode.Uri> = new vscode.EventEmitter<vscode.Uri>();
   readonly onDidChangeTreeData: vscode.Event<
     ExplorerItem | undefined | null | void
@@ -132,13 +110,13 @@ export default class RemoteTreeData
       const children = await this.getChildren(item);
       children
         .filter(i => !i.isDirectory)
-        .forEach(i => this._onDidChangeFile.fire(makePreivewUrl(i.resource.uri)));
+        .forEach(i => this._onDidChangeFile.fire(i.resource.uri));
     } else {
       const parent = await this.getParent(item);
       if (parent) {
         this._onDidChangeFolder.fire(parent);
       }
-      this._onDidChangeFile.fire(makePreivewUrl(item.resource.uri));
+      this._onDidChangeFile.fire(item.resource.uri);
     }
   }
 
@@ -407,7 +385,7 @@ export default class RemoteTreeData
 
   findRoot(uri: vscode.Uri): ExplorerRoot | null | undefined {
     // _rootsMap is normally populated by VS Code's own initial getChildren()
-    // call, but getParent()/provideTextDocumentContent() can be reached first
+    // call, but getParent() and the remote file system can be reached first
     // -- e.g. a file operation's post-transfer refresh, before the Remote
     // Explorer view has ever rendered. _getRoots() is cheap (in-memory config,
     // no I/O) and already memoized, so build it here rather than failing.
@@ -417,38 +395,14 @@ export default class RemoteTreeData
     return this._rootsMap!.get(rootId);
   }
 
-  async provideTextDocumentContent(
-    uri: vscode.Uri,
-    token: vscode.CancellationToken
-  ): Promise<string> {
-    const root = this.findRoot(uri);
-    if (!root) {
-      throw new Error(`Can't find remote for resource ${uri}.`);
-    }
-
-    const config = root.explorerContext.config;
-    const remotefs = await root.explorerContext.fileService.getRemoteFileSystem(config);
-    const buffer = await remotefs.readFile(UResource.makeResource(uri).fsPath);
-    return buffer.toString();
-  }
-
   showItem(item: ExplorerItem): void {
     if (item.isDirectory) {
       return;
     }
 
-    // The "view content" path renders the remote bytes as a plain-text
-    // document (via provideTextDocumentContent below), which mangles binary
-    // data. Images need real bytes on disk so VS Code's image preview can
-    // render them, but "View Content" is meant to just look, not to persist
-    // anything into the workspace -- so pull to a throwaway tmp file rather
-    // than the actual local-mirror download used by "Edit in Local".
-    if (isImageFile(item.resource.fsPath)) {
-      previewImage(item.resource.uri).catch(reportError);
-      return;
-    }
-
-    showTextDocument(makePreivewUrl(item.resource.uri));
+    // vscode.open picks the editor (text, image preview, ...) and reads through
+    // RemoteFileSystemProvider, so the file can be edited and saved in place
+    openFile(item.resource.uri);
   }
 
   private _getRoots(): ExplorerRoot[] {

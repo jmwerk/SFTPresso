@@ -104,7 +104,12 @@
         "sftp.downloadWhenOpenInRemoteExplorer": {
           "type": "boolean",
           "default": false,
-          "description": "\"Download\" instead of \"View Content\" when open file in Remote Explorer"
+          "description": "Opening a file in the Remote Explorer runs \"Edit in Local\" (download into the workspace) instead of editing it on the server."
+        },
+        "sftp.openRemoteFilesReadOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open files from the Remote Explorer read-only, so they can't be saved straight to the server. Applies to files opened after the change."
         }
       }
     },
@@ -384,7 +389,7 @@
       },
       {
         "command": "sftp.viewContent",
-        "title": "View Content",
+        "title": "Edit Remotely",
         "category": "SFTP"
       },
       {
