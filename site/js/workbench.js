@@ -13,7 +13,7 @@
   const escapeHtml = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const isMac = /Mac|iPhone|iPad/.test(navigator.platform || '');
   const MOD = isMac ? '⌘' : 'Ctrl';
-  const VERSION = '1.38.0';
+  const VERSION = '1.39.0';
 
   // ------------------------------------------------------------------ files
   const FILES = {
@@ -561,7 +561,7 @@
         openFile(`remote:${item.dataset.remote}`);
         if (window.matchMedia('(max-width: 900px)').matches) workbench.classList.add('sidebar-hidden');
       } else {
-        notify(`<strong>View Content</strong> would open <code>${escapeHtml(item.dataset.name)}</code> read-only from the server. In this demo only <code>index.html</code> and <code>css/style.css</code> have content.`, { timeout: 5000 });
+        notify(`<strong>Edit Remotely</strong> would open <code>${escapeHtml(item.dataset.name)}</code> straight from the server, and saving writes it back. In this demo only <code>index.html</code> and <code>css/style.css</code> have content.`, { timeout: 5000 });
       }
     }
   });
@@ -602,6 +602,7 @@
       { sep: true },
       { label: 'Upload File Here', run: demo('Upload File Here') },
       { label: 'Download Folder', run: () => startTransfers(demoFilesFor(name), 'download') },
+      { label: 'Compare Folder with Local', run: demo('Compare Folder with Local') },
       { sep: true },
       { label: 'New File', run: demo('Create File') },
       { label: 'New Folder', run: demo('Create Folder') },
@@ -616,6 +617,7 @@
       { label: 'Upload File', run: () => startTransfers([{ name, size: 8_000 + Math.random() * 400_000 }], 'upload') },
       { label: 'Upload File To All Profiles', run: () => startTransfers([{ name: `${name} → staging`, size: 120_000 }, { name: `${name} → prod`, size: 120_000 }], 'upload') },
       { label: 'Download File', run: () => startTransfers([{ name, size: 8_000 + Math.random() * 400_000 }], 'download') },
+      { label: 'Diff with Local', run: demo('Diff with Local') },
       copyPath,
       { sep: true },
       { label: 'Delete', run: demo('Delete') },
