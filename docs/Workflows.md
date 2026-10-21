@@ -287,6 +287,7 @@ In **sftp.json**:
 Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SFTP`.
 
 - Opening a file **edits it on the server**: saving writes it straight back over SFTP/FTP, with no local copy. Images open in VS Code's image preview.
+  - While a remote file is the active tab, the status bar shows **`☁ Remote: <profile or config>`** on a warning background (click it to reload the file from the server), and every open remote tab gets an orange title with a `☁` badge. The colour is the `sftp.remoteFileForeground` theme colour, overridable in `workbench.colorCustomizations`.
   - If the file changed on the server since you opened it, VS Code shows its "file is newer" prompt (Compare / Overwrite) instead of silently overwriting.
   - Saves honor `useTempFile`/`openSsh` (upload beside the file, then rename) and `filePerm`; otherwise the file keeps its permissions.
   - Changes made by someone else show up when you run **Refresh Active Remote File** or refresh the folder; the server can't push them.
