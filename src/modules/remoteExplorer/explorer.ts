@@ -11,6 +11,8 @@ import { REMOTE_SCHEME } from '../../constants';
 import { getFileService } from '../serviceManager';
 import RemoteTreeDataProvider, { ExplorerItem, ExplorerNode, isProfileRow } from './treeDataProvider';
 import { RemoteExplorerDragAndDropController } from './dragAndDrop';
+import RemoteFileSystemProvider from './remoteFileSystemProvider';
+import logger from '../../logger';
 
 export default class RemoteExplorer {
   private _explorerView: vscode.TreeView<ExplorerNode>;
@@ -18,8 +20,20 @@ export default class RemoteExplorer {
 
   constructor(context: vscode.ExtensionContext) {
     this._treeDataProvider = new RemoteTreeDataProvider();
+    const fileSystem = new RemoteFileSystemProvider(uri => this._treeDataProvider.findRoot(uri));
     context.subscriptions.push(
-      vscode.workspace.registerTextDocumentContentProvider(REMOTE_SCHEME, this._treeDataProvider)
+      vscode.workspace.registerFileSystemProvider(REMOTE_SCHEME, fileSystem, { isCaseSensitive: true }),
+      this._treeDataProvider.onDidChange(uri => fileSystem.notifyChanged(uri)),
+      // a file saved, created or removed through an editor shows up in the tree without a refresh
+      fileSystem.onDidChangeFile(events =>
+        events
+          .filter(event => event.type !== vscode.FileChangeType.Changed)
+          .forEach(event =>
+            this._treeDataProvider
+              .refresh({ resource: UResource.makeResource(event.uri), isDirectory: false })
+              .catch(error => logger.warn(`Remote Explorer refresh failed: ${error.message}`))
+          )
+      )
     );
 
     this._explorerView = vscode.window.createTreeView('remoteExplorer', {
