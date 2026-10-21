@@ -1,4 +1,4 @@
-import mergeProfile, { omitInherited } from '../mergeProfile';
+import mergeProfile, { baseEquivalentProfile, omitInherited } from '../mergeProfile';
 
 describe('mergeProfile', () => {
   test('deep-merges syncOption without changing unrelated base options', () => {
@@ -102,5 +102,20 @@ describe('omitInherited', () => {
     expect(dedupe(mergeProfile(base, omitInherited(profile, base)))).toEqual(
       dedupe(mergeProfile(base, profile))
     );
+  });
+});
+
+describe('baseEquivalentProfile', () => {
+  const base = { host: 'h', port: 62909 };
+
+  test('finds the profile that only repeats base settings', () => {
+    expect(
+      baseEquivalentProfile({ ...base, profiles: { Live: { port: 62909 }, Staging: { port: 15526 } } })
+    ).toBe('Live');
+  });
+
+  test('is undefined when every profile changes something', () => {
+    expect(baseEquivalentProfile({ ...base, profiles: { Staging: { port: 15526 } } })).toBeUndefined();
+    expect(baseEquivalentProfile(base)).toBeUndefined();
   });
 });

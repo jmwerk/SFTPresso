@@ -382,6 +382,8 @@ A collection of named profiles keyed by profile name. Each profile is merged ove
 | `profiles` | object |
 | `defaultProfile` | string — profile activated by default |
 
+Without `defaultProfile`, a profile that only repeats top-level values (e.g. `"Live": { "port": 62909 }` when the top-level `port` is `62909`) is activated instead, and `SFTP: Set Profile` stops listing the then-identical `(base config)`.
+
 ### remote
 Reference a connection defined in User Settings under `remotefs.remote` instead of repeating host details per project. See [Configuration in User Settings](Workflows.md#configuration-in-user-settings-remote-fs).
 

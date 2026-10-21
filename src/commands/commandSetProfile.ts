@@ -23,6 +23,14 @@ export default checkCommand({
 
   async handleCommand(definedProfile) {
     const services = getAllFileService().filter(service => service.getAvailableProfiles().length > 0);
+    // the base config is only worth offering where no profile already stands for it
+    const baseIsRedundant =
+      services.length > 0 && services.every(service => !!service.getBaseEquivalentProfile());
+    const isActive = (service: FileService, profile: string) =>
+      app.state.profile === profile ||
+      (app.state.profile === null &&
+        baseIsRedundant &&
+        service.getBaseEquivalentProfile() === profile);
     const baseAddresses = services
       .map(service => addressUnder(service, null))
       .filter((address): address is string => !!address);
@@ -33,23 +41,25 @@ export default checkCommand({
         service.getAvailableProfiles().forEach(profile => {
           acc.push({
             value: profile,
-            label: app.state.profile === profile ? `${profile} (active)` : profile,
+            label: isActive(service, profile) ? `${profile} (active)` : profile,
             description: addressUnder(service, profile),
           });
         });
         return acc;
       },
-      [
-        {
-          value: null,
-          label: app.state.profile === null ? `${BASE_CONFIG} (active)` : BASE_CONFIG,
-          description: addressList(baseAddresses),
-          detail: "The config's top-level settings",
-        },
-      ]
+      baseIsRedundant
+        ? []
+        : [
+            {
+              value: null,
+              label: app.state.profile === null ? `${BASE_CONFIG} (active)` : BASE_CONFIG,
+              description: addressList(baseAddresses),
+              detail: "The config's top-level settings",
+            },
+          ]
     );
 
-    if (profiles.length <= 1) {
+    if (profiles.filter(item => item.value !== null).length <= 0) {
       showInformationMessage('No Available Profile.');
       return;
     }
@@ -57,8 +67,7 @@ export default checkCommand({
     // Only a string names a profile. A view title button passes an object, which used to be
     // taken as an unknown profile and silently reset to the base config.
     if (typeof definedProfile === 'string') {
-      const index = profiles.findIndex(a => a.value === definedProfile);
-      if (index !== -1) {
+      if (profiles.some(a => a.value === definedProfile)) {
         app.state.profile = definedProfile;
       } else {
         app.state.profile = null;

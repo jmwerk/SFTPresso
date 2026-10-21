@@ -8,6 +8,7 @@ import * as output from '../../ui/output';
 import { formatBytes } from '../../utils';
 import { UResource, FileService, TransferTask } from '../../core';
 import { TransferDirection } from '../../core/transferTask';
+import { baseEquivalentProfile } from '../../core/mergeProfile';
 import { validateConfig } from '../config';
 import watcherService from '../fileWatcher';
 import Trie from './trie';
@@ -258,12 +259,13 @@ export function refreshUploadOnSaveState() {
 }
 
 export function createFileService(config: any, workspace: string) {
-  // defaultProfile picks the starting profile; a config reload (an edit, the
-  // upload-on-save toggle) must keep whatever profile the user switched to
+  // defaultProfile (else the profile identical to the base config) picks the starting profile;
+  // a config reload (an edit, the upload-on-save toggle) must keep whatever the user switched to
   const profileNames = config.profiles ? Object.keys(config.profiles) : [];
   const keepCurrent = !!app.state.profile && profileNames.includes(app.state.profile);
-  if (config.defaultProfile && !keepCurrent) {
-    app.state.profile = config.defaultProfile;
+  const startProfile = config.defaultProfile || baseEquivalentProfile(config);
+  if (startProfile && !keepCurrent) {
+    app.state.profile = startProfile;
   }
 
   const normalizedBasePath = getBasePath(config.context, workspace);
