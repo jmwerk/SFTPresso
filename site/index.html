@@ -205,9 +205,9 @@
             <button class="pane-header" aria-expanded="false"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="pane-title">Timeline</span></button>
             <div class="pane-body">
               <ul class="tree timeline">
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.38.0</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">fix(status): count only active connections</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.37.0</span><span class="tree-desc">14h</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.39.0</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(explorer): diff and compare from the Remote Explorer</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(explorer): edit remote files in place</span><span class="tree-desc">now</span></li>
               </ul>
             </div>
           </div>
@@ -273,7 +273,7 @@
                 <button class="ext-card" data-file="extension">
                   <img src="assets/icon.png" alt="" width="42" height="42">
                   <span class="ext-card-body">
-                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.38.0</span></span>
+                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.39.0</span></span>
                     <span class="ext-card-desc">Sync files over SFTP, FTP/FTPS, or SSH from VS Code</span>
                     <span class="ext-card-footer"><span class="ext-card-publisher">jmwerk</span><span class="btn btn-primary btn-xs">Install</span></span>
                   </span>
@@ -428,7 +428,7 @@
       <button class="status-item hide-narrow">UTF-8</button>
       <button class="status-item hide-narrow">LF</button>
       <button class="status-item" id="status-language">Markdown</button>
-      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.38.0</span></button>
+      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.39.0</span></button>
       <button class="status-item" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       <button class="status-item" id="status-bell" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
     </div>
@@ -471,7 +471,7 @@
         </div>
         <p class="hero-alt">Also on <a href="https://open-vsx.org/extension/jmwerk/sftpresso" target="_blank" rel="noopener">Open VSX</a> for VSCodium and other VS Code–based editors. Source on <a href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener">GitHub</a>.</p>
         <div class="hero-badges">
-          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.38.0</span></span>
+          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.39.0</span></span>
           <span class="badge"><span class="badge-k">license</span><span class="badge-v badge-blue">MIT</span></span>
           <span class="badge"><span class="badge-k">vscode</span><span class="badge-v">^1.138</span></span>
         </div>
@@ -547,9 +547,9 @@
 
     <h2 id="feat-explore">Explore &amp; compare</h2>
     <div class="feature-grid">
-      <div class="feature"><svg class="icon"><use href="#i-server"/></svg><h3>Remote Explorer</h3><p>Browse, create, delete, copy remote paths, multi-select download and upload. Hide noise with <code>filesExclude</code>, open files read-only or <strong>Edit in Local</strong>.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-server"/></svg><h3>Remote Explorer</h3><p>Browse, create, delete, copy remote paths, multi-select download and upload. Hide noise with <code>filesExclude</code>, edit files right on the server, with a marker in the tab and status bar, or <strong>Edit in Local</strong>.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-filter"/></svg><h3>Live filter</h3><p><strong>SFTP: Filter Remote Explorer</strong> narrows the whole remote tree as you type — including folders you haven't expanded yet.</p></div>
-      <div class="feature"><svg class="icon"><use href="#i-diff"/></svg><h3>Diff &amp; Compare Folders</h3><p>Open VS Code's diff view against the remote copy, or recursively compare a folder and act on each new, missing, or modified file — or open every diff at once. Compare by content and a touched-but-unchanged file never shows up.</p></div>
+      <div class="feature"><svg class="icon"><use href="#i-diff"/></svg><h3>Diff &amp; Compare Folders</h3><p>From either the Explorer or the Remote Explorer, open VS Code's diff view against the live remote file, or recursively compare a folder and act on each new, missing, or modified file — or open every diff at once. Compare by content and a touched-but-unchanged file never shows up.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-loading"/></svg><h3>Transfers view</h3><p>Byte-level per-file progress, live speed and ETA, per-file cancel and retry. Cancelling stops the directory scan too, not just the queue.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-warning"/></svg><h3>Conflict check</h3><p>Before an upload overwrites a remote file someone else changed, get a modal with both timestamps and an <strong>Open Diff</strong> button.</p></div>
       <div class="feature"><svg class="icon"><use href="#i-terminal"/></svg><h3>SSH terminal &amp; remote commands</h3><p><strong>SFTP: Open SSH in Terminal</strong> opens a shell over the same connection as your transfers, so passwords, key passphrases, and jump hosts all apply, from any Remote Explorer folder. <strong>Run Remote Command</strong> runs one-offs, with favorites under <code>remoteCommands</code>.</p></div>
@@ -684,7 +684,8 @@
         <tr><td><code>SFTP: Filter Remote Explorer</code> / <code>Clear Filter</code></td><td>Live substring search across the whole remote tree, including unexpanded folders.</td></tr>
         <tr><td>Rename / Delete / Create File / Create Folder</td><td>Manage files on the remote from the context menu. Rename with a <code>/</code> in the name to move.</td></tr>
         <tr><td>Upload File Here</td><td>Pick local files or folders via the OS file picker and upload them into the right-clicked remote folder.</td></tr>
-        <tr><td>Edit in Local / View Content</td><td>Download a remote file into the workspace for editing, or open a read-only view.</td></tr>
+        <tr><td>Edit Remotely / Edit in Local</td><td>Edit a remote file in place, saving straight to the server, or download it into the workspace and edit the local copy.</td></tr>
+        <tr><td>Diff with Local / Compare Folder with Local</td><td>Diff a remote file, or compare a remote folder, against its local counterpart.</td></tr>
         <tr><td>Reveal in Explorer / Reveal in Remote Explorer</td><td>Jump between a local file and its remote counterpart.</td></tr>
         <tr><td><code>SFTP: Cancel All Transfers</code></td><td>Stop every in-flight transfer and the directory scan behind it. Per-file ✕ and ↻ buttons live in the Transfers view.</td></tr>
         <tr><td><code>SFTP: List</code> / <code>List All</code></td><td>List remote directory contents in a QuickPick (<em>List All</em> includes ignored files).</td></tr>
@@ -834,6 +835,13 @@
     <h1>Changelog</h1>
     <p class="lede">Recent highlights. The <a href="https://github.com/jmwerk/SFTPresso/blob/develop/CHANGELOG.md" target="_blank" rel="noopener">full changelog</a> goes back to the very first release, and each tag is published to the Marketplace and Open VSX automatically.</p>
 
+    <div class="release"><h2>1.39.0 <small>2026-10-21</small></h2>
+      <ul>
+        <li><span class="tag tag-feat">Feature</span> <strong>Edit remote files in place.</strong> Open a file from the Remote Explorer, edit it, and save: it goes straight back to the server, no download or re-upload. VS Code asks before overwriting a file that changed on the server.</li>
+        <li><span class="tag tag-feat">Feature</span> Remote files are marked: an orange tab with a ☁ badge, and a status bar item naming the server you're saving to.</li>
+        <li><span class="tag tag-feat">Feature</span> <strong>Diff with Local</strong> and <strong>Compare Folder with Local</strong> from the Remote Explorer. Diffs now show the live remote file.</li>
+        <li><span class="tag tag-feat">Feature</span> A profile that only repeats the top-level settings is used as the starting profile, so the UI shows <strong>Live</strong> instead of (base config).</li>
+      </ul></div>
     <div class="release"><h2>1.38.0 <small>2026-10-08</small></h2>
       <ul>
         <li><span class="tag tag-feat">Feature</span> <strong>Open SSH in Terminal</strong> runs a real shell over SFTPresso's own connection: no second login, saved passwords, key passphrases and jump hosts all apply, and it starts in <code>remotePath</code>. Open one from any SFTP connection or folder in the Remote Explorer.</li>
@@ -1010,7 +1018,7 @@ SOFTWARE.</div>
         <div class="ext-meta">
           <a href="https://marketplace.visualstudio.com/publishers/jmwerk" target="_blank" rel="noopener">jmwerk</a>
           <span class="ext-meta-sep">|</span>
-          <span title="Version">v1.38.0</span>
+          <span title="Version">v1.39.0</span>
           <span class="ext-meta-sep">|</span>
           <span>MIT</span>
           <span class="ext-meta-sep">|</span>
@@ -1060,16 +1068,16 @@ SOFTWARE.</div>
         <h3>Tags</h3>
         <p class="chips"><span class="chip">sftp</span><span class="chip">ftp</span><span class="chip">ftps</span><span class="chip">ssh</span><span class="chip">sync</span><span class="chip">deploy</span><span class="chip">upload</span><span class="chip">remote explorer</span></p>
         <h3>More info</h3>
-        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.38.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
+        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.39.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
       </aside>
     </div>
   </article>
 </template>
 
-<!-- Remote "View Content" previews -->
+<!-- Remote "Edit Remotely" previews -->
 <template id="editor-remote:index.html">
   <div class="code-editor" data-lang="html">
-    <div class="readonly-banner"><svg class="icon"><use href="#i-lock"/></svg> Read-only remote view — <em>sftp://acme.example.com/var/www/acme/index.html</em>. Use <strong>Edit in Local</strong> to download it into the workspace.</div>
+    <div class="readonly-banner"><svg class="icon"><use href="#i-lock"/></svg> Remote file — <em>sftp://acme.example.com/var/www/acme/index.html</em>. In VS Code, saving writes straight to the server; this demo is read-only.</div>
     <pre class="code-source">&lt;!DOCTYPE html&gt;
 &lt;html lang="en"&gt;
   &lt;head&gt;
@@ -1087,7 +1095,7 @@ SOFTWARE.</div>
 </template>
 <template id="editor-remote:style.css">
   <div class="code-editor" data-lang="css">
-    <div class="readonly-banner"><svg class="icon"><use href="#i-lock"/></svg> Read-only remote view — <em>sftp://acme.example.com/var/www/acme/css/style.css</em>. Use <strong>Edit in Local</strong> to download it into the workspace.</div>
+    <div class="readonly-banner"><svg class="icon"><use href="#i-lock"/></svg> Remote file — <em>sftp://acme.example.com/var/www/acme/css/style.css</em>. In VS Code, saving writes straight to the server; this demo is read-only.</div>
     <pre class="code-source">:root {
   --accent: #4fa3d1;
 }
