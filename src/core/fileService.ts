@@ -821,7 +821,7 @@ export default class FileService {
       const profile = config.profiles![activeProfile];
       if (!profile) {
         throw new Error(
-          `Unkown Profile "${activeProfile}".` +
+          `Unknown profile "${activeProfile}".` +
             ' Please check your profile setting.' +
             ' You can set a profile by running command `SFTP: Set Profile`.'
         );
