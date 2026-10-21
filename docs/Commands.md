@@ -60,8 +60,10 @@ Sync compares timestamps and transfers only what differs; behavior is tuned with
 | Command | ID | Description |
 | --- | --- | --- |
 | `SFTP: Diff Active File with Remote` | `sftp.diff.activeFile` | Open VS Code's diff view: current file vs. its remote counterpart. |
-| Diff with Remote | `sftp.diff` | Context-menu variant for any explorer file. |
-| `SFTP: Compare Folders with Remote` | `sftp.compareFolders` | Recursively diffs a local folder against its remote counterpart; results (new-local / new-remote / modified) are listed in a QuickPick with per-file actions to open a diff, upload, or download. |
+| Diff with Remote | `sftp.diff` | Context-menu variant for any explorer file. The remote side is the live file on the server, so editing it there saves to the server. |
+| `SFTP: Compare Folders with Remote` | `sftp.compareFolders` | Recursively diffs a local folder against its remote counterpart; results (new-local / new-remote / modified) are listed in a QuickPick with per-file actions to open a diff, upload, or download. A remote folder that doesn't exist yet is treated as empty. |
+| Diff with Local | `sftp.remoteExplorer.diffWithLocal` | The same diff, started from a file in the Remote Explorer or from an open remote file's editor context menu. |
+| Compare Folder with Local | `sftp.remoteExplorer.compareWithLocal` | The same folder compare, started from a folder or connection root in the Remote Explorer. A local folder that doesn't exist yet is treated as empty, so everything shows as remote-only. |
 
 ## Remote Explorer and file commands
 

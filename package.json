@@ -340,6 +340,16 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.remoteExplorer.diffWithLocal",
+        "title": "Diff with Local",
+        "category": "SFTP"
+      },
+      {
+        "command": "sftp.remoteExplorer.compareWithLocal",
+        "title": "Compare Folder with Local",
+        "category": "SFTP"
+      },
+      {
         "command": "sftp.list",
         "title": "List",
         "category": "SFTP"
@@ -665,6 +675,14 @@
           "when": "false"
         },
         {
+          "command": "sftp.remoteExplorer.diffWithLocal",
+          "when": "false"
+        },
+        {
+          "command": "sftp.remoteExplorer.compareWithLocal",
+          "when": "false"
+        },
+        {
           "command": "sftp.remoteExplorer.refresh",
           "when": "false"
         }
@@ -774,6 +792,11 @@
           "command": "sftp.remoteExplorer.editInLocal",
           "group": "2_files",
           "when": "sftp.enabled && resourceScheme == remote"
+        },
+        {
+          "command": "sftp.remoteExplorer.diffWithLocal",
+          "group": "3_compare",
+          "when": "sftp.enabled && resourceScheme == remote && !isInDiffEditor"
         }
       ],
       "editor/title": [
@@ -857,6 +880,16 @@
           "command": "sftp.revealInExplorer",
           "group": "2_files",
           "when": "view == remoteExplorer && viewItem =~ /^(folder|file)\\b/"
+        },
+        {
+          "command": "sftp.remoteExplorer.diffWithLocal",
+          "group": "3_compare",
+          "when": "view == remoteExplorer && viewItem == file"
+        },
+        {
+          "command": "sftp.remoteExplorer.compareWithLocal",
+          "group": "3_compare",
+          "when": "view == remoteExplorer && viewItem =~ /^(root|folder)\\b/"
         },
         {
           "command": "sftp.upload.folder",
