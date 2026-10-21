@@ -1,7 +1,7 @@
 import * as querystring from 'querystring';
 import { Readable } from 'stream';
 import * as vscode from 'vscode';
-import { FileStats, FileSystem, FileType, ServiceConfig } from '../../core';
+import { FileStats, FileSystem, FileType, ServiceConfig, isNotFoundError } from '../../core';
 import logger from '../../logger';
 import { getExtensionSetting } from '../ext';
 import type { ExplorerRoot } from './treeDataProvider';
@@ -14,21 +14,6 @@ interface Target {
   path: string;
 }
 
-// ENOENT from tests and local paths, status 2 (NO_SUCH_FILE) from ssh2, and basic-ftp's
-// 550 reply or ftpFileSystem.lstat's own message for a missing entry
-function isNotFound(error: any): boolean {
-  if (!error) {
-    return false;
-  }
-  const message = String(error.message || '').toLowerCase();
-  return (
-    error.code === 'ENOENT' ||
-    error.code === 2 ||
-    message === 'file not exist' ||
-    (error.code === 550 && /no such file|not found|not exist/.test(message))
-  );
-}
-
 // status 3 (PERMISSION_DENIED) from ssh2
 function isPermissionDenied(error: any): boolean {
   return !!error && (error.code === 'EACCES' || error.code === 3);
@@ -38,7 +23,7 @@ function toFileSystemError(error: any, uri: vscode.Uri): Error {
   if (error instanceof vscode.FileSystemError) {
     return error;
   }
-  if (isNotFound(error)) {
+  if (isNotFoundError(error)) {
     return vscode.FileSystemError.FileNotFound(uri);
   }
   if (isPermissionDenied(error)) {
@@ -265,7 +250,7 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
     try {
       return await remoteFs.lstat(path);
     } catch (error) {
-      if (isNotFound(error)) {
+      if (isNotFoundError(error)) {
         return null;
       }
       throw error;

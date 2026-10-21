@@ -67,10 +67,7 @@ export function openFile(uri: vscode.Uri, option?: vscode.TextDocumentShowOption
   return executeCommand('vscode.open', uri, option);
 }
 
-export function diffFiles(leftFsPath, rightFsPath, title, option?) {
-  const leftUri = vscode.Uri.file(leftFsPath);
-  const rightUri = vscode.Uri.file(rightFsPath);
-
+export function diffFiles(leftUri: vscode.Uri, rightUri: vscode.Uri, title: string, option?) {
   return executeCommand('vscode.diff', leftUri, rightUri, title, option);
 }
 

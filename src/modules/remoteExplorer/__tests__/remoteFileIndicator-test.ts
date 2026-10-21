@@ -146,6 +146,19 @@ describe('RemoteFileIndicator', () => {
     expect(statusBarItem.hide).toHaveBeenCalled();
   });
 
+  test('a diff with a remote side counts as editing a remote file', () => {
+    new RemoteFileIndicator(() => rootFor(LIVE, []));
+    const remote = uriOf('/www/index.php');
+    const diffTab = { input: { original: remote, modified: vscode.Uri.file('/local/index.php') } };
+
+    tabs.groups = [{ tabs: [diffTab] }];
+    tabs.active = diffTab;
+    tabListeners.forEach(listener => listener());
+
+    expect(statusBarItem.show).toHaveBeenCalled();
+    expect(statusBarItem.text).toBe('$(cloud) Remote: client-site');
+  });
+
   test('decorates open remote tabs only, and asks again when tabs open or close', () => {
     const indicator = new RemoteFileIndicator(() => rootFor(LIVE));
     const changed: vscode.Uri[][] = [];

@@ -7,6 +7,21 @@ interface FileSystemError extends Error {
 
 export const ERROR_MSG_STREAM_INTERRUPT = 'sftp.stream.interrupt';
 
+// ENOENT from the local fs, status 2 (NO_SUCH_FILE) from ssh2, and basic-ftp's 550 reply or
+// ftpFileSystem.lstat's own message for a missing entry
+export function isNotFoundError(error: any): boolean {
+  if (!error) {
+    return false;
+  }
+  const message = String(error.message || '').toLowerCase();
+  return (
+    error.code === 'ENOENT' ||
+    error.code === 2 ||
+    message === 'file not exist' ||
+    (error.code === 550 && /no such file|not found|not exist/.test(message))
+  );
+}
+
 export type FileHandle = unknown;
 
 export enum FileType {

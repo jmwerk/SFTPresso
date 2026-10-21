@@ -1,4 +1,4 @@
-import FileSystem, { FileEntry, FileStats, FileType } from './fileSystem';
+import FileSystem, { FileEntry, FileStats, FileType, isNotFoundError } from './fileSystem';
 import LocalFileSystem from './localFileSystem';
 import RemoteFileSystem from './remoteFileSystem';
 import FTPFileSystem from './ftpFileSystem';
@@ -9,6 +9,7 @@ export {
   FileEntry,
   FileStats,
   FileType,
+  isNotFoundError,
   LocalFileSystem,
   RemoteFileSystem,
   FTPFileSystem,

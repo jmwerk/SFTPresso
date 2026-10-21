@@ -28,8 +28,10 @@ import fileCommandCompareFolders from './fileCommandCompareFolders';
 import fileCommandCreateFile from './fileCommandCreateFile';
 import fileCommandCreateFolder from './fileCommandCreateFolder';
 import fileCommandDeleteRemote from './fileCommandDeleteRemote';
+import fileCommandCompareWithLocal from './fileCommandCompareWithLocal';
 import fileCommandDiff from './fileCommandDiff';
 import fileCommandDiffActiveFile from './fileCommandDiffActiveFile';
+import fileCommandDiffWithLocal from './fileCommandDiffWithLocal';
 import fileCommandDownload from './fileCommandDownload';
 import fileCommandDownloadActiveFile from './fileCommandDownloadActiveFile';
 import fileCommandDownloadActiveFolder from './fileCommandDownloadActiveFolder';
@@ -99,6 +101,8 @@ export default {
   fileCommandDownloadForce,
   fileCommandDownloadProject,
   fileCommandEditInLocal,
+  fileCommandCompareWithLocal,
+  fileCommandDiffWithLocal,
   fileCommandList,
   fileCommandListAll,
   fileCommandRevealInExplorer,
