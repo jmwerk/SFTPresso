@@ -72,9 +72,15 @@ export function presentRemoteFile(
 }
 
 function tabUri(tab: vscode.Tab | undefined): vscode.Uri | undefined {
-  // text and custom (image preview) tabs carry a uri; diffs and webviews don't
-  const input = tab && (tab.input as { uri?: unknown });
-  return input && input.uri instanceof vscode.Uri ? input.uri : undefined;
+  // text and custom (image preview) tabs carry a uri, diffs a pair; webviews carry none
+  const input = tab && (tab.input as { uri?: unknown; original?: unknown; modified?: unknown });
+  if (!input) {
+    return undefined;
+  }
+  const uris = [input.uri, input.original, input.modified].filter(
+    (uri): uri is vscode.Uri => uri instanceof vscode.Uri
+  );
+  return uris.find(uri => uri.scheme === REMOTE_SCHEME) || uris[0];
 }
 
 function isRemote(uri: vscode.Uri | undefined): uri is vscode.Uri {

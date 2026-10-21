@@ -314,7 +314,7 @@ During bulk operations (folder upload/download, sync, project transfers):
 
 ## Comparing folders with the remote
 
-Right-click any folder (or run **`SFTP: Compare Folders with Remote`**) to get a recursive diff against its remote counterpart. Results are grouped into **new-local**, **new-remote**, and **modified** files; picking a file offers per-file actions to open a diff, upload, or download. Use it before a sync to preview exactly what would change.
+Right-click any folder (or run **`SFTP: Compare Folders with Remote`**) to get a recursive diff against its remote counterpart. From the other side, right-click a folder or connection root in the Remote Explorer and choose **Compare Folder with Local**; for a single file, **Diff with Local** (Remote Explorer) and **Diff with Remote** (Explorer) open the same side-by-side diff, with the live remote file on the left. If the folder you didn't click doesn't exist yet, it's treated as empty. Results are grouped into **new-local**, **new-remote**, and **modified** files; picking a file offers per-file actions to open a diff, upload, or download. Use it before a sync to preview exactly what would change.
 
 Two actions sit at the top of the list when they apply:
 

@@ -1,6 +1,6 @@
 import { Uri, window, ProgressLocation } from 'vscode';
 import { COMMAND_COMPARE_FOLDERS } from '../constants';
-import { FileType } from '../core';
+import { FileType, isNotFoundError } from '../core';
 import { ContentHasher, createContentHasher } from '../core/contentHash';
 import {
   compareFolders,
@@ -278,6 +278,17 @@ export default checkFileCommand({
 
   async handleFile(ctx) {
     const byContent = ctx.config.compareMode === 'content';
+    // The folder that was clicked exists; its counterpart may not yet, which reads as empty
+    // (everything one-sided) rather than failing the compare.
+    let missingRoot: 'local' | 'remote' = 'remote';
+    try {
+      await ctx.fileService.getLocalFileSystem().lstat(ctx.target.localFsPath);
+    } catch (error) {
+      if (!isNotFoundError(error)) {
+        throw error;
+      }
+      missingRoot = 'local';
+    }
     // A cancelled walk leaves a partial diff — showing it would read as a
     // complete comparison, so it resolves to undefined and nothing is shown.
     // Cancelling stops the walk itself, not just the notification.
@@ -285,7 +296,7 @@ export default checkFileCommand({
       byContent
         ? 'Comparing local and remote folders by content...'
         : 'Comparing local and remote folders...',
-      (hasher, isCancelled) => compareFolders(ctx, { isCancelled }, { hasher }),
+      (hasher, isCancelled) => compareFolders(ctx, { isCancelled }, { hasher, missingRoot }),
       isCancelled => createContentHasher(ctx.config, { isCancelled })
     );
 

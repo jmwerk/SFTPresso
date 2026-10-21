@@ -40,9 +40,10 @@ jest.mock('vscode', () => {
 
 jest.mock('../../../helper', () => ({ toLocalPath: jest.fn(), toRemotePath: jest.fn() }));
 
-jest.mock('../../../core', () => ({
-  FileType: jest.requireActual('../../../core/fs/fileSystem').FileType,
-}));
+jest.mock('../../../core', () => {
+  const { FileType, isNotFoundError } = jest.requireActual('../../../core/fs/fileSystem');
+  return { FileType, isNotFoundError };
+});
 
 jest.mock('../../../logger', () => ({ __esModule: true, default: { info: jest.fn(), warn: jest.fn() } }));
 
