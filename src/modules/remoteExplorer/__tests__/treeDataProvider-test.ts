@@ -32,12 +32,6 @@ jest.mock('vscode', () => {
 jest.mock('../../../helper', () => ({
   toLocalPath: jest.fn(),
   toRemotePath: jest.fn(),
-  isImageFile: jest.fn(() => false),
-  reportError: jest.fn(),
-}));
-
-jest.mock('../../../fileHandlers', () => ({
-  previewImage: jest.fn(),
 }));
 
 jest.mock('../../../core', () => ({
@@ -56,7 +50,7 @@ jest.mock('../../ext', () => ({
 }));
 
 jest.mock('../../../host', () => ({
-  showTextDocument: jest.fn(),
+  openFile: jest.fn(),
 }));
 
 import { FileType, upath, UResource } from '../../../core';
@@ -347,7 +341,7 @@ describe('RemoteTreeData filtering', () => {
   });
 });
 
-// Regression: getParent()/provideTextDocumentContent() are reachable from a
+// Regression: getParent() and the remote file system are reachable from a
 // file operation's post-transfer refresh (refreshRemoteExplorer) before the
 // Remote Explorer view has ever rendered a root, which is the only thing that
 // used to populate _rootsMap. findRoot() must build it lazily rather than
@@ -372,19 +366,9 @@ describe('RemoteTreeData.findRoot before the view has ever rendered', () => {
     expect(parent.resource.fsPath).toBe(ROOT);
   });
 
-  test('provideTextDocumentContent resolves a root on a brand new provider', async () => {
+  test('findRoot resolves a file uri on a brand new provider', () => {
     const config = fakeConfig();
-    getAllFileServiceMock.mockReturnValue([
-      {
-        id: 1,
-        name: 'test-server',
-        getConfig: () => config,
-        getRemoteFileSystem: async () => ({
-          list,
-          readFile: async () => Buffer.from('content'),
-        }),
-      },
-    ]);
+    getAllFileServiceMock.mockReturnValue([fakeFileService(config)]);
     const provider = new RemoteTreeData();
 
     const uri = UResource.makeResource({
@@ -393,9 +377,7 @@ describe('RemoteTreeData.findRoot before the view has ever rendered', () => {
       remoteId: 1,
     }).uri;
 
-    await expect(
-      provider.provideTextDocumentContent(uri, {} as any)
-    ).resolves.toBeDefined();
+    expect(provider.findRoot(uri)!.resource.fsPath).toBe(ROOT);
   });
 });
 

@@ -85,6 +85,18 @@
         "contents": "No transfers in progress.\nUploads and downloads appear here with progress, speed, and time remaining. Failed transfers stay until you retry or clear them.\n[Show Log](command:sftp.toggleOutput)"
       }
     ],
+    "colors": [
+      {
+        "id": "sftp.remoteFileForeground",
+        "description": "Tab title color of a file opened from the Remote Explorer, which saves straight to the server.",
+        "defaults": {
+          "dark": "charts.orange",
+          "light": "charts.orange",
+          "highContrast": "charts.orange",
+          "highContrastLight": "charts.orange"
+        }
+      }
+    ],
     "configuration": {
       "type": "object",
       "title": "sftp configuration",
@@ -104,7 +116,12 @@
         "sftp.downloadWhenOpenInRemoteExplorer": {
           "type": "boolean",
           "default": false,
-          "description": "\"Download\" instead of \"View Content\" when open file in Remote Explorer"
+          "description": "Opening a file in the Remote Explorer runs \"Edit in Local\" (download into the workspace) instead of editing it on the server."
+        },
+        "sftp.openRemoteFilesReadOnly": {
+          "type": "boolean",
+          "default": false,
+          "description": "Open files from the Remote Explorer read-only, so they can't be saved straight to the server. Applies to files opened after the change."
         }
       }
     },
@@ -384,7 +401,7 @@
       },
       {
         "command": "sftp.viewContent",
-        "title": "View Content",
+        "title": "Edit Remotely",
         "category": "SFTP"
       },
       {

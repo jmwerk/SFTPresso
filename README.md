@@ -23,6 +23,7 @@ Actively maintained by [@jmwerk](https://github.com/jmwerk). Forked from [Natizy
 ## Features
 
 - Browse remote files in the **Remote Explorer**, with multi-select download/upload
+- **Edit remote files in place** — open a file from the Remote Explorer and save it straight back to the server, no download/re-upload; VS Code asks before overwriting a file that changed on the server
 - **Filter the Remote Explorer** (**`SFTP: Filter Remote Explorer`** / **`SFTP: Clear Filter`**) — live substring search across the whole remote tree, including collapsed folders you haven't opened yet. (VS Code's own `workbench.list.keyboardNavigation: filter` setting is a handy complement for searching within a folder you've already expanded.)
 - **Diff** a local file against its remote copy, or **Compare Folders** for a recursive diff — by timestamp, or by SHA-256 of the contents (`compareMode`), hashed on the server so nothing is downloaded
 - **Sync** in either or both directions, with an optional dry-run preview (`syncConfirm`)

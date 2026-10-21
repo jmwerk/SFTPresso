@@ -11,15 +11,33 @@ import { REMOTE_SCHEME } from '../../constants';
 import { getFileService } from '../serviceManager';
 import RemoteTreeDataProvider, { ExplorerItem, ExplorerNode, isProfileRow } from './treeDataProvider';
 import { RemoteExplorerDragAndDropController } from './dragAndDrop';
+import RemoteFileSystemProvider from './remoteFileSystemProvider';
+import RemoteFileIndicator from './remoteFileIndicator';
+import logger from '../../logger';
 
 export default class RemoteExplorer {
   private _explorerView: vscode.TreeView<ExplorerNode>;
   private _treeDataProvider: RemoteTreeDataProvider;
+  private _remoteFileIndicator: RemoteFileIndicator;
 
   constructor(context: vscode.ExtensionContext) {
     this._treeDataProvider = new RemoteTreeDataProvider();
+    const fileSystem = new RemoteFileSystemProvider(uri => this._treeDataProvider.findRoot(uri));
+    this._remoteFileIndicator = new RemoteFileIndicator(uri => this._treeDataProvider.findRoot(uri));
     context.subscriptions.push(
-      vscode.workspace.registerTextDocumentContentProvider(REMOTE_SCHEME, this._treeDataProvider)
+      this._remoteFileIndicator,
+      vscode.workspace.registerFileSystemProvider(REMOTE_SCHEME, fileSystem, { isCaseSensitive: true }),
+      this._treeDataProvider.onDidChange(uri => fileSystem.notifyChanged(uri)),
+      // a file saved, created or removed through an editor shows up in the tree without a refresh
+      fileSystem.onDidChangeFile(events =>
+        events
+          .filter(event => event.type !== vscode.FileChangeType.Changed)
+          .forEach(event =>
+            this._treeDataProvider
+              .refresh({ resource: UResource.makeResource(event.uri), isDirectory: false })
+              .catch(error => logger.warn(`Remote Explorer refresh failed: ${error.message}`))
+          )
+      )
     );
 
     this._explorerView = vscode.window.createTreeView('remoteExplorer', {
@@ -64,11 +82,16 @@ export default class RemoteExplorer {
     }
 
     this._treeDataProvider.refresh(item);
+    if (!item) {
+      // the roots were just rebuilt, so open tabs are re-checked against the current configs
+      this._remoteFileIndicator.refresh();
+    }
   }
 
   // Takes effect on the next refresh, which the caller triggers on every profile change.
   setProfiles(activeProfile: string | null, availableProfiles: string[]) {
     this._treeDataProvider.setActiveProfile(activeProfile, availableProfiles);
+    this._remoteFileIndicator.setActiveProfile(activeProfile);
   }
 
   reveal(item: ExplorerItem): Thenable<void> {

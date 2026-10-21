@@ -286,7 +286,13 @@ In **sftp.json**:
 
 Open it by clicking the **SFTP** icon in the Activity Bar, or run `View: Show SFTP`.
 
-- Browsing opens files in a **read-only** view by default. Run **`SFTP: Edit in Local`** (context menu) to download a file into the workspace for editing — or flip the [`sftp.downloadWhenOpenInRemoteExplorer`](Configuration.md#vs-code-extension-settings) setting to make downloading the default.
+- Opening a file **edits it on the server**: saving writes it straight back over SFTP/FTP, with no local copy. Images open in VS Code's image preview.
+  - While a remote file is the active tab, the status bar shows **`☁ Remote: <profile or config>`** on a warning background (click it to reload the file from the server), and every open remote tab gets an orange title with a `☁` badge. The colour is the `sftp.remoteFileForeground` theme colour, overridable in `workbench.colorCustomizations`.
+  - If the file changed on the server since you opened it, VS Code shows its "file is newer" prompt (Compare / Overwrite) instead of silently overwriting.
+  - Saves honor `useTempFile`/`openSsh` (upload beside the file, then rename) and `filePerm`; otherwise the file keeps its permissions.
+  - Changes made by someone else show up when you run **Refresh Active Remote File** or refresh the folder; the server can't push them.
+  - The editor is tied to the server it was opened from. After switching to a profile that points the config at a different host or port, reopen the file from the tree.
+  - Run **`SFTP: Edit in Local`** (context menu) to download a file into the workspace instead (for search, Git, or language tooling across files), or flip [`sftp.downloadWhenOpenInRemoteExplorer`](Configuration.md#vs-code-extension-settings) to make that the default. [`sftp.openRemoteFilesReadOnly`](Configuration.md#vs-code-extension-settings) opens remote files read-only.
 - **Multi-select** works like the regular explorer: hold `Ctrl`/`Cmd` or `Shift` while clicking to select several files/folders, then upload or download them all at once.
 - Create, rename/move, and delete remote files/folders from the context menu ([file commands](Commands.md#remote-explorer-and-file-commands)) — rename/move is a single remote operation regardless of size, see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
 - **Drag a file or folder onto another folder** in the tree to move it there, once [`remoteExplorer.enableDragAndDrop`](Configuration.md#remoteexplorer) is turned on (off by default) — see [Renaming and moving files](#renaming-and-moving-files-on-the-remote).
