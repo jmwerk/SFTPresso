@@ -1136,5 +1136,8 @@
       "<rootDir>/test/**/*.spec.js",
       "<rootDir>/src/**/__tests__/*.ts"
     ]
+  },
+  "overrides": {
+    "minimatch": "^11.0.4"
   }
 }
