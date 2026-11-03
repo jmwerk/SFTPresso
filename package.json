@@ -1112,7 +1112,7 @@
     "async": "^3.2.6",
     "basic-ftp": "^6.2.4",
     "fs-extra": "^11.4.1",
-    "ignore": "^7.0.12",
+    "ignore": "^7.0.14",
     "joi": "^18.3.1",
     "jsonc-parser": "^3.3.1",
     "lodash.debounce": "^4.0.8",
