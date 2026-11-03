@@ -1113,7 +1113,7 @@
     "basic-ftp": "^6.2.1",
     "fs-extra": "^11.4.1",
     "ignore": "^7.0.12",
-    "joi": "^18.2.9",
+    "joi": "^18.3.1",
     "jsonc-parser": "^3.3.1",
     "lodash.debounce": "^4.0.8",
     "lru-cache": "^11.5.3",
