@@ -1106,7 +1106,7 @@
     "patch-package": "^8.0.1",
     "ts-jest": "^29.4.12",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.71.2"
   },
   "dependencies": {
     "async": "^3.2.6",
