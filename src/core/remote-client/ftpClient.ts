@@ -1,4 +1,4 @@
-import { Client, FTPContext, FTPResponse } from 'basic-ftp';
+import { Client, FTPContext, FTPError, FTPResponse } from 'basic-ftp';
 import { connect as netConnect } from 'net';
 import { ConnectionOptions as TLSConnectionOptions } from 'tls';
 import RemoteClient, { ConnectOption } from './remoteClient';
@@ -82,7 +82,9 @@ export default class FTPClient extends RemoteClient {
     // does routinely) makes it fall back from MLSD to LIST — silently
     // changing mtime precision and timezone semantics mid-session.
     const features = await client.features();
-    client.availableListCommands = features.has('MLSD') ? ['MLSD'] : ['LIST'];
+    client.availableListCommands = [
+      features.has('MLSD') ? 'MLSD' : await this._probeListCommand(client),
+    ];
 
     // basic-ftp's Client is not an EventEmitter; watch the control socket
     // (attached after access() since a TLS upgrade replaces the socket)
@@ -90,6 +92,21 @@ export default class FTPClient extends RemoteClient {
       .once('end', () => this._notifyDisconnected('end'))
       .once('close', () => this._notifyDisconnected('close'))
       .once('error', err => this._notifyDisconnected('error', err));
+  }
+
+  // A plain LIST hides dotfiles (.htaccess…) on most servers. Probe "LIST -a" once
+  // on the login directory, which is known to exist, so a rejection means the flag.
+  private async _probeListCommand(client: Client): Promise<string> {
+    client.availableListCommands = ['LIST -a'];
+    try {
+      await client.list();
+      return 'LIST -a';
+    } catch (error) {
+      if (error instanceof FTPError) {
+        return 'LIST';
+      }
+      throw error;
+    }
   }
 
   onDisconnected(cb: (reason: string, err?: Error) => void) {
