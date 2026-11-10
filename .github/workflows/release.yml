@@ -41,9 +41,12 @@ jobs:
       - name: Package extension
         run: npx @vscode/vsce package --out sftpresso-${{ steps.tag.outputs.tag }}.vsix
 
+      # A semver pre-release tag (v1.40.0-pre.1) comes from develop; GitHub never marks
+      # a pre-release as "Latest", so that keeps pointing at the stable build.
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           files: sftpresso-${{ steps.tag.outputs.tag }}.vsix
           generate_release_notes: true
+          prerelease: ${{ contains(steps.tag.outputs.tag, '-') }}

@@ -11,7 +11,7 @@ set -euo pipefail
 
 src=${1:-docs}
 dest=${2:-wiki}
-repo_url="https://github.com/jmwerk/SFTPresso/blob/develop"
+repo_url="https://github.com/jmwerk/SFTPresso/blob/main"
 
 rm -f "$dest"/*.md
 
