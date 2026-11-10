@@ -16,6 +16,9 @@
       "$ref": "definitions.json#/sftp"
     },
     {
+      "$ref": "definitions.json#/ftp"
+    },
+    {
       "type": "object",
       "properties": {
         "protocol": {
@@ -38,6 +41,9 @@
                 },
                 {
                   "$ref": "definitions.json#/sftp"
+                },
+                {
+                  "$ref": "definitions.json#/ftp"
                 }
               ]
             }
