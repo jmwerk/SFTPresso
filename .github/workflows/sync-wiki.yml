@@ -6,7 +6,7 @@ name: Sync wiki
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ main ]
     paths: [ 'docs/**', scripts/sync-wiki.sh ]
   workflow_dispatch:
 
