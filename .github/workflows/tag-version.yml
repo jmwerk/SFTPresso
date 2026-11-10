@@ -1,8 +1,14 @@
 name: Tag Version
 
+# Two release channels, chosen by branch and version shape:
+#   - develop + pre-release version (1.40.0-pre.1) -> GitHub pre-release only
+#   - main    + stable version      (1.40.0)       -> GitHub Release + Marketplace + Open VSX
+# Any other combination (e.g. the stable release commit landing on develop
+# before it is merged to main) is skipped.
+
 on:
   push:
-    branches: [ develop ]
+    branches: [ develop, main ]
     paths:
       - 'package.json'
 
@@ -23,8 +29,23 @@ jobs:
         id: version
         run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
+      - name: Pick release channel
+        id: channel
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          case "$BRANCH:$VERSION" in
+            develop:*-*) echo "channel=prerelease" >> "$GITHUB_OUTPUT" ;;
+            main:*-*)    echo "::error::Pre-release version $VERSION on main"; exit 1 ;;
+            main:*)      echo "channel=stable" >> "$GITHUB_OUTPUT" ;;
+            *)           echo "Stable version $VERSION on $BRANCH, released from main; skipping."
+                         echo "channel=none" >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Create and push tag if new
         id: create_tag
+        if: steps.channel.outputs.channel != 'none'
         env:
           TAG: v${{ steps.version.outputs.version }}
         run: |
@@ -44,9 +65,9 @@ jobs:
       # publish.yml are dispatched explicitly here instead.
       #
       # Both dispatches are gated on this run having actually created the tag.
-      # This workflow fires on every push to develop that touches package.json,
-      # which includes dependency bumps that leave `version` untouched — those
-      # pushes must not re-release or re-publish the current version.
+      # This workflow fires on every push that touches package.json, which
+      # includes dependency bumps that leave `version` untouched — those pushes
+      # must not re-release or re-publish the current version.
       - name: Trigger release workflow
         if: steps.create_tag.outputs.created == 'true'
         env:
@@ -55,7 +76,7 @@ jobs:
         run: gh workflow run release.yml --ref "$TAG" -f tag="$TAG"
 
       - name: Trigger publish workflow
-        if: steps.create_tag.outputs.created == 'true'
+        if: steps.create_tag.outputs.created == 'true' && steps.channel.outputs.channel == 'stable'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: v${{ steps.version.outputs.version }}

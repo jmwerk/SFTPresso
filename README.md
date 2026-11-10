@@ -60,6 +60,8 @@ Listings: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemN
 
 Prefer to sideload a specific build? Grab a `.vsix` from [Releases](https://github.com/jmwerk/SFTPresso/releases) (or build one with `npm run package`), then open the **⋯ (More Actions)** menu at the top of the Extensions view, choose **Install from VSIX…**, select the file, and reload VS Code.
 
+Want to try new features and fixes before they ship? Releases marked **Pre-release** (versions like `1.40.0-pre.1`) are built from the `develop` branch; install them the same way.
+
 ## Quick start
 
 > **Prefer a guided tour?** Run **`Welcome: Open Walkthrough…`** from the Command Palette and pick **Get started with SFTPresso** for a native, checklist-style walkthrough of the steps below.

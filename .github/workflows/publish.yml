@@ -1,8 +1,8 @@
 name: Publish
 
 # Publishes the extension to the VS Code Marketplace and Open VSX on a
-# version tag. Runs in parallel with release.yml (which builds the GitHub
-# Release); this job handles the two marketplaces.
+# stable version tag (released from main). Runs in parallel with release.yml
+# (which builds the GitHub Release); this job handles the two marketplaces.
 #
 # Requires two repository secrets:
 #   - VSCE_PAT : Azure DevOps PAT for the `jmwerk` Marketplace publisher
@@ -26,6 +26,13 @@ jobs:
       - name: Resolve tag
         id: tag
         run: echo "tag=${{ github.event.inputs.tag || github.ref_name }}" >> "$GITHUB_OUTPUT"
+
+      # The Marketplace rejects semver pre-release versions; those ship as GitHub pre-releases only
+      - name: Refuse pre-release tags
+        if: contains(steps.tag.outputs.tag, '-')
+        run: |
+          echo "::error::${{ steps.tag.outputs.tag }} is a pre-release; publish stable tags from main only"
+          exit 1
 
       - name: Checkout repository
         uses: actions/checkout@v7
