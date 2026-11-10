@@ -117,6 +117,7 @@ interface SftpOption {
 interface FtpOption {
   secure: boolean | 'control' | 'implicit';
   secureOptions: any;
+  ftpTransferType?: 'binary' | 'ascii';
 }
 
 export interface FileServiceConfig

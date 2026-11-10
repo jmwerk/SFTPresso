@@ -36,6 +36,8 @@ export interface ConnectOption {
   secure?: any;
   secureOptions?: object;
   passive?: boolean;
+  // undefined behaves as 'binary' (basic-ftp's TYPE I)
+  ftpTransferType?: 'binary' | 'ascii';
 }
 
 export enum ErrorCode {
