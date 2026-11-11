@@ -8,4 +8,4 @@ Source for https://jmwerk.github.io/SFTPresso/ — a static page styled as a VS 
 - `assets/` — icon and showcase screenshot copied from `resources/` and `assets/showcase/`
 
 No build step. Open `index.html` directly, or serve the folder with any static server.
-Deployed by `.github/workflows/pages.yml` on every push to `develop` that touches `site/`.
+Deployed by `.github/workflows/pages.yml` on every push to `main` that touches `site/` (i.e. when a release is merged).

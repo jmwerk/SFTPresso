@@ -26,6 +26,16 @@ ListOptions "-la"
 </Global>
 ```
 
+## Files on my IBM z/OS (mainframe) FTP server come through garbled
+
+SFTPresso transfers FTP files in binary mode, byte for byte. z/OS only converts text between EBCDIC and ASCII in ASCII mode, so set [`ftpTransferType`](Configuration.md#ftptransfertype) to `"ascii"`:
+
+```json
+{ "protocol": "ftp", "ftpTransferType": "ascii" }
+```
+
+ASCII mode applies to every file on that connection, so keep binary files (images, archives) out of it with `ignore` or a separate `context` config.
+
 ## Do I have to store my password in `sftp.json`?
 
 No — leave `password` out and you'll be prompted on connect, with an offer to remember the password in VS Code's secret storage. You can also save it up front with `SFTP: Save Password` (see [Storing passwords securely](Installation-and-Setup.md#storing-passwords-securely)). Better yet, use key-based auth (see [Best Practices](Best-Practices.md)).
