@@ -2,13 +2,15 @@
 
 ## Installing the extension
 
-As of **v1.20.2**, every tagged release is published automatically to both the **VS Code Marketplace** and **Open VSX** by [`.github/workflows/publish.yml`](https://github.com/jmwerk/SFTPresso/blob/develop/.github/workflows/publish.yml), so you can install it straight from your editor:
+As of **v1.20.2**, every stable release is published automatically to both the **VS Code Marketplace** and **Open VSX** by [`.github/workflows/publish.yml`](https://github.com/jmwerk/SFTPresso/blob/develop/.github/workflows/publish.yml), so you can install it straight from your editor:
 
 1. Open the Extensions view (`Ctrl+Shift+X` / `Cmd+Shift+X`).
 2. Search for **SFTPresso** and install it — or run `ext install jmwerk.sftpresso` from the Command Palette.
 3. If you still have an older `sftp` extension installed (from `@liximomo` or `@Natizyskunk`), SFTPresso detects it on startup and prompts you to disable it — see [Legacy extension detection](#legacy-extension-detection).
 
 Listings: [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=jmwerk.sftpresso) · [Open VSX](https://open-vsx.org/extension/jmwerk/sftpresso) (for VSCodium, Gitpod, Eclipse Theia, and other editors that use Open VSX).
+
+Pre-releases (versions like `1.40.0-pre.1`) are built from the `develop` branch so new features and fixes can be tried before they ship. They are only on [GitHub Releases](https://github.com/jmwerk/SFTPresso/releases), marked **Pre-release**, and install from a VSIX as below.
 
 To sideload a specific build instead, install from a VSIX package:
 
