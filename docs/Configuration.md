@@ -19,7 +19,7 @@ The file is read as **JSONC**: `// line comments`, `/* block comments */`, and t
 | Remote commands | [`remoteCommands`](#remotecommands) · [`remoteCommandTimeout`](#remotecommandtimeout) |
 | SFTP authentication | [`agent`](#agent) · [`privateKeyPath`](#privatekeypath) · [`passphrase`](#passphrase) · [`interactiveAuth`](#interactiveauth) |
 | SFTP connection | [`hop`](#hop) · [`strictHostKeyChecking`](#stricthostkeychecking) · [`algorithms`](#algorithms) · [`sshConfigPath`](#sshconfigpath) · [`sshCustomParams`](#sshcustomparams) · [`keepaliveInterval`](#keepaliveinterval) · [`keepaliveCountMax`](#keepalivecountmax) · [`transferMode`](#transfermode) |
-| FTP(S) | [`secure`](#secure) · [`secureOptions`](#secureoptions) |
+| FTP(S) | [`secure`](#secure) · [`secureOptions`](#secureoptions) · [`ftpTransferType`](#ftptransfertype) |
 
 ## Common options
 
@@ -765,6 +765,19 @@ Extra options passed straight to Node's [`tls.connect()`](https://nodejs.org/api
 ```json
 { "secureOptions": { "rejectUnauthorized": false } }
 ```
+
+### ftpTransferType
+The FTP data transfer type used for the whole connection. `"binary"` (`TYPE I`, the default) transfers every file byte for byte. `"ascii"` (`TYPE A`) asks the server to translate text — needed on IBM z/OS, where only ASCII mode converts between EBCDIC and ASCII.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `ftpTransferType` | `"binary"` \| `"ascii"` | `"binary"` |
+
+```json
+{ "protocol": "ftp", "ftpTransferType": "ascii" }
+```
+
+> ⚠️ ASCII mode applies to every file transferred on that connection, so binary files (images, archives, fonts) will be corrupted. Exclude them with [`ignore`](#ignore) or use a separate [`context`](#context) config for them. Remote file sizes can also differ from local ones, so Compare Folders and Sync report those files as changed in either [`compareMode`](#comparemode).
 
 ## VS Code extension settings
 

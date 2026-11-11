@@ -433,6 +433,11 @@
         "description": "Set to true for both control and data connection encryption, 'control' for control connection encryption only, or 'implicit' for\nimplicitly encrypted control connection (this mode is deprecated in modern times, but usually uses port 990).",
         "default": false
       },
+      "ftpTransferType": {
+        "enum": ["binary", "ascii"],
+        "description": "FTP data transfer type for the whole connection. \"binary\" (TYPE I, the default) transfers bytes unchanged. \"ascii\" (TYPE A) lets the server translate text, e.g. EBCDIC conversion on IBM z/OS; it applies to every file, so binary files (images, archives) will be corrupted. Applies to ftp only.",
+        "default": "binary"
+      },
       "secureOptions": {
         "type": "object",
         "description": "Options to be passed to tls.connect(). Default: (none)",

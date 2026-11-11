@@ -47,6 +47,7 @@ const configScheme = Joi.object({
   secure: Joi.any().valid(true, false, 'control', 'implicit'),
   secureOptions: nullable(Joi.object()),
   passive: Joi.boolean(),
+  ftpTransferType: Joi.any().valid('binary', 'ascii'),
 
   remotePath: Joi.string().required(),
   uploadOnSave: Joi.boolean(),

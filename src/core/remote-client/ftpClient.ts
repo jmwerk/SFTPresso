@@ -51,7 +51,8 @@ export default class FTPClient extends RemoteClient {
   }
 
   async _doConnect(connectOption: ConnectOption): Promise<void> {
-    const { username, password, host, port, secure, secureOptions, debug } = connectOption;
+    const { username, password, host, port, secure, secureOptions, ftpTransferType, debug } =
+      connectOption;
     const client: Client = this._client;
 
     if (debug) {
@@ -74,6 +75,12 @@ export default class FTPClient extends RemoteClient {
     if (secure === 'control') {
       await client.send('PROT C');
       client.prepareTransfer = enterPassiveModePlainData;
+    }
+
+    // access() leaves the session in binary (TYPE I). ASCII lets servers such
+    // as z/OS translate EBCDIC; it applies to every file, so it stays opt-in.
+    if (ftpTransferType === 'ascii') {
+      await client.send('TYPE A');
     }
 
     // Pin the listing command for the whole connection. basic-ftp probes
