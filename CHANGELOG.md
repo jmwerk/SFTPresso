@@ -1,3 +1,11 @@
+## 1.40.0 - 2026-11-11
+
+* New Feature : **ASCII transfers for FTP servers that need them.** basic-ftp switches every FTP session to binary (`TYPE I`), so on servers that only translate text in ASCII mode — IBM z/OS converts between EBCDIC and ASCII only there — files arrived unusable. The new FTP-only `ftpTransferType` option (`"binary"` by default, or `"ascii"`) sends `TYPE A` after login and on every reconnect. It applies to every file on the connection, so keep binary files out with `ignore` or a separate `context` config. (Reported, with a proposed fix, by @mbezzi in [#154](https://github.com/jmwerk/SFTPresso/issues/154); [#156](https://github.com/jmwerk/SFTPresso/pull/156).)
+
+* Fix : `secure` and `secureOptions` (and now `ftpTransferType`) get validation and completion in `sftp.json` for FTP configs; the FTP schema never included its own options. ([#156](https://github.com/jmwerk/SFTPresso/pull/156))
+
+* Internal : Release workflow split into channels: pre-releases (`x.y.z-pre.N`) are built from `develop` as GitHub pre-releases, stable releases from `main`. ([#155](https://github.com/jmwerk/SFTPresso/pull/155))
+
 ## 1.39.1 - 2026-11-03
 
 * Fix : **Dotfiles show up on FTP servers without MLSD.** On those servers the listing was pinned to a plain `LIST`, which most servers answer without dotfiles, so `.htaccess` and other dotfiles never appeared in the Remote Explorer, were skipped by downloads and syncs, and deleting a folder that held one failed. SFTPresso now tries `LIST -a` once per connection and uses it when the server accepts it, falling back to plain `LIST` otherwise. (Reported, with a proposed fix, by @fredlatorche in [#140](https://github.com/jmwerk/SFTPresso/issues/140); [#141](https://github.com/jmwerk/SFTPresso/pull/141).)
