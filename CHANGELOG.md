@@ -1,3 +1,11 @@
+## 1.41.0 - 2026-11-12
+
+* Improvement : **Transfer logs show where each file went.** The output channel logged only the local path of a transfer, so a misconfigured `remotePath` or `context` was hard to spot. Each transfer is now logged on one line with its source and destination, e.g. `local ➞ remote /local/a.php -> /www/a.php`, and failed and cancelled transfers include the remote path too. (Pull request [#165](https://github.com/jmwerk/SFTPresso/pull/165) from @workman110.)
+
+* Fix : **Security update to a bundled library.** `basic-ftp` 6.2.4 → 6.2.6 fixes a path traversal in `downloadToDir()` ([GHSA-2w5v-vj22-jp27](https://github.com/patrickjuchli/basic-ftp/security/advisories/GHSA-2w5v-vj22-jp27)); SFTPresso never calls that function, so it was not reachable. ([#162](https://github.com/jmwerk/SFTPresso/pull/162))
+
+* Internal : Dependency refresh — `joi` 18.3.1 → 18.3.2 (shipped). Dev-only: `eslint` 10.9.0 → 10.14.0 and `@types/node` 26.6.4 → 26.6.6. ([#161](https://github.com/jmwerk/SFTPresso/pull/161), [#152](https://github.com/jmwerk/SFTPresso/pull/152), [#153](https://github.com/jmwerk/SFTPresso/pull/153))
+
 ## 1.40.0 - 2026-11-11
 
 * New Feature : **ASCII transfers for FTP servers that need them.** basic-ftp switches every FTP session to binary (`TYPE I`), so on servers that only translate text in ASCII mode — IBM z/OS converts between EBCDIC and ASCII only there — files arrived unusable. The new FTP-only `ftpTransferType` option (`"binary"` by default, or `"ascii"`) sends `TYPE A` after login and on every reconnect. It applies to every file on the connection, so keep binary files out with `ignore` or a separate `context` config. (Reported, with a proposed fix, by @mbezzi in [#154](https://github.com/jmwerk/SFTPresso/issues/154); [#156](https://github.com/jmwerk/SFTPresso/pull/156).)
