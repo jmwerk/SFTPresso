@@ -294,17 +294,17 @@ export function createFileService(config: any, workspace: string) {
     transferEventEmitter.fire({ type: 'progress', task });
   });
   service.afterTransfer((error, task) => {
-    const { localFsPath, transferType } = task;
+    const { localFsPath } = task;
     const filename = path.basename(localFsPath);
     const filepath = simplifyPath(localFsPath);
     if (task.isCancelled()) {
-      logger.info(`cancel transfer ${localFsPath}`);
+      logger.info(`cancel transfer ${task.describe()}`);
       app.sftpBarItem.showMsg(`$(circle-slash) ${filename}`, `Cancelled: ${filepath}`, 2000 * 2);
     } else if (error) {
-      reportTransferFailure(error, `when ${transferType} ${localFsPath}`);
+      reportTransferFailure(error, `when ${task.describe()}`);
       app.sftpBarItem.showMsg(`$(error) ${filename}`, `Failed: ${filepath}`, 2000 * 2);
     } else {
-      logger.info(`${transferType}\n  From: ${task.srcFsPath}\n  To:   ${task.targetFsPath}`);
+      logger.info(task.describe());
       app.sftpBarItem.showMsg(`$(check) ${filename}`, `Done: ${filepath}`, 2000 * 2);
     }
     doneTransferCount++;
