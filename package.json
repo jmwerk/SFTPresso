@@ -1110,7 +1110,7 @@
   },
   "dependencies": {
     "async": "^3.2.6",
-    "basic-ftp": "^6.2.4",
+    "basic-ftp": "^6.2.6",
     "fs-extra": "^11.4.1",
     "ignore": "^7.0.14",
     "joi": "^18.3.1",
