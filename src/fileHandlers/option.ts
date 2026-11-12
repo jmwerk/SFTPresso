@@ -4,4 +4,6 @@ export interface FileHandleOption {
   // transfer/sync), never for an explicitly-requested single-file transfer.
   // 0 or undefined disables.
   maxFileSize?: number;
+  // set by upload on save and the file watcher; afterUpload skips these unless onSave
+  automatic?: boolean;
 }
