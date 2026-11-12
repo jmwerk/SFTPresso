@@ -304,7 +304,7 @@ export function createFileService(config: any, workspace: string) {
       reportTransferFailure(error, `when ${transferType} ${localFsPath}`);
       app.sftpBarItem.showMsg(`$(error) ${filename}`, `Failed: ${filepath}`, 2000 * 2);
     } else {
-      logger.info(`${transferType} ${localFsPath}`);
+      logger.info(`${transferType}\n  From: ${task.srcFsPath}\n  To:   ${task.targetFsPath}`);
       app.sftpBarItem.showMsg(`$(check) ${filename}`, `Done: ${filepath}`, 2000 * 2);
     }
     doneTransferCount++;
