@@ -46,7 +46,7 @@ See the [command reference](https://github.com/jmwerk/SFTPresso/wiki/Commands) f
 
 ## Installation
 
-As of v1.20.2, each tagged release is published automatically to both the VS Code Marketplace and Open VSX, so you can install from within your editor and get updates automatically.
+As of v1.20.2, each stable release is published automatically to both the VS Code Marketplace and Open VSX, so you can install from within your editor and get updates automatically.
 
 ### From the Marketplace / Open VSX (recommended)
 
