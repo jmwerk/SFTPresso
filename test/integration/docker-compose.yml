@@ -9,12 +9,17 @@
 #   npm run test:integration:down
 #
 # See CONTRIBUTING.md for the full workflow.
+#
+# Pulled images are pinned by digest so an upstream push can't change CI under
+# us; bump them deliberately and run the suite. pure-ftpd stays on 1.0.50 (the
+# `latest` from 2022 until 2026-11-12): CI's FTPS tests began timing out on the
+# control socket intermittently once `latest` moved to 1.0.54.
 
 services:
   # Plain FTP, no MLSD -> exercises the legacy LIST parsing / rawModifiedAt path.
   # Not chrooted: the test user logs in at /ftp/testuser.
   vsftpd:
-    image: delfer/alpine-ftp-server:latest
+    image: delfer/alpine-ftp-server:latest@sha256:60bb774d8408d9d4d5c74d05d1c086a34ce192c6c1a142ffac268cac0dbc6fac
     environment:
       USERS: "testuser|testpass|/ftp/testuser"
     # The image's start_vsftpd.sh launches vsftpd with the config's
@@ -59,7 +64,7 @@ services:
   # clear-text data for secure:"control", and second-precision UTC timestamps.
   # Virtual user is chrooted, logging in at /.
   pure-ftpd:
-    image: crazymax/pure-ftpd:latest
+    image: crazymax/pure-ftpd:1.0.50@sha256:f505247fa1fc26efc46f24bd9f8aa45c45dee3afb458252097c90c0e2ae47b6a
     environment:
       # SECURE_MODE=false drops --norename and the dotfile prohibitions so the
       # rename / recursive-delete tests work.
