@@ -281,6 +281,11 @@ export default class TransferTask implements Task {
     return this._targetFsPath;
   }
 
+  // single line so every entry in the output channel keeps its timestamp/level prefix
+  describe(): string {
+    return `${this._transferDirection} ${this._srcFsPath} -> ${this._targetFsPath}`;
+  }
+
   get transferType() {
     return this._transferDirection;
   }
