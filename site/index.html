@@ -205,9 +205,9 @@
             <button class="pane-header" aria-expanded="false"><svg class="icon twistie"><use href="#i-chevron-right"/></svg><span class="pane-title">Timeline</span></button>
             <div class="pane-body">
               <ul class="tree timeline">
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.41.0</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(log): show remote path in transfer logs</span><span class="tree-desc">now</span></li>
-                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.40.0</span><span class="tree-desc">1d</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.42.0</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">feat(l10n): localize UI strings</span><span class="tree-desc">now</span></li>
+                <li class="tree-row"><svg class="icon"><use href="#i-git-commit"/></svg><span class="tree-label">chore(release): 1.41.0</span><span class="tree-desc">1d</span></li>
               </ul>
             </div>
           </div>
@@ -273,7 +273,7 @@
                 <button class="ext-card" data-file="extension">
                   <img src="assets/icon.png" alt="" width="42" height="42">
                   <span class="ext-card-body">
-                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.41.0</span></span>
+                    <span class="ext-card-name">SFTPresso <span class="ext-card-version">v1.42.0</span></span>
                     <span class="ext-card-desc">Sync files over SFTP, FTP/FTPS, or SSH from VS Code</span>
                     <span class="ext-card-footer"><span class="ext-card-publisher">jmwerk</span><span class="btn btn-primary btn-xs">Install</span></span>
                   </span>
@@ -428,7 +428,7 @@
       <button class="status-item hide-narrow">UTF-8</button>
       <button class="status-item hide-narrow">LF</button>
       <button class="status-item" id="status-language">Markdown</button>
-      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.41.0</span></button>
+      <button class="status-item" data-open-url="https://github.com/jmwerk/SFTPresso/releases" title="Latest release"><svg class="icon"><use href="#i-sparkle"/></svg><span>v1.42.0</span></button>
       <button class="status-item" data-action="toggle-theme" title="Toggle Color Theme"><svg class="icon"><use href="#i-moon"/></svg></button>
       <button class="status-item" id="status-bell" title="Notifications"><svg class="icon"><use href="#i-bell"/></svg></button>
     </div>
@@ -471,7 +471,7 @@
         </div>
         <p class="hero-alt">Also on <a href="https://open-vsx.org/extension/jmwerk/sftpresso" target="_blank" rel="noopener">Open VSX</a> for VSCodium and other VS Code–based editors. Source on <a href="https://github.com/jmwerk/SFTPresso" target="_blank" rel="noopener">GitHub</a>.</p>
         <div class="hero-badges">
-          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.41.0</span></span>
+          <span class="badge"><span class="badge-k">version</span><span class="badge-v badge-blue">1.42.0</span></span>
           <span class="badge"><span class="badge-k">license</span><span class="badge-v badge-blue">MIT</span></span>
           <span class="badge"><span class="badge-k">vscode</span><span class="badge-v">^1.138</span></span>
         </div>
@@ -837,6 +837,14 @@
     <h1>Changelog</h1>
     <p class="lede">Recent highlights. The <a href="https://github.com/jmwerk/SFTPresso/blob/main/CHANGELOG.md" target="_blank" rel="noopener">full changelog</a> goes back to the very first release, and each stable release is published to the Marketplace and Open VSX automatically.</p>
 
+    <div class="release"><h2>1.42.0 <small>2026-11-13</small></h2>
+      <ul>
+        <li><span class="tag tag-feat">Feature</span> <strong>afterUpload.</strong> Run shell commands on the server once an upload or sync finishes, like clearing a cache. Asks before the first run.</li>
+        <li><span class="tag tag-feat">Feature</span> <strong>Set Permissions</strong> on remote files and folders from the Remote Explorer, optionally for a folder's contents too.</li>
+        <li><span class="tag tag-feat">Feature</span> <strong>Backups.</strong> With <code>"backup": true</code>, the remote version of a file is saved locally before an upload overwrites it.</li>
+        <li><span class="tag tag-feat">Feature</span> <strong>Search Remote Files.</strong> Search file contents on the server over SSH and open a match straight from the results.</li>
+        <li><span class="tag tag-feat">Feature</span> All commands, settings and messages are ready for translation.</li>
+      </ul></div>
     <div class="release"><h2>1.41.0 <small>2026-11-12</small></h2>
       <ul>
         <li><span class="tag tag-feat">Feature</span> Transfer logs show both the source and destination path, including for failed and cancelled transfers. Thanks, @workman110!</li>
@@ -1035,7 +1043,7 @@ SOFTWARE.</div>
         <div class="ext-meta">
           <a href="https://marketplace.visualstudio.com/publishers/jmwerk" target="_blank" rel="noopener">jmwerk</a>
           <span class="ext-meta-sep">|</span>
-          <span title="Version">v1.41.0</span>
+          <span title="Version">v1.42.0</span>
           <span class="ext-meta-sep">|</span>
           <span>MIT</span>
           <span class="ext-meta-sep">|</span>
@@ -1085,7 +1093,7 @@ SOFTWARE.</div>
         <h3>Tags</h3>
         <p class="chips"><span class="chip">sftp</span><span class="chip">ftp</span><span class="chip">ftps</span><span class="chip">ssh</span><span class="chip">sync</span><span class="chip">deploy</span><span class="chip">upload</span><span class="chip">remote explorer</span></p>
         <h3>More info</h3>
-        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.41.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
+        <dl class="kv"><dt>Identifier</dt><dd>jmwerk.sftpresso</dd><dt>Version</dt><dd>1.42.0</dd><dt>Engine</dt><dd>VS Code ^1.138.0</dd><dt>Node</dt><dd>≥ 22 (development)</dd><dt>Workspace Trust</dt><dd>Limited support</dd></dl>
       </aside>
     </div>
   </article>
