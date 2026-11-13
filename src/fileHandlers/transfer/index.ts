@@ -20,6 +20,7 @@ import {
 } from './transfer';
 import { claimWatcherSuppression } from '../../modules/watcherSuppression';
 import { onTransferEvent } from '../../modules/serviceManager';
+import { reportUploadBatch } from '../../modules/afterUpload';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) {
@@ -127,6 +128,37 @@ async function withTransferProgress<T>(
   );
 }
 
+/**
+ * Count how a batch's uploads ended, for afterUpload. Only local -> remote tasks
+ * count: in a two-way sync the downloads don't change the server.
+ */
+function trackUploads() {
+  const tasks = new Set<TransferTask>();
+  let uploaded = 0;
+  let failed = 0;
+  const sub = onTransferEvent(({ type, task, error }) => {
+    if (type !== 'done' || !tasks.has(task) || task.isCancelled()) {
+      return;
+    }
+    if (error) {
+      failed++;
+    } else {
+      uploaded++;
+    }
+  });
+  return {
+    track(task: TransferTask) {
+      if (task.transferType === TransferDirection.LOCAL_TO_REMOTE) {
+        tasks.add(task);
+      }
+    },
+    finish() {
+      sub.dispose();
+      return { uploaded, failed };
+    },
+  };
+}
+
 function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx: FileHandlerContext) => string) {
   return async function handle(this: FileHandlerContext, option) {
     // Stale-remote guard (gated by conflictCheck). Anything but "proceed"
@@ -165,6 +197,13 @@ function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx
       skipped,
     };
     let transferConfig;
+    const uploads = trackUploads();
+    // a batch that threw (lost connection, cancelled walk) counts as failed
+    let completed = false;
+    const queue = (t: TransferTask) => {
+      uploads.track(t);
+      scheduler.add(t);
+    };
 
     if (direction === TransferDirection.REMOTE_TO_LOCAL) {
       transferConfig = {
@@ -194,16 +233,25 @@ function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx
         await withTransferProgress(progressTitle(this), scheduler, async trackTask => {
           await transfer(transferConfig, t => {
             trackTask(t);
-            scheduler.add(t);
+            queue(t);
           });
           await scheduler.run();
         });
       } else {
-        await transfer(transferConfig, t => scheduler.add(t));
+        await transfer(transferConfig, queue);
         await scheduler.run();
       }
+      completed = true;
     } finally {
       releaseWatcherClaim?.();
+      const { uploaded, failed } = uploads.finish();
+      if (direction === TransferDirection.LOCAL_TO_REMOTE) {
+        reportUploadBatch(this.fileService, this.config, {
+          changed: uploaded,
+          failed: completed ? failed : failed + 1,
+          automatic: Boolean(option.automatic),
+        });
+      }
     }
     reportSkipped(direction === TransferDirection.LOCAL_TO_REMOTE ? 'Upload' : 'Download', skipped);
 
@@ -259,32 +307,46 @@ export const sync2Remote = createFileHandler<SyncOption>({
     option.filePerm = this.config.filePerm;
     option.dirPerm = this.config.dirPerm;
     const skipped: SkippedEntry[] = [];
-    const deleted = await withTransferProgress(
-      `SFTP: sync local → remote (${path.basename(localFsPath)})`,
-      scheduler,
-      async trackTask => {
-        const result = await sync(
-          {
-            srcFsPath: localFsPath,
-            srcFs: localFs,
-            targetFsPath: remoteFsPath,
-            targetFs: remoteFs,
-            transferOption: option,
-            transferDirection: TransferDirection.LOCAL_TO_REMOTE,
-            walkConcurrency: this.config.concurrency,
-            token: { isCancelled: () => scheduler.isStopped() },
-            skipped,
-            hasher,
-          },
-          t => {
-            trackTask(t);
-            scheduler.add(t);
-          }
-        );
-        await scheduler.run();
-        return result;
-      }
-    );
+    const uploads = trackUploads();
+    let deleted: FileEntry[] = [];
+    let completed = false;
+    try {
+      deleted = await withTransferProgress(
+        `SFTP: sync local → remote (${path.basename(localFsPath)})`,
+        scheduler,
+        async trackTask => {
+          const result = await sync(
+            {
+              srcFsPath: localFsPath,
+              srcFs: localFs,
+              targetFsPath: remoteFsPath,
+              targetFs: remoteFs,
+              transferOption: option,
+              transferDirection: TransferDirection.LOCAL_TO_REMOTE,
+              walkConcurrency: this.config.concurrency,
+              token: { isCancelled: () => scheduler.isStopped() },
+              skipped,
+              hasher,
+            },
+            t => {
+              trackTask(t);
+              uploads.track(t);
+              scheduler.add(t);
+            }
+          );
+          await scheduler.run();
+          return result;
+        }
+      );
+      completed = true;
+    } finally {
+      const { uploaded, failed } = uploads.finish();
+      reportUploadBatch(this.fileService, this.config, {
+        changed: uploaded + deleted.length,
+        failed: completed ? failed : failed + 1,
+        automatic: false,
+      });
+    }
     reportDeletions('Sync Local → Remote', deleted);
     reportSkipped('Sync Local → Remote', skipped);
   },

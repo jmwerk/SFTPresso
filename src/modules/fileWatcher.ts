@@ -47,7 +47,7 @@ function doUpload() {
     const fspath = uri.fsPath;
     logger.info(`[watcher/updated] ${fspath}`);
     try {
-      await upload(uri);
+      await upload(uri, { automatic: true });
     } catch (error) {
       logger.error(error, `upload ${fspath}`);
       app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
@@ -200,7 +200,7 @@ function getAutoRenameConfig(uri: vscode.Uri) {
 // is never removed before its replacement exists.
 async function fallbackToUpload(oldUri: vscode.Uri, newUri: vscode.Uri) {
   try {
-    await upload(newUri);
+    await upload(newUri, { automatic: true });
     await removeRemote(oldUri);
   } catch (error) {
     logger.error(error, `rename fallback for ${oldUri.fsPath}`);

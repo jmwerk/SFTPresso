@@ -85,6 +85,12 @@ interface ServiceOption {
   // ms a remote command may run before it is killed and reported as timed
   // out.
   remoteCommandTimeout: number;
+  // command(s) run on the server after an upload batch -- see
+  // src/modules/afterUpload.ts. sftp only.
+  afterUpload?:
+    | string
+    | string[]
+    | { command: string | string[]; onSave?: boolean; delay?: number };
 }
 
 export interface RetryOption {
@@ -246,6 +252,7 @@ function getHostInfo(config) {
     // must not open a second connection to the same server
     'remoteCommands',
     'remoteCommandTimeout',
+    'afterUpload',
   ];
 
   return Object.keys(config).reduce((obj, key) => {

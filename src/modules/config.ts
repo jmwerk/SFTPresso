@@ -18,6 +18,13 @@ import { showTextDocument, showWarningMessage, executeCommand } from '../host';
 
 const nullable = schema => schema.optional().allow(null);
 
+const afterUploadCommand = Joi.alternatives().try(
+  Joi.string().trim().min(1),
+  Joi.array()
+    .items(Joi.string().trim().min(1))
+    .min(1)
+);
+
 const configScheme = Joi.object({
   name: Joi.string(),
 
@@ -110,6 +117,18 @@ const configScheme = Joi.object({
   compareMode: Joi.any().valid('mtime', 'content'),
   conflictCheck: Joi.boolean(),
   remoteTimeOffsetInHours: Joi.number(),
+  afterUpload: Joi.alternatives().try(
+    afterUploadCommand,
+    Joi.object({
+      command: afterUploadCommand.required(),
+      onSave: Joi.boolean(),
+      delay: Joi.number()
+        .integer()
+        .min(0),
+    })
+  )
+    // null lets a profile turn off the base config's command
+    .allow(null),
 
   remoteExplorer: {
     filesExclude: Joi.array()

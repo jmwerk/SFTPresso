@@ -16,7 +16,7 @@ The file is read as **JSONC**: `// line comments`, `/* block comments */`, and t
 | Watching for changes | [`watcher`](#watcher) |
 | Remote Explorer | [`remoteExplorer`](#remoteexplorer) |
 | Performance and timeouts | [`concurrency`](#concurrency) · [`limitOpenFilesOnRemote`](#limitopenfilesonremote) · [`connectTimeout`](#connecttimeout) · [`retry`](#retry) · [`idleTimeout`](#idletimeout) · [`stallTimeout`](#stalltimeout) · [`operationTimeout`](#operationtimeout) |
-| Remote commands | [`remoteCommands`](#remotecommands) · [`remoteCommandTimeout`](#remotecommandtimeout) |
+| Remote commands | [`remoteCommands`](#remotecommands) · [`remoteCommandTimeout`](#remotecommandtimeout) · [`afterUpload`](#afterupload) |
 | SFTP authentication | [`agent`](#agent) · [`privateKeyPath`](#privatekeypath) · [`passphrase`](#passphrase) · [`interactiveAuth`](#interactiveauth) |
 | SFTP connection | [`hop`](#hop) · [`strictHostKeyChecking`](#stricthostkeychecking) · [`algorithms`](#algorithms) · [`sshConfigPath`](#sshconfigpath) · [`sshCustomParams`](#sshcustomparams) · [`keepaliveInterval`](#keepaliveinterval) · [`keepaliveCountMax`](#keepalivecountmax) · [`transferMode`](#transfermode) |
 | FTP(S) | [`secure`](#secure) · [`secureOptions`](#secureoptions) · [`ftpTransferType`](#ftptransfertype) |
@@ -531,6 +531,42 @@ How long, in milliseconds, a command started by [`SFTP: Run Remote Command`](Com
 ```
 
 > ℹ️ OpenSSH's server does not act on the kill request for a plain (non-pty) exec session, so a command that times out may keep running on the server after SFTPresso reports it as timed out — the SSH channel is closed on this end, but the remote process is not guaranteed to be. SFTP only.
+
+### afterUpload
+Shell command(s) to run on the server after an upload or **Sync Local → Remote** finishes — clearing a cache, restarting a queue, reloading PHP. They run in [`remotePath`](#remotepath) over the existing pooled SSH connection, so there's no second login, and output goes to the SFTPresso output channel.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `afterUpload` | string, string[], or object | *(none)* |
+| `afterUpload.command` | string or string[] | — |
+| `afterUpload.onSave` | boolean | `false` |
+| `afterUpload.delay` | number (ms) | `1000` |
+
+```jsonc
+{
+  // short form: one command after every upload/sync command
+  "afterUpload": "wp cache flush"
+}
+```
+
+```jsonc
+{
+  "afterUpload": {
+    // run in order; a failing command stops the rest
+    "command": ["php artisan optimize:clear", "php artisan queue:restart"],
+    // also run after upload on save and watcher uploads
+    "onSave": true
+  }
+}
+```
+
+- **Once per batch.** A folder upload, a sync, **Upload Changed Files**, or a burst of saves runs the commands once, after uploads have been quiet for `delay` ms. A sync that changes nothing runs nothing.
+- **Only after success.** If any upload in the batch failed, the commands are skipped and you get a warning, so a half-deployed site isn't flushed or restarted.
+- **Asks first.** Because `sftp.json` can come from a cloned repo, the first run of each command set on each server asks **Run / Always Run / Skip**. **Always Run** is remembered for this workspace until the commands or the server change. Untrusted workspaces never run them.
+- **Uploads only.** Downloads, **Sync Remote → Local**, and saves of files opened with **Edit Remotely** don't trigger it. In **Sync Both Directions**, only the uploaded side counts.
+- Each command gets [`remoteCommandTimeout`](#remotecommandtimeout). It can be set per [profile](#profiles), for example only on the live server; `"afterUpload": null` in a profile turns off the base config's command.
+
+> ℹ️ SFTP only. On an FTP config it is logged and skipped, since FTP has no remote shell.
 
 ## SFTP-only options
 
