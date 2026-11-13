@@ -29,6 +29,9 @@ npm run lint
 npm run format  # prettier; CI runs format:check
 ```
 
+Bulk-formatting commits are listed in `.git-blame-ignore-revs`; GitHub's blame view skips them.
+Locally, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
+
 ### FTP and SFTP integration tests
 
 `test/integration/` drives the real remote-client code against actual servers running
