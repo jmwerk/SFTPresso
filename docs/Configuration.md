@@ -10,7 +10,7 @@ The file is read as **JSONC**: `// line comments`, `/* block comments */`, and t
 | --- | --- |
 | Connection | [`protocol`](#protocol) · [`host`](#host) · [`port`](#port) · [`username`](#username) · [`password`](#password) · [`warnPlaintextPassword`](#warnplaintextpassword) · [`profiles`](#profiles) · [`remote`](#remote) |
 | Mapping | [`name`](#name) · [`context`](#context) · [`remotePath`](#remotepath) · [`filePerm`](#fileperm) · [`dirPerm`](#dirperm) |
-| Uploads and downloads | [`uploadOnSave`](#uploadonsave) · [`useTempFile`](#usetempfile) · [`openSsh`](#openssh) · [`downloadOnOpen`](#downloadonopen) · [`conflictCheck`](#conflictcheck) · [`maxFileSize`](#maxfilesize) |
+| Uploads and downloads | [`uploadOnSave`](#uploadonsave) · [`useTempFile`](#usetempfile) · [`openSsh`](#openssh) · [`downloadOnOpen`](#downloadonopen) · [`conflictCheck`](#conflictcheck) · [`backup`](#backup) · [`maxFileSize`](#maxfilesize) |
 | Sync and compare | [`syncOption`](#syncoption) · [`syncConfirm`](#syncconfirm) · [`compareMode`](#comparemode) · [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) |
 | Ignoring files | [`ignore`](#ignore) · [`ignoreFile`](#ignorefile) |
 | Watching for changes | [`watcher`](#watcher) |
@@ -239,6 +239,40 @@ Guard against uploads that would silently overwrite someone else's work. Before 
 It's smarter than a plain timestamp check, which matters because your local copy is always "newest" the moment you edit it — a naive check would wave through an upload even if a teammate changed the remote five minutes ago. So instead, after every transfer SFTPresso remembers what the remote looked like at that moment, and compares against *that* baseline rather than just "is remote newer than local right now." No baseline yet (nothing transferred this workspace) falls back to just checking whether the remote is newer than local.
 
 A few things to know: it only covers single-file uploads (including `uploadOnSave`) — folder uploads and [Sync](Commands.md#sync-commands) skip it, since prompting mid-batch doesn't really work; use [`syncConfirm`](#syncconfirm) there instead. It costs one extra round-trip per upload, which is part of why it's off by default. Baselines are per-workspace, so uploading from a second machine can trigger one stale-baseline prompt — just choose Overwrite and it's back in sync. And on FTP servers without `MFMT` support, the remote's mtime is just "whenever it was uploaded," which makes conflicts get flagged more often than they should — see [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) if that's biting you.
+
+### backup
+Keep a local copy of each remote file before an upload replaces it, so a bad deploy to a live site can be undone by hand. Before any upload, sync, or **Edit Remotely** save overwrites an existing remote file, SFTPresso downloads the current remote version into a local folder.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `backup` | boolean or object | *(off)* |
+| `backup.dir` | string | `.sftpresso-backup` |
+| `backup.keep` | number | `5` |
+
+```jsonc
+{
+  // defaults: .sftpresso-backup, last 5 versions of each file
+  "backup": true
+}
+```
+
+```jsonc
+{
+  "backup": { "dir": "../backups/client-site", "keep": 10 }
+}
+```
+
+Backups land at `<dir>/<host>/<path under remotePath>`, with a local timestamp before the extension so editors still highlight them:
+
+```
+.sftpresso-backup/example.com/wp-content/themes/site/functions.20261112-153000-123.php
+```
+
+- **Local, not on the server.** A copy next to the original on the server could be downloaded from the web root (`functions.php.bak` is served as plain text), so backups are never written remotely.
+- **Never uploaded.** A `dir` inside the [`context`](#context) is added to [`ignore`](#ignore) automatically for uploads, sync, and the [`watcher`](#watcher). Add it to `.gitignore` yourself.
+- **Per file.** Only the newest `keep` backups of each file are kept; `0` keeps every one. New remote files have nothing to back up and upload as usual.
+- **Blocks the upload if it fails.** If the backup can't be made, that file isn't uploaded and the transfer reports the error. A dropped connection is retried like any transfer.
+- It costs one download per overwritten file. Can be set per [profile](#profiles), for example only on the live server; `"backup": null` in a profile turns it off.
 
 ### ignore
 Files/folders excluded from transfers and sync. Gitignore-style patterns (wildcards with `*`), relative to the config's [`context`](#context). Bypass with the [Force commands](Commands.md#force-alt-commands).

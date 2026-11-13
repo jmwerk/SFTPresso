@@ -40,6 +40,9 @@ export interface TransferOption {
   // per-file chunk concurrency down so the two don't multiply into an
   // unbounded number of simultaneous outstanding requests.
   batchConcurrency?: number;
+  // uploads only: awaited once before the first attempt touches the target (see
+  // src/core/backup.ts); a rejection fails the task and the target is never written
+  beforeOverwrite?: (targetFsPath: string, targetFs: FileSystem) => Promise<void>;
 }
 
 // files smaller than this transfer as a single stream even in 'auto' mode --
@@ -139,6 +142,8 @@ export default class TransferTask implements Task {
   private _cancelTokenSource: CancellationTokenSource | undefined;
   private _handle: Readable;
   private _cancelled: boolean;
+  // retries must not back up the half-written file a failed attempt left behind
+  private _beforeOverwriteDone = false;
   // private _fileStatus: FileStatus;
 
   // how many times this task has been retried after a failure. Owned by the
@@ -300,10 +305,37 @@ export default class TransferTask implements Task {
       return;
     }
 
+    await this._runBeforeOverwrite();
+    if (this._cancelled) {
+      return;
+    }
+
     if (this.stallTimeout > 0) {
       return this._withStallWatchdog(() => this._run());
     }
     return this._run();
+  }
+
+  private async _runBeforeOverwrite() {
+    const hook = this._TransferOption.beforeOverwrite;
+    if (
+      !hook ||
+      this._beforeOverwriteDone ||
+      this._transferDirection !== TransferDirection.LOCAL_TO_REMOTE ||
+      this.fileType !== FileType.File
+    ) {
+      return;
+    }
+    try {
+      await hook(this._targetFsPath, this._targetFs);
+    } catch (error) {
+      // keep the code so a dropped connection is still retried
+      throw Object.assign(
+        new Error(`backup of ${this._targetFsPath} failed, not uploading: ${error.message}`),
+        { code: error.code }
+      );
+    }
+    this._beforeOverwriteDone = true;
   }
 
   // Fails a transfer that has stopped moving bytes, instead of waiting on it

@@ -45,6 +45,14 @@ jest.mock('../../../core', () => {
   return { FileType, isNotFoundError };
 });
 
+const backupCalls: string[] = [];
+jest.mock('../../../core/backup', () => ({
+  resolveBackup: (config: any) => (config.backup ? { root: '/bak', keep: 5 } : undefined),
+  backupRemoteFile: jest.fn(async (_option: any, remoteFs: any, _remotePath: string, path: string) => {
+    backupCalls.push(`${path}=${(await remoteFs.readFile(path)).toString()}`);
+  }),
+}));
+
 jest.mock('../../../logger', () => ({ __esModule: true, default: { info: jest.fn(), warn: jest.fn() } }));
 
 const extSetting: { openRemoteFilesReadOnly?: boolean } = {};
@@ -130,7 +138,7 @@ function setup(files: Record<string, Entry>, configOverrides: any = {}) {
     isDirectory: true,
     explorerContext: {
       config,
-      fileService: { name: 'Live', getRemoteFileSystem: async () => remoteFs },
+      fileService: { name: 'Live', baseDir: '/ws', getRemoteFileSystem: async () => remoteFs },
     },
   };
   const provider = new RemoteFileSystemProvider(() => root);
@@ -190,6 +198,29 @@ describe('RemoteFileSystemProvider', () => {
     await provider.writeFile(uriOf('/srv/a.txt'), Buffer.from('new'), CREATE);
 
     expect(remoteFs.puts[0].mode).toBe(0o664);
+  });
+
+  test('with backup on, the old remote copy is backed up before it is overwritten', async () => {
+    backupCalls.length = 0;
+    const { provider, files } = setup(
+      { '/srv/a.txt': file('old'), '/srv/b.txt': file('b') },
+      { backup: true }
+    );
+
+    await provider.writeFile(uriOf('/srv/a.txt'), Buffer.from('new'), CREATE);
+    await provider.writeFile(uriOf('/srv/new.txt'), Buffer.from('x'), CREATE);
+
+    expect(backupCalls).toEqual(['/srv/a.txt=old']);
+    expect(files['/srv/a.txt'].data!.toString()).toBe('new');
+  });
+
+  test('without backup, nothing is backed up', async () => {
+    backupCalls.length = 0;
+    const { provider } = setup({ '/srv/a.txt': file('old') });
+
+    await provider.writeFile(uriOf('/srv/a.txt'), Buffer.from('new'), CREATE);
+
+    expect(backupCalls).toEqual([]);
   });
 
   test('an empty save truncates the file', async () => {
