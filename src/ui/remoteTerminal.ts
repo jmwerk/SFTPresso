@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import type { Event, Pseudoterminal, TerminalDimensions } from 'vscode';
 import { StringDecoder } from 'string_decoder';
 import { ClientChannel } from 'ssh2';
@@ -51,12 +52,13 @@ export default class RemoteTerminal implements Pseudoterminal {
       this.dimensions = initialDimensions;
     }
     this.state = 'connecting';
-    this.writeEmitter.fire(`Connecting to ${this.options.host}…\r\n`);
+    this.writeEmitter.fire(l10n.t('Connecting to {0}…', this.options.host) + '\r\n');
 
     const requested = this.dimensions;
     this.options.connect(requested).then(
       channel => this.attach(channel, requested),
-      error => this.end(`Could not open a shell on ${this.options.host}: ${error.message}`)
+      error =>
+        this.end(l10n.t('Could not open a shell on {0}: {1}', this.options.host, error.message))
     );
   }
 
@@ -127,8 +129,11 @@ export default class RemoteTerminal implements Pseudoterminal {
         return;
       }
       // no exit status: the connection dropped, or SFTP: Disconnect ended it
-      const reason = channelError ? `: ${channelError.message}` : '.';
-      this.end(`Connection to ${this.options.host} closed${reason}`);
+      this.end(
+        channelError
+          ? l10n.t('Connection to {0} closed: {1}', this.options.host, channelError.message)
+          : l10n.t('Connection to {0} closed.', this.options.host)
+      );
     });
 
     this.pendingInput.forEach(data => channel.write(data));
@@ -154,7 +159,7 @@ export default class RemoteTerminal implements Pseudoterminal {
     }
     this.state = 'ended';
     this.writeEmitter.fire(
-      `\r\n\x1b[31m${message}\x1b[0m\r\nPress any key to close this terminal.\r\n`
+      `\r\n\x1b[31m${message}\x1b[0m\r\n${l10n.t('Press any key to close this terminal.')}\r\n`
     );
   }
 }

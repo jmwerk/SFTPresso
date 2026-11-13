@@ -109,11 +109,17 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
   private _tooltip(task: TransferTask, status: TransferStatus): vscode.MarkdownString {
     const isUpload = task.transferType === TransferDirection.LOCAL_TO_REMOTE;
     const tooltip = new vscode.MarkdownString();
-    tooltip.appendMarkdown(`**${isUpload ? 'Upload' : 'Download'}**\n\n`);
-    tooltip.appendText(`From: ${task.srcFsPath}\n\nTo: ${task.targetFsPath}`);
+    tooltip.appendMarkdown(
+      `**${isUpload ? vscode.l10n.t('Upload') : vscode.l10n.t('Download')}**\n\n`
+    );
+    tooltip.appendText(
+      vscode.l10n.t('From: {0}', task.srcFsPath) +
+        '\n\n' +
+        vscode.l10n.t('To: {0}', task.targetFsPath)
+    );
 
     if (status === 'error') {
-      tooltip.appendText(`\n\nFailed: ${this._errors.get(task)}`);
+      tooltip.appendText('\n\n' + vscode.l10n.t('Failed: {0}', String(this._errors.get(task))));
     }
     return tooltip;
   }
@@ -128,16 +134,16 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
         task.transferredBytes > 0
           ? this._progressDescription(task)
           : isUpload
-            ? 'uploading'
-            : 'downloading';
+            ? vscode.l10n.t('uploading')
+            : vscode.l10n.t('downloading');
       item.iconPath = task.isStalled
         ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
         : new vscode.ThemeIcon(isUpload ? 'cloud-upload' : 'cloud-download');
     } else if (status === 'error') {
-      item.description = 'failed';
+      item.description = vscode.l10n.t('failed');
       item.iconPath = new vscode.ThemeIcon('error', new vscode.ThemeColor('errorForeground'));
     } else {
-      item.description = 'queued';
+      item.description = vscode.l10n.t('queued');
       item.iconPath = new vscode.ThemeIcon('clock');
     }
     item.tooltip = this._tooltip(task, status);

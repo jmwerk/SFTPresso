@@ -17,20 +17,27 @@ async function configureWorkspace(basePath: string) {
   if (exist) {
     const picked = await vscode.window.showQuickPick(
       [
-        { label: 'Edit JSON', description: 'Open the existing config file' },
         {
-          label: 'Add Profile',
-          description: 'Answer a few questions to add a profile to the existing config',
+          id: 'edit',
+          label: vscode.l10n.t('Edit JSON'),
+          description: vscode.l10n.t('Open the existing config file'),
+        },
+        {
+          id: 'profile',
+          label: vscode.l10n.t('Add Profile'),
+          description: vscode.l10n.t(
+            'Answer a few questions to add a profile to the existing config'
+          ),
         },
       ],
-      { placeHolder: 'A config already exists. What do you want to do?' }
+      { placeHolder: vscode.l10n.t('A config already exists. What do you want to do?') }
     );
 
     if (picked === undefined) {
       return;
     }
 
-    if (picked.label === 'Add Profile') {
+    if (picked.id === 'profile') {
       return addProfileConfig(basePath);
     }
 
@@ -40,22 +47,24 @@ async function configureWorkspace(basePath: string) {
   const picked = await vscode.window.showQuickPick(
     [
       {
-        label: 'Quick setup',
-        description: 'Answer a few questions to generate the config',
+        id: 'quick',
+        label: vscode.l10n.t('Quick setup'),
+        description: vscode.l10n.t('Answer a few questions to generate the config'),
       },
       {
-        label: 'Edit JSON',
-        description: 'Create a config file from a template and edit it',
+        id: 'edit',
+        label: vscode.l10n.t('Edit JSON'),
+        description: vscode.l10n.t('Create a config file from a template and edit it'),
       },
     ],
-    { placeHolder: 'How do you want to set up the connection?' }
+    { placeHolder: vscode.l10n.t('How do you want to set up the connection?') }
   );
 
   if (picked === undefined) {
     return;
   }
 
-  if (picked.label === 'Quick setup') {
+  if (picked.id === 'quick') {
     return quickSetupConfig(basePath);
   }
 
@@ -69,9 +78,9 @@ export default checkCommand({
     const workspaceFolders = getWorkspaceFolders();
     if (!workspaceFolders) {
       const result = await showConfirmMessage(
-        'SFTP expects to work at a folder.',
-        'Open Folder',
-        'Ok'
+        vscode.l10n.t('SFTP expects to work at a folder.'),
+        vscode.l10n.t('Open Folder'),
+        vscode.l10n.t('Ok')
       );
 
       if (!result) {
@@ -83,9 +92,9 @@ export default checkCommand({
 
     if (workspaceFolders.length <= 0) {
       const result = await showConfirmMessage(
-        'There are no available folders in current workspace.',
-        'Add Folder to Workspace',
-        'Ok'
+        vscode.l10n.t('There are no available folders in current workspace.'),
+        vscode.l10n.t('Add Folder to Workspace'),
+        vscode.l10n.t('Ok')
       );
 
       if (!result) {
@@ -117,7 +126,7 @@ export default checkCommand({
     }));
 
     const item = await vscode.window.showQuickPick(initDirs, {
-      placeHolder: 'Select a folder…',
+      placeHolder: vscode.l10n.t('Select a folder…'),
     });
 
     if (item === undefined) {

@@ -1,4 +1,4 @@
-import { Uri } from 'vscode';
+import { l10n, Uri } from 'vscode';
 import { COMMAND_TOGGLE_UPLOAD_ON_SAVE } from '../constants';
 import { showErrorMessage } from '../host';
 import app from '../app';
@@ -21,9 +21,12 @@ export default checkCommand({
   id: COMMAND_TOGGLE_UPLOAD_ON_SAVE,
 
   async handleCommand(uri?: Uri) {
-    const service = await resolveTargetService(uri, 'Select a config to toggle Upload on Save');
+    const service = await resolveTargetService(
+      uri,
+      l10n.t('Select a config to toggle Upload on Save')
+    );
     if (!service) {
-      showErrorMessage('No SFTP config found to toggle Upload on Save.');
+      showErrorMessage(l10n.t('No SFTP config found to toggle Upload on Save.'));
       return;
     }
 
@@ -31,7 +34,7 @@ export default checkCommand({
     try {
       current = Boolean(service.getConfig().uploadOnSave);
     } catch (error) {
-      showErrorMessage(`Invalid config: ${error.message}`);
+      showErrorMessage(l10n.t('Invalid config: {0}', error.message));
       return;
     }
 
@@ -40,7 +43,7 @@ export default checkCommand({
     try {
       await writeConfigValue(configPath, 'uploadOnSave', next, matchServiceConfig(service));
     } catch (error) {
-      showErrorMessage(`Failed to update ${configPath}: ${error.message}`);
+      showErrorMessage(l10n.t('Failed to update {0}: {1}', configPath, error.message));
       return;
     }
 

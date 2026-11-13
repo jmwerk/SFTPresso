@@ -1,4 +1,4 @@
-import { ExtensionContext } from 'vscode';
+import { ExtensionContext, l10n } from 'vscode';
 import { LRUCache } from 'lru-cache';
 import StatusBarItem from './ui/statusBarItem';
 import ConnectionStatusBar from './ui/connectionStatusBar';
@@ -27,7 +27,7 @@ const app: App = Object.create(null);
 app.state = new AppState();
 app.sftpBarItem = new StatusBarItem(
   'sftpresso.profile',
-  'SFTPresso Profile',
+  l10n.t('SFTPresso Profile'),
   STATUS_PRIORITY.profile,
   () => {
     if (app.state.profile) {
@@ -37,17 +37,19 @@ app.sftpBarItem = new StatusBarItem(
   },
   // upload on save has its own toggle item next to this one
   () =>
-    app.state.availableProfiles.length > 0 ? 'SFTPresso — click to switch profile' : 'SFTPresso',
+    app.state.availableProfiles.length > 0
+      ? l10n.t('SFTPresso — click to switch profile')
+      : 'SFTPresso',
   () => (app.state.availableProfiles.length > 0 ? COMMAND_SET_PROFILE : COMMAND_TOGGLE_OUTPUT)
 );
 app.connectionBarItem = new ConnectionStatusBar();
 app.uploadOnSaveBarItem = new UploadOnSaveStatusBar();
 app.transferBarItem = new StatusBarItem(
   'sftpresso.transfers',
-  'SFTPresso Transfers',
+  l10n.t('SFTPresso Transfers'),
   STATUS_PRIORITY.transfers,
   () => '',
-  'SFTPresso transfers (click to show)',
+  l10n.t('SFTPresso transfers (click to show)'),
   VIEW_TRANSFERS_FOCUS
 );
 app.fsCache = new LRUCache<string, string>({ max: 6 });

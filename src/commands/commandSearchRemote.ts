@@ -1,4 +1,5 @@
 import {
+  l10n,
   ProgressLocation,
   QuickPickItem,
   QuickPickItemKind,
@@ -39,7 +40,7 @@ async function resolveTarget(
     const ctx = handleCtxFromUri(item.resource.uri);
     return { fileService: ctx.fileService, config: ctx.config, dir: ctx.target.remoteFsPath };
   }
-  const fileService = await resolveTargetService(undefined, 'Select a config to search');
+  const fileService = await resolveTargetService(undefined, l10n.t('Select a config to search'));
   if (!fileService) {
     return undefined;
   }
@@ -96,22 +97,22 @@ export default checkCommand({
     try {
       target = await resolveTarget(item);
     } catch (error) {
-      showErrorMessage(`Search Remote Files: ${error.message}`);
+      showErrorMessage(l10n.t('Search Remote Files: {0}', error.message));
       return;
     }
     if (!target) {
-      showErrorMessage('No SFTP config found.');
+      showErrorMessage(l10n.t('No SFTP config found.'));
       return;
     }
     const { fileService, config, dir } = target;
     if (config.protocol !== 'sftp') {
-      showErrorMessage('Searching file contents needs SFTP; FTP has no remote shell.');
+      showErrorMessage(l10n.t('Searching file contents needs SFTP; FTP has no remote shell.'));
       return;
     }
 
     const text = await window.showInputBox({
-      title: `Search ${config.host}:${dir}`,
-      prompt: 'Text to find in remote files (case-sensitive if it has an uppercase letter)',
+      title: l10n.t('Search {0}:{1}', config.host, dir),
+      prompt: l10n.t('Text to find in remote files (case-sensitive if it has an uppercase letter)'),
       ignoreFocusOut: true,
     });
     if (!text) {
@@ -131,7 +132,7 @@ export default checkCommand({
       result = await window.withProgress(
         {
           location: ProgressLocation.Notification,
-          title: `Searching ${config.host} for "${text}"…`,
+          title: l10n.t('Searching {0} for "{1}"…', config.host, text),
         },
         async () => {
           const fs = (await fileService.getRemoteFileSystem(config)) as RemoteFileSystem;
@@ -144,21 +145,27 @@ export default checkCommand({
       );
     } catch (error) {
       logger.error(error, 'search remote');
-      showErrorMessage(`Search Remote Files failed on ${config.host}: ${error.message}`);
+      showErrorMessage(
+        l10n.t('Search Remote Files failed on {0}: {1}', config.host, error.message)
+      );
       return;
     }
 
     if (result.matches.length === 0) {
-      showInformationMessage(`No results for "${text}" in ${dir}.`);
+      showInformationMessage(l10n.t('No results for "{0}" in {1}.', text, dir));
       return;
     }
 
     const files = new Set(result.matches.map(m => m.fsPath)).size;
     const picked = await window.showQuickPick(toPicks(result.matches, dir), {
       title: result.truncated
-        ? `First ${MAX_RESULTS} results for "${text}" — narrow the search to see the rest`
-        : `${result.matches.length} results in ${files} files for "${text}"`,
-      placeHolder: 'Filter results, then pick one to open it on the server',
+        ? l10n.t(
+            'First {0} results for "{1}" — narrow the search to see the rest',
+            MAX_RESULTS,
+            text
+          )
+        : l10n.t('{0} results in {1} files for "{2}"', result.matches.length, files, text),
+      placeHolder: l10n.t('Filter results, then pick one to open it on the server'),
       matchOnDescription: true,
     });
     if (!picked || !picked.match) {
@@ -168,7 +175,7 @@ export default checkCommand({
     try {
       await openMatch(fileService, config, picked.match, query);
     } catch (error) {
-      showErrorMessage(`Couldn't open ${picked.match.fsPath}: ${error.message}`);
+      showErrorMessage(l10n.t("Couldn't open {0}: {1}", picked.match.fsPath, error.message));
     }
   },
 });

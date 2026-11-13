@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { window, ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation, window } from 'vscode';
 import app from '../../app';
 import StatusBarItem from '../../ui/statusBarItem';
 import { FileEntry, TransferTask } from '../../core';
@@ -113,8 +113,8 @@ async function withTransferProgress<T>(
         progress.report({
           message:
             failed > 0
-              ? `${completed}/${batchTasks.size} files — ${failed} failed`
-              : `${completed}/${batchTasks.size} files`,
+              ? l10n.t('{0}/{1} files — {2} failed', completed, batchTasks.size, failed)
+              : l10n.t('{0}/{1} files', completed, batchTasks.size),
         });
       });
       const cancelSub = cancelToken.onCancellationRequested(() => scheduler.stop());
@@ -271,13 +271,11 @@ const downloadHandle = createTransferHandle(TransferDirection.REMOTE_TO_LOCAL);
 // Folder/project transfers can run long enough to need visible progress and a
 // way to cancel -- single-file transfers finish too fast for that to be
 // anything but noise, so only these two variants show a notification.
-const uploadFolderHandle = createTransferHandle(
-  TransferDirection.LOCAL_TO_REMOTE,
-  ctx => `SFTP: uploading ${path.basename(ctx.target.localFsPath)}`
+const uploadFolderHandle = createTransferHandle(TransferDirection.LOCAL_TO_REMOTE, ctx =>
+  l10n.t('SFTP: uploading {0}', path.basename(ctx.target.localFsPath))
 );
-const downloadFolderHandle = createTransferHandle(
-  TransferDirection.REMOTE_TO_LOCAL,
-  ctx => `SFTP: downloading ${path.basename(ctx.target.localFsPath)}`
+const downloadFolderHandle = createTransferHandle(TransferDirection.REMOTE_TO_LOCAL, ctx =>
+  l10n.t('SFTP: downloading {0}', path.basename(ctx.target.localFsPath))
 );
 
 // The preview's progress notification is gone once it is answered.
@@ -318,7 +316,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
     let completed = false;
     try {
       deleted = await withTransferProgress(
-        `SFTP: sync local → remote (${path.basename(localFsPath)})`,
+        l10n.t('SFTP: sync local → remote ({0})', path.basename(localFsPath)),
         scheduler,
         async trackTask => {
           const result = await sync(
@@ -409,7 +407,7 @@ export const sync2Local = createFileHandler<SyncOption>({
     let deleted: FileEntry[];
     try {
       deleted = await withTransferProgress(
-        `SFTP: sync remote → local (${path.basename(localFsPath)})`,
+        l10n.t('SFTP: sync remote → local ({0})', path.basename(localFsPath)),
         scheduler,
         async trackTask => {
           const result = await sync(

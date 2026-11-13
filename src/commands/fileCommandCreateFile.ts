@@ -3,7 +3,7 @@ import { createRemoteFile } from '../fileHandlers';
 // import { showConfirmMessage } from '../host';
 import { checkFileCommand } from './abstract/createCommand';
 import { uriFromExplorerContextOrEditorContext } from './shared';
-import { window, Uri } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 
 export default checkFileCommand({
   id: COMMAND_CREATE_FILE,
@@ -19,7 +19,7 @@ export default checkFileCommand({
 */
     const result = await window.showInputBox({
       value: '',
-      prompt: 'Please input file name',
+      prompt: l10n.t('Please input file name'),
     });
 
     if (result !== undefined) {

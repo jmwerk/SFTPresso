@@ -1,3 +1,5 @@
+const l10n = require('../test/helper/vscodeL10n');
+
 const Nothing = (() => {
   // A function declaration rather than an arrow: parts of the API are used
   // with `new` (vscode.ThemeColor, vscode.Position, ...), and an arrow
@@ -58,6 +60,10 @@ const Nothing = (() => {
             this._listeners = [];
           }
         };
+      }
+      // Real formatting, so tests can assert on user-facing messages.
+      if (key === 'l10n') {
+        return l10n;
       }
       return o.hasOwnProperty(key) ? o[key] : Nothing;
     },

@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import upath from './upath';
 import { promptForPassword } from '../host';
 import hostKeyPrompt from '../hostKeyPrompt';
@@ -154,7 +155,7 @@ class KeepAliveRemoteFs {
     this.fs = fs;
     this.closing = false;
 
-    app.sftpBarItem.showMsg('Connecting…', connectOption.connectTimeout);
+    app.sftpBarItem.showMsg(l10n.t('Connecting…'), connectOption.connectTimeout);
     app.connectionBarItem.setState(
       this.id,
       this.hasConnected ? ConnectionState.Reconnecting : ConnectionState.Connecting

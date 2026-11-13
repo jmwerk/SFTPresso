@@ -20,6 +20,7 @@ jest.mock('vscode', () => {
   }
 
   return {
+    l10n: jest.requireActual('../../../../test/helper/vscodeL10n'),
     Uri: URI,
     EventEmitter,
     ThemeColor: class ThemeColor {

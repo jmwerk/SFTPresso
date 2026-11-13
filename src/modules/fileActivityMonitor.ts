@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import * as vscode from 'vscode';
 import logger from '../logger';
 import { realpathSync } from 'fs';
@@ -112,8 +113,8 @@ function handleConfigDelete(uri: vscode.Uri) {
   // invalid) leaves nothing disposed above and would make this a false alarm.
   if (affectedServices.length > 0) {
     const label = workspaceFolder ? workspaceFolder.name : uri.fsPath;
-    showInformationMessage(`SFTP config removed. SFTP disabled for "${label}".`);
-    app.sftpBarItem.showMsg('SFTP config removed', uri.fsPath, 2000 * 2);
+    showInformationMessage(l10n.t('SFTP config removed. SFTP disabled for "{0}".', label));
+    app.sftpBarItem.showMsg(l10n.t('SFTP config removed'), uri.fsPath, 2000 * 2);
   }
 }
 
@@ -164,7 +165,7 @@ async function downloadOnOpen(uri: vscode.Uri) {
     }
 
     if (config.downloadOnOpen === 'confirm') {
-      const isConfirm = await showConfirmMessage('Do you want SFTP to download this file?');
+      const isConfirm = await showConfirmMessage(l10n.t('Do you want SFTP to download this file?'));
       if (!isConfirm) return;
     }
 

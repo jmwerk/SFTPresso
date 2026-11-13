@@ -15,7 +15,12 @@ jest.mock('vscode', () => {
   class Uri {}
 
   return new Proxy(Nothing, {
-    get: (o, key) => (key === 'Uri' ? Uri : o[key]),
+    get: (o, key) =>
+      key === 'Uri'
+        ? Uri
+        : key === 'l10n'
+          ? jest.requireActual('../../../test/helper/vscodeL10n')
+          : o[key],
   });
 });
 

@@ -78,7 +78,7 @@ async function showFiles<T extends FileListChildItem>(
     });
 
   const result = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select a target…',
+    placeHolder: vscode.l10n.t('Select a target…'),
   });
 
   if (result === undefined) {
@@ -126,7 +126,7 @@ async function showFiles<T extends FileListChildItem>(
         fsPath: selectedValue.parentFsPath,
         parentFsPath: '#will never reach here, cause the dir has alreay be cached#',
         type: FileType.Directory,
-        description: 'go back',
+        description: vscode.l10n.t('go back'),
       })
     );
 
@@ -137,7 +137,7 @@ async function showFiles<T extends FileListChildItem>(
           fsPath: selectedPath,
           parentFsPath: selectedValue.parentFsPath,
           type: FileType.Directory,
-          description: 'choose current folder',
+          description: vscode.l10n.t('choose current folder'),
         })
       );
     }

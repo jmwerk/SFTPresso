@@ -23,6 +23,12 @@ const AUTH_PASSWORD = 'Password';
 const AUTH_PRIVATE_KEY = 'Private Key';
 const AUTH_AGENT = 'SSH Agent';
 
+function authLabel(method: string | undefined): string {
+  if (method === AUTH_PRIVATE_KEY) return vscode.l10n.t('Private Key');
+  if (method === AUTH_AGENT) return vscode.l10n.t('SSH Agent');
+  return vscode.l10n.t('Password');
+}
+
 // Remembers the last answers to a few high-friction questions across runs of
 // the wizard (not host/username -- those are per-server, not worth reusing).
 const WIZARD_DEFAULTS_KEY = 'sftp.configWizard.lastDefaults';
@@ -96,7 +102,7 @@ interface WizardState {
 // HostAuthState a shared step should read/write and how to label it.
 interface HostAuthTarget {
   state: HostAuthState;
-  titlePrefix: string;
+  title: (text: string) => string;
   defaultPort: number;
   usernameDefault: string;
   basePath: string;
@@ -105,7 +111,7 @@ interface HostAuthTarget {
 function mainTarget(wizard: WizardState): HostAuthTarget {
   return {
     state: wizard.connection,
-    titlePrefix: '',
+    title: text => text,
     defaultPort: wizard.protocol === 'ftp' ? 21 : 22,
     usernameDefault: defaultUsername(),
     basePath: wizard.basePath,
@@ -115,7 +121,7 @@ function mainTarget(wizard: WizardState): HostAuthTarget {
 function hopTarget(wizard: WizardState): HostAuthTarget {
   return {
     state: wizard.hop,
-    titlePrefix: 'Jump Host — ',
+    title: text => vscode.l10n.t('Jump Host — {0}', text),
     defaultPort: 22,
     usernameDefault: '',
     basePath: wizard.basePath,
@@ -185,13 +191,13 @@ function stepHost(
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const value = await input.showInputBox({
-      title: `${target.titlePrefix}Host`,
+      title: target.title(vscode.l10n.t('Host')),
       step,
       totalSteps,
       value: target.state.host || '',
-      prompt: 'Host',
+      prompt: vscode.l10n.t('Host'),
       placeholder: 'example.com',
-      validate: v => (v.trim() ? undefined : 'Host is required.'),
+      validate: v => (v.trim() ? undefined : vscode.l10n.t('Host is required.')),
     });
     target.state.host = value.trim();
     return next();
@@ -207,16 +213,16 @@ function stepPort(
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const value = await input.showInputBox({
-      title: `${target.titlePrefix}Port`,
+      title: target.title(vscode.l10n.t('Port')),
       step,
       totalSteps,
       value: String(target.state.port ?? target.defaultPort),
-      prompt: 'Port',
+      prompt: vscode.l10n.t('Port'),
       validate: v => {
         const num = Number(v.trim());
         return Number.isInteger(num) && num >= 1 && num <= 65535
           ? undefined
-          : 'Port must be an integer between 1 and 65535.';
+          : vscode.l10n.t('Port must be an integer between 1 and 65535.');
       },
     });
     target.state.port = Number(value.trim());
@@ -233,12 +239,12 @@ function stepUsername(
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const value = await input.showInputBox({
-      title: `${target.titlePrefix}Username`,
+      title: target.title(vscode.l10n.t('Username')),
       step,
       totalSteps,
       value: target.state.username ?? target.usernameDefault,
-      prompt: 'Username',
-      validate: v => (v.trim() ? undefined : 'Username is required.'),
+      prompt: vscode.l10n.t('Username'),
+      validate: v => (v.trim() ? undefined : vscode.l10n.t('Username is required.')),
     });
     target.state.username = value.trim();
     return next();
@@ -255,21 +261,33 @@ function stepAuthMethod(
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const defaults = getWizardDefaults();
     const items = [
-      { label: AUTH_PASSWORD, description: 'Prompt for the password when connecting' },
-      { label: AUTH_PRIVATE_KEY, description: 'Authenticate with a private key file' },
-      { label: AUTH_AGENT, description: 'Authenticate through a running ssh-agent' },
+      {
+        label: authLabel(AUTH_PASSWORD),
+        description: vscode.l10n.t('Prompt for the password when connecting'),
+        value: AUTH_PASSWORD,
+      },
+      {
+        label: authLabel(AUTH_PRIVATE_KEY),
+        description: vscode.l10n.t('Authenticate with a private key file'),
+        value: AUTH_PRIVATE_KEY,
+      },
+      {
+        label: authLabel(AUTH_AGENT),
+        description: vscode.l10n.t('Authenticate through a running ssh-agent'),
+        value: AUTH_AGENT,
+      },
     ];
     const active =
-      items.find(i => i.label === (target.state.authMethod || defaults.authMethod)) || items[0];
+      items.find(i => i.value === (target.state.authMethod || defaults.authMethod)) || items[0];
     const picked = await input.showQuickPick({
-      title: `${target.titlePrefix}Authentication Method`,
+      title: target.title(vscode.l10n.t('Authentication Method')),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'Select an authentication method',
+      placeholder: vscode.l10n.t('Select an authentication method'),
     });
-    target.state.authMethod = picked.label;
+    target.state.authMethod = picked.value;
     return next();
   };
 }
@@ -283,17 +301,19 @@ function stepPrivateKeyPath(
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const value = await input.showInputBox({
-      title: `${target.titlePrefix}Private Key Path`,
+      title: target.title(vscode.l10n.t('Private Key Path')),
       step,
       totalSteps,
       value: target.state.privateKeyPath || '~/.ssh/id_rsa',
-      prompt: 'Private key path ("~" points to your home folder)',
+      prompt: vscode.l10n.t('Private key path ("~" points to your home folder)'),
       validate: v => {
         if (!v.trim()) {
-          return 'Private key path is required.';
+          return vscode.l10n.t('Private key path is required.');
         }
         const keyPath = path.resolve(target.basePath, replaceHomePath(v.trim()));
-        return fse.existsSync(keyPath) ? undefined : `No file found at ${keyPath}.`;
+        return fse.existsSync(keyPath)
+          ? undefined
+          : vscode.l10n.t('No file found at {0}.', keyPath);
       },
     });
     target.state.privateKeyPath = value.trim();
@@ -309,12 +329,12 @@ async function promptAgentManually(
 ): Promise<string> {
   const { step, totalSteps } = stepInfo(wizard, planKey);
   const value = await input.showInputBox({
-    title: `${target.titlePrefix}SSH Agent`,
+    title: target.title(vscode.l10n.t('SSH Agent')),
     step,
     totalSteps,
     value: target.state.agent || (process.platform === 'win32' ? 'pageant' : '$SSH_AUTH_SOCK'),
-    prompt: 'SSH agent socket ("$VARNAME" reads from an environment variable)',
-    validate: v => (v.trim() ? undefined : 'Agent is required.'),
+    prompt: vscode.l10n.t('SSH agent socket ("$VARNAME" reads from an environment variable)'),
+    validate: v => (v.trim() ? undefined : vscode.l10n.t('Agent is required.')),
   });
   return value.trim();
 }
@@ -347,16 +367,16 @@ function stepAgent(
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const items: (vscode.QuickPickItem & { value?: string })[] = [
       ...candidates.map(c => ({ label: c.label, description: c.description, value: c.value })),
-      { label: '$(edit) Enter manually...', description: '' },
+      { label: vscode.l10n.t('$(edit) Enter manually...'), description: '' },
     ];
     const activeItem = items.find(i => i.value === target.state.agent) || items[0];
     const picked = await input.showQuickPick({
-      title: `${target.titlePrefix}SSH Agent`,
+      title: target.title(vscode.l10n.t('SSH Agent')),
       step,
       totalSteps,
       items,
       activeItem,
-      placeholder: 'Select a detected SSH agent, or enter one manually',
+      placeholder: vscode.l10n.t('Select a detected SSH agent, or enter one manually'),
     });
 
     if (picked.value !== undefined) {
@@ -378,18 +398,21 @@ function stepPassphrase(
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, planKey);
     const items: (vscode.QuickPickItem & { value: 'none' | 'prompt' | 'enter' })[] = [
-      { label: 'No passphrase', value: 'none' },
-      { label: 'Prompt each time I connect', value: 'prompt' },
-      { label: 'Enter now (saved to secret storage, never written to sftp.json)', value: 'enter' },
+      { label: vscode.l10n.t('No passphrase'), value: 'none' },
+      { label: vscode.l10n.t('Prompt each time I connect'), value: 'prompt' },
+      {
+        label: vscode.l10n.t('Enter now (saved to secret storage, never written to sftp.json)'),
+        value: 'enter',
+      },
     ];
     const active = items.find(i => i.value === (target.state.passphraseChoice || 'none'));
     const picked = await input.showQuickPick({
-      title: `${target.titlePrefix}Key Passphrase`,
+      title: target.title(vscode.l10n.t('Key Passphrase')),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'Does this key have a passphrase?',
+      placeholder: vscode.l10n.t('Does this key have a passphrase?'),
     });
     target.state.passphraseChoice = picked.value;
 
@@ -412,14 +435,16 @@ function stepPassphraseValue(
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, planKey);
     target.state.passphraseValue = await input.showInputBox({
-      title: `${target.titlePrefix}Passphrase`,
+      title: target.title(vscode.l10n.t('Passphrase')),
       step,
       totalSteps,
       value: '',
-      prompt: 'Passphrase',
+      prompt: vscode.l10n.t('Passphrase'),
       password: true,
       validate: v =>
-        v ? undefined : 'Passphrase is required, or go back and pick a different option.',
+        v
+          ? undefined
+          : vscode.l10n.t('Passphrase is required, or go back and pick a different option.'),
     });
     return next();
   };
@@ -432,17 +457,19 @@ function stepProtocol(wizard: WizardState): InputStep {
     const { step, totalSteps } = stepInfo(wizard, 'protocol');
     const defaults = getWizardDefaults();
     const items = [
-      { label: 'sftp', description: 'SSH File Transfer Protocol (default port 22)' },
-      { label: 'ftp', description: 'File Transfer Protocol (default port 21)' },
+      { label: 'sftp', description: vscode.l10n.t('SSH File Transfer Protocol (default port 22)') },
+      { label: 'ftp', description: vscode.l10n.t('File Transfer Protocol (default port 21)') },
     ];
     const active = items.find(i => i.label === (wizard.protocol || defaults.protocol)) || items[0];
     const picked = await input.showQuickPick({
-      title: wizard.isProfile ? 'New Profile' : 'New SFTP/FTP Connection',
+      title: wizard.isProfile
+        ? vscode.l10n.t('New Profile')
+        : vscode.l10n.t('New SFTP/FTP Connection'),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'Select the transfer protocol',
+      placeholder: vscode.l10n.t('Select the transfer protocol'),
     });
     wizard.protocol = picked.label as 'sftp' | 'ftp';
     return stepHost(wizard, mainTarget(wizard), 'host', () => afterHost(wizard));
@@ -481,12 +508,12 @@ function stepRemotePath(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'remotePath');
     const value = await input.showInputBox({
-      title: 'Remote Path',
+      title: vscode.l10n.t('Remote Path'),
       step,
       totalSteps,
       value: wizard.remotePath ?? '/',
-      prompt: 'Remote path to sync with this folder',
-      validate: v => (v.trim() ? undefined : 'Remote path is required.'),
+      prompt: vscode.l10n.t('Remote path to sync with this folder'),
+      validate: v => (v.trim() ? undefined : vscode.l10n.t('Remote path is required.')),
     });
     wizard.remotePath = value.trim();
     return stepUploadOnSave(wizard);
@@ -497,17 +524,25 @@ function stepUploadOnSave(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'uploadOnSave');
     const items = [
-      { label: 'No', description: 'Upload files manually', value: false },
-      { label: 'Yes', description: 'Upload a file every time it is saved', value: true },
+      {
+        label: vscode.l10n.t('No'),
+        description: vscode.l10n.t('Upload files manually'),
+        value: false,
+      },
+      {
+        label: vscode.l10n.t('Yes'),
+        description: vscode.l10n.t('Upload a file every time it is saved'),
+        value: true,
+      },
     ];
     const active = items.find(i => i.value === (wizard.uploadOnSave ?? false));
     const picked = await input.showQuickPick({
-      title: 'Upload on Save',
+      title: vscode.l10n.t('Upload on Save'),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'Upload files automatically on save?',
+      placeholder: vscode.l10n.t('Upload files automatically on save?'),
     });
     wizard.uploadOnSave = picked.value;
     return stepAdvancedGate(wizard);
@@ -518,21 +553,23 @@ function stepAdvancedGate(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'advancedGate');
     const items = [
-      { label: 'No', description: 'Use the defaults', value: false },
+      { label: vscode.l10n.t('No'), description: vscode.l10n.t('Use the defaults'), value: false },
       {
-        label: 'Yes',
-        description: 'Ignore patterns, sync behavior, transfer tuning, host key policy, jump host',
+        label: vscode.l10n.t('Yes'),
+        description: vscode.l10n.t(
+          'Ignore patterns, sync behavior, transfer tuning, host key policy, jump host'
+        ),
         value: true,
       },
     ];
     const active = items.find(i => i.value === (wizard.advancedOptions ?? false));
     const picked = await input.showQuickPick({
-      title: 'Advanced Options',
+      title: vscode.l10n.t('Advanced Options'),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'Configure advanced options?',
+      placeholder: vscode.l10n.t('Configure advanced options?'),
     });
     wizard.advancedOptions = picked.value;
     return picked.value ? stepIgnore(wizard) : stepName(wizard);
@@ -543,11 +580,11 @@ function stepIgnore(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'ignore');
     const value = await input.showInputBox({
-      title: 'Ignore Patterns',
+      title: vscode.l10n.t('Ignore Patterns'),
       step,
       totalSteps,
       value: (wizard.ignore || []).join(', '),
-      prompt: 'Comma-separated patterns to skip during transfers (optional)',
+      prompt: vscode.l10n.t('Comma-separated patterns to skip during transfers (optional)'),
       placeholder: 'node_modules, .git, dist',
       validate: () => undefined,
     });
@@ -565,33 +602,37 @@ function stepSyncOption(wizard: WizardState): InputStep {
     const items: (vscode.QuickPickItem & { key: keyof SyncOptionState })[] = [
       {
         label: 'delete',
-        description: 'Delete remote files that no longer exist locally during sync',
+        description: vscode.l10n.t('Delete remote files that no longer exist locally during sync'),
         key: 'delete',
       },
       {
         label: 'skipCreate',
-        description: 'Never create new files/folders on the target, only update existing ones',
+        description: vscode.l10n.t(
+          'Never create new files/folders on the target, only update existing ones'
+        ),
         key: 'skipCreate',
       },
       {
         label: 'ignoreExisting',
-        description: 'Skip files that already exist on the target',
+        description: vscode.l10n.t('Skip files that already exist on the target'),
         key: 'ignoreExisting',
       },
       {
         label: 'update',
-        description: 'Only overwrite files older than the source',
+        description: vscode.l10n.t('Only overwrite files older than the source'),
         key: 'update',
       },
     ];
     const selectedItems = items.filter(i => wizard.syncOption && wizard.syncOption[i.key]);
     const picked = await input.showQuickPickMany({
-      title: 'Sync Options',
+      title: vscode.l10n.t('Sync Options'),
       step,
       totalSteps,
       items,
       selectedItems,
-      placeholder: 'Select sync behaviors to enable (used by the SFTP: Sync commands)',
+      placeholder: vscode.l10n.t(
+        'Select sync behaviors to enable (used by the SFTP: Sync commands)'
+      ),
     });
     const chosen = new Set(picked.map(i => i.key));
     wizard.syncOption = {
@@ -610,28 +651,32 @@ function stepTransferMode(wizard: WizardState): InputStep {
     const items: (vscode.QuickPickItem & { value: 'auto' | 'parallel' | 'stream' })[] = [
       {
         label: 'auto',
-        description: 'Use parallel-chunk transfer for large files automatically (recommended)',
+        description: vscode.l10n.t(
+          'Use parallel-chunk transfer for large files automatically (recommended)'
+        ),
         value: 'auto',
       },
       {
         label: 'stream',
-        description: 'Always use the classic single-pipe transfer',
+        description: vscode.l10n.t('Always use the classic single-pipe transfer'),
         value: 'stream',
       },
       {
         label: 'parallel',
-        description: 'Force chunked parallel transfer regardless of file size (SFTP only)',
+        description: vscode.l10n.t(
+          'Force chunked parallel transfer regardless of file size (SFTP only)'
+        ),
         value: 'parallel',
       },
     ];
     const active = items.find(i => i.value === (wizard.transferMode || 'auto'));
     const picked = await input.showQuickPick({
-      title: 'Transfer Mode',
+      title: vscode.l10n.t('Transfer Mode'),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'How should file transfers be handled?',
+      placeholder: vscode.l10n.t('How should file transfers be handled?'),
     });
     wizard.transferMode = picked.value;
     if (picked.value === 'auto') {
@@ -646,16 +691,16 @@ function stepConcurrency(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'concurrency');
     const value = await input.showInputBox({
-      title: 'Concurrency',
+      title: vscode.l10n.t('Concurrency'),
       step,
       totalSteps,
       value: String(wizard.concurrency ?? 4),
-      prompt: 'Number of files to transfer in parallel',
+      prompt: vscode.l10n.t('Number of files to transfer in parallel'),
       validate: v => {
         const num = Number(v.trim());
         return Number.isInteger(num) && num >= 1
           ? undefined
-          : 'Concurrency must be a positive integer.';
+          : vscode.l10n.t('Concurrency must be a positive integer.');
       },
     });
     wizard.concurrency = Number(value.trim());
@@ -673,34 +718,35 @@ function stepStrictHostKeyChecking(wizard: WizardState): InputStep {
     const items: (vscode.QuickPickItem & { value: boolean | 'ask' | 'accept-new' })[] = [
       {
         label: 'ask',
-        description: 'Prompt with the fingerprint the first time a host is seen',
+        description: vscode.l10n.t('Prompt with the fingerprint the first time a host is seen'),
         value: 'ask',
       },
       {
         label: 'accept-new',
-        description:
-          "Accept an unknown host automatically, refuse a key that changed (this extension's overall default)",
+        description: vscode.l10n.t(
+          "Accept an unknown host automatically, refuse a key that changed (this extension's overall default)"
+        ),
         value: 'accept-new',
       },
       {
-        label: 'true (strict)',
-        description: 'Refuse any host not already in a known_hosts file',
+        label: vscode.l10n.t('true (strict)'),
+        description: vscode.l10n.t('Refuse any host not already in a known_hosts file'),
         value: true,
       },
       {
-        label: 'false (skip — not recommended)',
-        description: 'Never verify the host key',
+        label: vscode.l10n.t('false (skip — not recommended)'),
+        description: vscode.l10n.t('Never verify the host key'),
         value: false,
       },
     ];
     const active = items.find(i => i.value === (wizard.strictHostKeyChecking ?? 'ask'));
     const picked = await input.showQuickPick({
-      title: 'Host Key Checking',
+      title: vscode.l10n.t('Host Key Checking'),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'How should an unknown or changed SSH host key be handled?',
+      placeholder: vscode.l10n.t('How should an unknown or changed SSH host key be handled?'),
     });
     wizard.strictHostKeyChecking = picked.value;
     return stepHopGate(wizard);
@@ -711,21 +757,21 @@ function stepHopGate(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'hopGate');
     const items = [
-      { label: 'No', description: 'Connect directly', value: false },
+      { label: vscode.l10n.t('No'), description: vscode.l10n.t('Connect directly'), value: false },
       {
-        label: 'Yes',
-        description: 'Connect through an intermediate SSH host (bastion)',
+        label: vscode.l10n.t('Yes'),
+        description: vscode.l10n.t('Connect through an intermediate SSH host (bastion)'),
         value: true,
       },
     ];
     const active = items.find(i => i.value === (wizard.hopEnabled ?? false));
     const picked = await input.showQuickPick({
-      title: 'Jump Host',
+      title: vscode.l10n.t('Jump Host'),
       step,
       totalSteps,
       items,
       activeItem: active,
-      placeholder: 'Connect through a jump host (bastion)?',
+      placeholder: vscode.l10n.t('Connect through a jump host (bastion)?'),
     });
     wizard.hopEnabled = picked.value;
     if (!picked.value) {
@@ -769,12 +815,12 @@ function stepName(wizard: WizardState): InputStep {
   return async input => {
     const { step, totalSteps } = stepInfo(wizard, 'name');
     const value = await input.showInputBox({
-      title: 'Connection Name',
+      title: vscode.l10n.t('Connection Name'),
       step,
       totalSteps,
-      value: wizard.name || wizard.connection.host || 'My Server',
-      prompt: 'A friendly name shown in the Remote Explorer and status bar',
-      validate: v => (v.trim() ? undefined : 'Name is required.'),
+      value: wizard.name || wizard.connection.host || vscode.l10n.t('My Server'),
+      prompt: vscode.l10n.t('A friendly name shown in the Remote Explorer and status bar'),
+      validate: v => (v.trim() ? undefined : vscode.l10n.t('Name is required.')),
     });
     wizard.name = value.trim();
     return stepReview(wizard);
@@ -785,11 +831,11 @@ function summarizeConnection(auth: HostAuthState, protocol?: string): string {
   let authSummary = '';
   if (protocol === 'sftp') {
     if (auth.authMethod === AUTH_PRIVATE_KEY) {
-      authSummary = `key: ${auth.privateKeyPath}`;
+      authSummary = vscode.l10n.t('key: {0}', String(auth.privateKeyPath));
     } else if (auth.authMethod === AUTH_AGENT) {
-      authSummary = `agent: ${auth.agent}`;
+      authSummary = vscode.l10n.t('agent: {0}', String(auth.agent));
     } else {
-      authSummary = 'password (prompted)';
+      authSummary = vscode.l10n.t('password (prompted)');
     }
   }
   return `${auth.username}@${auth.host}:${auth.port}${authSummary ? ` (${authSummary})` : ''}`;
@@ -806,43 +852,55 @@ function stepReview(wizard: WizardState): InputStep {
 
     const items: ReviewItem[] = [
       {
-        label: `$(check) Looks good, create the ${wizard.isProfile ? 'profile' : 'connection'}`,
+        label: wizard.isProfile
+          ? vscode.l10n.t('$(check) Looks good, create the profile')
+          : vscode.l10n.t('$(check) Looks good, create the connection'),
         description: '',
       },
       {
-        label: 'Connection',
+        label: vscode.l10n.t('Connection'),
         description: summarizeConnection(wizard.connection, wizard.protocol),
         jump: () => stepHost(wizard, mainTarget(wizard), 'host', () => afterHost(wizard)),
       },
-      { label: 'Remote Path', description: wizard.remotePath, jump: () => stepRemotePath(wizard) },
       {
-        label: 'Upload on Save',
-        description: wizard.uploadOnSave ? 'Yes' : 'No',
+        label: vscode.l10n.t('Remote Path'),
+        description: wizard.remotePath,
+        jump: () => stepRemotePath(wizard),
+      },
+      {
+        label: vscode.l10n.t('Upload on Save'),
+        description: wizard.uploadOnSave ? vscode.l10n.t('Yes') : vscode.l10n.t('No'),
         jump: () => stepUploadOnSave(wizard),
       },
       {
-        label: 'Advanced Options',
-        description: wizard.advancedOptions ? 'Configured' : 'Defaults',
+        label: vscode.l10n.t('Advanced Options'),
+        description: wizard.advancedOptions
+          ? vscode.l10n.t('Configured')
+          : vscode.l10n.t('Defaults'),
         jump: () => stepAdvancedGate(wizard),
       },
     ];
     if (wizard.advancedOptions && wizard.hopEnabled) {
       items.push({
-        label: 'Jump Host',
+        label: vscode.l10n.t('Jump Host'),
         description: summarizeConnection(wizard.hop, 'sftp'),
         jump: () => stepHost(wizard, hopTarget(wizard), 'hopHost', () => afterHopHost(wizard)),
       });
     }
     if (!wizard.isProfile) {
-      items.push({ label: 'Name', description: wizard.name, jump: () => stepName(wizard) });
+      items.push({
+        label: vscode.l10n.t('Name'),
+        description: wizard.name,
+        jump: () => stepName(wizard),
+      });
     }
 
     const picked = await input.showQuickPick({
-      title: 'Review',
+      title: vscode.l10n.t('Review'),
       step,
       totalSteps,
       items,
-      placeholder: 'Review the connection, or select a field to edit it',
+      placeholder: vscode.l10n.t('Review the connection, or select a field to edit it'),
     });
 
     if (picked.jump) {
@@ -1031,22 +1089,35 @@ async function presentTestResult(
   const result = await testConnection(service, serviceConfig);
   if (result.ok) {
     showInformationMessage(
-      `${describeTarget} saved and connected successfully to ${serviceConfig.host}:${serviceConfig.port}.`
+      vscode.l10n.t(
+        '{0} saved and connected successfully to {1}:{2}.',
+        describeTarget,
+        serviceConfig.host,
+        String(serviceConfig.port)
+      )
     );
     await showTextDocument(vscode.Uri.file(configPath));
     return 'done';
   }
 
+  const retry = vscode.l10n.t('Retry Wizard');
+  const editJson = vscode.l10n.t('Edit JSON');
   const choice = await showErrorMessage(
-    `${describeTarget} saved, but couldn't connect to ${serviceConfig.host}:${serviceConfig.port}: ${result.error.message}`,
-    'Retry Wizard',
-    'Edit JSON',
-    'Keep As Is'
+    vscode.l10n.t(
+      "{0} saved, but couldn't connect to {1}:{2}: {3}",
+      describeTarget,
+      serviceConfig.host,
+      String(serviceConfig.port),
+      result.error.message
+    ),
+    retry,
+    editJson,
+    vscode.l10n.t('Keep As Is')
   );
-  if (choice === 'Retry Wizard') {
+  if (choice === retry) {
     return 'retry';
   }
-  if (choice === 'Edit JSON') {
+  if (choice === editJson) {
     await showTextDocument(vscode.Uri.file(configPath));
   }
   return 'done';
@@ -1066,7 +1137,7 @@ export async function quickSetupConfig(basePath: string) {
       const config = buildConfigFromState(wizard);
       const validationError = validateConfig(config);
       if (validationError) {
-        showErrorMessage(`Config is invalid: ${validationError.message}`);
+        showErrorMessage(vscode.l10n.t('Config is invalid: {0}', validationError.message));
         entry = stepReview(wizard);
         continue;
       }
@@ -1089,7 +1160,12 @@ export async function quickSetupConfig(basePath: string) {
         serviceConfig = undefined;
       }
 
-      const outcome = await presentTestResult(service, serviceConfig, configPath, 'Config');
+      const outcome = await presentTestResult(
+        service,
+        serviceConfig,
+        configPath,
+        vscode.l10n.t('Config')
+      );
       if (outcome === 'retry') {
         entry = stepReview(wizard);
         continue;
@@ -1124,13 +1200,15 @@ export async function addProfileConfig(basePath: string) {
     const existingProfiles = new Set(Object.keys(rootConfig.profiles || {}));
 
     const profileName = await vscode.window.showInputBox({
-      prompt: 'Profile name',
+      prompt: vscode.l10n.t('Profile name'),
       placeHolder: 'staging',
       ignoreFocusOut: true,
       validateInput: value => {
         const trimmed = value.trim();
-        if (!trimmed) return 'Profile name is required.';
-        if (existingProfiles.has(trimmed)) return `Profile "${trimmed}" already exists.`;
+        if (!trimmed) return vscode.l10n.t('Profile name is required.');
+        if (existingProfiles.has(trimmed)) {
+          return vscode.l10n.t('Profile "{0}" already exists.', trimmed);
+        }
         return undefined;
       },
     });
@@ -1151,7 +1229,7 @@ export async function addProfileConfig(basePath: string) {
       const config = buildConfigFromState(wizard);
       const validationError = validateConfig(config);
       if (validationError) {
-        showErrorMessage(`Config is invalid: ${validationError.message}`);
+        showErrorMessage(vscode.l10n.t('Config is invalid: {0}', validationError.message));
         entry = stepReview(wizard);
         continue;
       }
@@ -1179,14 +1257,16 @@ export async function addProfileConfig(basePath: string) {
       }
 
       if (service && serviceConfig) {
-        showInformationMessage(`Profile "${name}" added. Switch to it with "SFTP: Set Profile".`);
+        showInformationMessage(
+          vscode.l10n.t('Profile "{0}" added. Switch to it with "SFTP: Set Profile".', name)
+        );
       }
 
       const outcome = await presentTestResult(
         service,
         serviceConfig,
         configPath,
-        `Profile "${name}"`
+        vscode.l10n.t('Profile "{0}"', name)
       );
       if (outcome === 'retry') {
         entry = stepReview(wizard);

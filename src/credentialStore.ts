@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import app from './app';
 import logger from './logger';
 import { showInformationMessage } from './host';
@@ -79,13 +80,11 @@ async function offerToRememberSecret(
   identity: ConnectIdentity,
   value: string,
   kind: string,
+  question: string,
   offerLabel: string
 ) {
   try {
-    const answer = await showInformationMessage(
-      `Remember ${kind} for ${connectionToken(identity)}?`,
-      offerLabel
-    );
+    const answer = await showInformationMessage(question, offerLabel);
     if (answer === offerLabel) {
       await storeSecret(prefix, identity, value);
       logger.info(`${kind} for ${connectionToken(identity)} saved to secret storage`);
@@ -113,7 +112,8 @@ export function offerToRememberPassword(identity: ConnectIdentity, password: str
     identity,
     password,
     'password',
-    'Remember password'
+    l10n.t('Remember password for {0}?', connectionToken(identity)),
+    l10n.t('Remember password')
   );
 }
 
@@ -135,6 +135,7 @@ export function offerToRememberPassphrase(identity: ConnectIdentity, passphrase:
     identity,
     passphrase,
     'passphrase',
-    'Remember passphrase'
+    l10n.t('Remember passphrase for {0}?', connectionToken(identity)),
+    l10n.t('Remember passphrase')
   );
 }

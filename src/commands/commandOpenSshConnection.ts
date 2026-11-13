@@ -52,7 +52,9 @@ function openSystemSshTerminal(remoteConfig) {
   // otherwise run anything on this machine
   if (!isWorkspaceTrusted()) {
     showErrorMessage(
-      'sshCustomParams requires a trusted workspace. Use "Workspaces: Manage Workspace Trust" to enable it.'
+      vscode.l10n.t(
+        'sshCustomParams requires a trusted workspace. Use "Workspaces: Manage Workspace Trust" to enable it.'
+      )
     );
     return;
   }
@@ -137,7 +139,7 @@ async function pickService(): Promise<FileService | undefined> {
   }
 
   const item = await vscode.window.showQuickPick(items, {
-    placeHolder: 'Select a folder…',
+    placeHolder: vscode.l10n.t('Select a folder…'),
   });
   return item && item.fileService;
 }
@@ -196,14 +198,14 @@ export default checkCommand({
       targets = fileService ? [{ fileService }] : [];
     }
     if (targets.length <= 0) {
-      showErrorMessage('No SFTP config found.');
+      showErrorMessage(vscode.l10n.t('No SFTP config found.'));
       return;
     }
 
     // FTP has no shell; a mixed selection opens the SFTP ones
     targets = targets.filter(target => target.fileService.getConfig().protocol === 'sftp');
     if (targets.length <= 0) {
-      showErrorMessage('SFTP: Open SSH in Terminal is not supported over FTP.');
+      showErrorMessage(vscode.l10n.t('SFTP: Open SSH in Terminal is not supported over FTP.'));
       return;
     }
 
@@ -222,7 +224,11 @@ export default checkCommand({
 
     if (
       targets.length > CONFIRM_TERMINAL_COUNT &&
-      !(await showConfirmMessage(`Open ${targets.length} terminals?`, 'Open', 'Cancel'))
+      !(await showConfirmMessage(
+        vscode.l10n.t('Open {0} terminals?', targets.length),
+        vscode.l10n.t('Open'),
+        vscode.l10n.t('Cancel')
+      ))
     ) {
       return;
     }

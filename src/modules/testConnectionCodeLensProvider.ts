@@ -6,7 +6,7 @@ export default class TestConnectionCodeLensProvider implements vscode.CodeLensPr
     const range = new vscode.Range(0, 0, 0, 0);
     return [
       new vscode.CodeLens(range, {
-        title: '$(plug) Test Connection',
+        title: vscode.l10n.t('$(plug) Test Connection'),
         command: COMMAND_TEST_CONNECTION,
         arguments: [document.uri],
       }),

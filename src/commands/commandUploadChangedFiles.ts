@@ -161,7 +161,7 @@ async function getRepository(git: GitAPI): Promise<Repository | undefined> {
   }
 
   if (git.repositories.length === 0) {
-    throw new Error('There are no available repositories');
+    throw new Error(vscode.l10n.t('There are no available repositories'));
   }
 
   const picks = git.repositories.map(repo => {
@@ -175,7 +175,9 @@ async function getRepository(git: GitAPI): Promise<Repository | undefined> {
     };
   });
 
-  const pick = await vscode.window.showQuickPick(picks, { placeHolder: 'Choose a repository' });
+  const pick = await vscode.window.showQuickPick(picks, {
+    placeHolder: vscode.l10n.t('Choose a repository'),
+  });
 
   return pick && pick.repository;
 }
