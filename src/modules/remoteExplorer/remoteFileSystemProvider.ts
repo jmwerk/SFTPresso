@@ -2,6 +2,7 @@ import * as querystring from 'querystring';
 import { Readable } from 'stream';
 import * as vscode from 'vscode';
 import { FileStats, FileSystem, FileType, ServiceConfig, isNotFoundError } from '../../core';
+import { backupRemoteFile, resolveBackup } from '../../core/backup';
 import logger from '../../logger';
 import { getExtensionSetting } from '../ext';
 import type { ExplorerRoot } from './treeDataProvider';
@@ -12,6 +13,8 @@ interface Target {
   remoteFs: FileSystem;
   config: ServiceConfig;
   path: string;
+  // the config's local context
+  baseDir: string;
 }
 
 // status 3 (PERMISSION_DENIED) from ssh2
@@ -117,7 +120,7 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
     content: Uint8Array,
     options: { create: boolean; overwrite: boolean }
   ): Promise<void> {
-    return this._runWrite(uri, async ({ remoteFs, config, path }) => {
+    return this._runWrite(uri, async ({ remoteFs, config, path, baseDir }) => {
       const existing = await this._lstatOrNull(remoteFs, path);
       if (existing && existing.type === FileType.Directory) {
         throw vscode.FileSystemError.FileIsADirectory(uri);
@@ -134,6 +137,11 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
         : existing
         ? existing.mode & 0o7777
         : undefined;
+      const backup = existing && existing.type === FileType.File && resolveBackup(config, baseDir);
+      if (backup) {
+        await backupRemoteFile(backup, remoteFs, config.remotePath, path);
+      }
+
       const body = Buffer.from(content.buffer, content.byteOffset, content.byteLength);
       const input = () => Readable.from(body.length > 0 ? [body] : []);
 
@@ -229,7 +237,7 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
       const { root, path } = this._resolve(uri);
       const { fileService, config } = root.explorerContext;
       const remoteFs = await fileService.getRemoteFileSystem(config);
-      return await op({ remoteFs, config, path });
+      return await op({ remoteFs, config, path, baseDir: fileService.baseDir });
     } catch (error) {
       throw toFileSystemError(error, uri);
     }

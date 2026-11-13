@@ -3,6 +3,7 @@ import { window, ProgressLocation } from 'vscode';
 import app from '../../app';
 import StatusBarItem from '../../ui/statusBarItem';
 import { FileEntry, TransferTask } from '../../core';
+import { createBackupHook } from '../../core/backup';
 import { ContentHasher, createContentHasher } from '../../core/contentHash';
 import logger from '../../logger';
 import { refreshRemoteExplorer } from '../shared';
@@ -216,6 +217,7 @@ function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx
         transferDirection: TransferDirection.REMOTE_TO_LOCAL,
       };
     } else {
+      option.beforeOverwrite = createBackupHook(this.config, this.fileService.baseDir);
       transferConfig = {
         ...walkOption,
         srcFsPath: localFsPath,
@@ -306,6 +308,7 @@ export const sync2Remote = createFileHandler<SyncOption>({
     // Attach filePerm and dirPerm to transferOption
     option.filePerm = this.config.filePerm;
     option.dirPerm = this.config.dirPerm;
+    option.beforeOverwrite = createBackupHook(this.config, this.fileService.baseDir);
     const skipped: SkippedEntry[] = [];
     const uploads = trackUploads();
     let deleted: FileEntry[] = [];

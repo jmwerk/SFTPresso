@@ -116,6 +116,18 @@ const configScheme = Joi.object({
   syncConfirm: Joi.boolean(),
   compareMode: Joi.any().valid('mtime', 'content'),
   conflictCheck: Joi.boolean(),
+  backup: Joi.alternatives()
+    .try(
+      Joi.boolean(),
+      Joi.object({
+        dir: Joi.string().trim().min(1),
+        keep: Joi.number()
+          .integer()
+          .min(0),
+      })
+    )
+    // null lets a profile turn off the base config's backups
+    .allow(null),
   remoteTimeOffsetInHours: Joi.number(),
   afterUpload: Joi.alternatives().try(
     afterUploadCommand,

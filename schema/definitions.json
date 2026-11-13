@@ -126,6 +126,32 @@
         "description": "Before uploading a file, check whether the remote copy changed since you last downloaded or uploaded it, and prompt (Overwrite / Open Diff / Cancel) if it did. Applies to single-file uploads, including uploadOnSave.",
         "default": false
       },
+      "backup": {
+        "description": "Before an upload or Edit Remotely save overwrites a remote file, download the current remote copy into a local backup folder. true uses the defaults; null turns it off, e.g. in a profile.",
+        "oneOf": [
+          { "type": "null" },
+          { "type": "boolean" },
+          {
+            "type": "object",
+            "properties": {
+              "dir": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Local backup folder, relative to the config's context or absolute. Excluded from uploads, sync and the watcher. Defaults to .sftpresso-backup.",
+                "default": ".sftpresso-backup"
+              },
+              "keep": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Backups kept per file; older ones are deleted. 0 keeps all. Defaults to 5.",
+                "default": 5
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "examples": [true, { "dir": ".sftpresso-backup", "keep": 10 }]
+      },
       "ignore": {
         "type": "array",
         "description": "Files to ignore. Same behavior as gitignore.",

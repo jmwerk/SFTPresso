@@ -9,6 +9,7 @@ import { replaceHomePath, resolvePath } from '../helper';
 import { SETTING_KEY_REMOTE } from '../constants';
 import upath from './upath';
 import Ignore from './ignore';
+import { backupDirSetting } from './backup';
 import { FileSystem } from './fs';
 import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
@@ -91,6 +92,9 @@ interface ServiceOption {
     | string
     | string[]
     | { command: string | string[]; onSave?: boolean; delay?: number };
+  // download the remote file locally before an upload overwrites it -- see
+  // src/core/backup.ts
+  backup?: boolean | { dir?: string; keep?: number } | null;
 }
 
 export interface RetryOption {
@@ -253,6 +257,7 @@ function getHostInfo(config) {
     'remoteCommands',
     'remoteCommandTimeout',
     'afterUpload',
+    'backup',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -936,7 +941,16 @@ export default class FileService {
     const localContext = this.baseDir;
     const remoteContext = config.remotePath;
 
-    const ignoreConfig = filesIgnoredFromConfig(config);
+    // a copy: this can be config.ignore itself
+    const ignoreConfig = [...filesIgnoredFromConfig(config)];
+    const backupDir = backupDirSetting(config);
+    if (backupDir) {
+      // backups live in the workspace; never upload, sync or watch them
+      const relative = path.relative(localContext, path.resolve(localContext, backupDir));
+      if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+        ignoreConfig.push(`/${relative.split(path.sep).join('/')}/`);
+      }
+    }
     if (ignoreConfig.length <= 0) {
       return null;
     }
