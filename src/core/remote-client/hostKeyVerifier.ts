@@ -182,9 +182,7 @@ export async function verifyHostKey(option: VerifyHostKeyOption): Promise<void> 
     if (answer === 'connect-and-remember') {
       await remember(host, port, key);
     } else {
-      logger.info(
-        `accepted ${key.type} ${key.fingerprint} for ${token} for this connection only`
-      );
+      logger.info(`accepted ${key.type} ${key.fingerprint} for ${token} for this connection only`);
     }
     return;
   }

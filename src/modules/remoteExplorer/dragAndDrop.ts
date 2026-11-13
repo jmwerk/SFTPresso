@@ -65,9 +65,7 @@ export function planDrop(
   // came up in a sequential execution, surfacing as a spurious per-item error.
   const selectedPaths = sources.filter(item => !isRoot(item)).map(item => item.resource.fsPath);
   const movesWithAnotherSelectedAncestor = (srcPath: string) =>
-    selectedPaths.some(
-      other => other !== srcPath && isRemotePathAtOrUnder(other, srcPath)
-    );
+    selectedPaths.some(other => other !== srcPath && isRemotePathAtOrUnder(other, srcPath));
 
   sources.forEach(item => {
     if (isRoot(item)) {
@@ -187,7 +185,10 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
     dataTransfer.set(REMOTE_EXPLORER_MIME_TYPE, new vscode.DataTransferItem(draggable));
   }
 
-  async handleDrop(target: ExplorerItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
+  async handleDrop(
+    target: ExplorerItem | undefined,
+    dataTransfer: vscode.DataTransfer
+  ): Promise<void> {
     // A drag out of this same view carries both mime types on some platforms
     // (VS Code adds text/uri-list itself for tree items with a resourceUri),
     // so the internal move must win over treating it as an upload.
@@ -247,7 +248,10 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
         try {
           await renameRemote(handleCtxFromUri(item.resource.uri), { newRemotePath });
         } catch (err) {
-          reportError(err instanceof Error ? err : new Error(String(err)), `when moving '${describe(item)}'`);
+          reportError(
+            err instanceof Error ? err : new Error(String(err)),
+            `when moving '${describe(item)}'`
+          );
         }
       })
     );

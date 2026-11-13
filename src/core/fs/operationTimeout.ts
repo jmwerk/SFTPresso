@@ -82,12 +82,7 @@ export function guardOperations(
     }
 
     target[name] = function guarded(...args: any[]) {
-      return withOperationTimeout(
-        () => original.apply(this, args),
-        timeout,
-        name,
-        onTimeout
-      );
+      return withOperationTimeout(() => original.apply(this, args), timeout, name, onTimeout);
     };
   }
 }

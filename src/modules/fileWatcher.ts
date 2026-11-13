@@ -142,11 +142,7 @@ function removeWatcher(watcherBase: string) {
   }
 }
 
-function createWatcher(
-  watcherBase: string,
-  watcherConfig: WatcherConfig,
-  ignore?: IgnoreFn
-) {
+function createWatcher(watcherBase: string, watcherConfig: WatcherConfig, ignore?: IgnoreFn) {
   // Dispose *and* forget. Every early return below leaves no watcher behind,
   // and a disposed one left in the table is worse than none: getWatcher() would
   // still hand it out on the next lookup.
@@ -189,7 +185,9 @@ function getAutoRenameConfig(uri: vscode.Uri) {
   try {
     return { fileService, config: fileService.getConfig() };
   } catch (error) {
-    logger.debug(`[watcher/rename] config not resolvable for ${uri.fsPath}: ${(error as Error).message}`);
+    logger.debug(
+      `[watcher/rename] config not resolvable for ${uri.fsPath}: ${(error as Error).message}`
+    );
     return undefined;
   }
 }
@@ -243,7 +241,9 @@ async function handleRenamedFile(oldUri: vscode.Uri, newUri: vscode.Uri) {
 
     const destResolved = getAutoRenameConfig(newUri);
     if (!destResolved || destResolved.fileService !== fileService) {
-      logger.info(`[watcher/rename] crosses config boundary, falling back to upload: ${oldUri.fsPath}`);
+      logger.info(
+        `[watcher/rename] crosses config boundary, falling back to upload: ${oldUri.fsPath}`
+      );
       await fallbackToUpload(oldUri, newUri);
       return;
     }

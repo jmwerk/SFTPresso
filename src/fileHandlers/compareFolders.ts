@@ -32,12 +32,7 @@ function emptyIfNotFound(
 // deliberately its own status rather than an absent entry: a directory we could
 // not read is not a directory whose contents are missing, and treating the two
 // the same is what let a failed listing be presented as "delete everything".
-export type CompareStatus =
-  | 'same'
-  | 'modified'
-  | 'localOnly'
-  | 'remoteOnly'
-  | 'error';
+export type CompareStatus = 'same' | 'modified' | 'localOnly' | 'remoteOnly' | 'error';
 
 // Consulted while the tree is being walked so that dismissing the progress
 // notification stops the scan. Mirrors TransferCancellationToken in
@@ -102,10 +97,13 @@ function isFileModified(a: FileEntry, b: FileEntry): boolean {
 }
 
 function toHash(entries: FileEntry[]): { [name: string]: FileEntry } {
-  return entries.reduce((hash, entry) => {
-    hash[entry.name] = entry;
-    return hash;
-  }, {} as { [name: string]: FileEntry });
+  return entries.reduce(
+    (hash, entry) => {
+      hash[entry.name] = entry;
+      return hash;
+    },
+    {} as { [name: string]: FileEntry }
+  );
 }
 
 async function walk(
@@ -139,7 +137,9 @@ async function walk(
   if (local.status === 'rejected' || remote.status === 'rejected') {
     const failures = [
       local.status === 'rejected' ? `list ${localDir} failed: ${errorMessage(local.reason)}` : '',
-      remote.status === 'rejected' ? `list ${remoteDir} failed: ${errorMessage(remote.reason)}` : '',
+      remote.status === 'rejected'
+        ? `list ${remoteDir} failed: ${errorMessage(remote.reason)}`
+        : '',
     ].filter(Boolean);
     const message = failures.join('; ');
 
@@ -261,9 +261,7 @@ async function walk(
     ctx.hasher && contentChecks.length > 0
       ? applyContentChecks(ctx.hasher, localFs, remoteFs, contentChecks)
       : undefined,
-    ...subDirs.map(dir =>
-      walk(ctx, dir.localFsPath, dir.remoteFsPath, dir.relativePath, results)
-    ),
+    ...subDirs.map(dir => walk(ctx, dir.localFsPath, dir.remoteFsPath, dir.relativePath, results)),
   ]);
 }
 
@@ -333,7 +331,11 @@ export async function recheckByContent(
   const checks: ContentCheck[] = results.filter(isRecheckable).map(result => ({
     result,
     localEntry: { fspath: result.localFsPath, size: result.localSize, mtime: result.localMtime },
-    remoteEntry: { fspath: result.remoteFsPath, size: result.remoteSize, mtime: result.remoteMtime },
+    remoteEntry: {
+      fspath: result.remoteFsPath,
+      size: result.remoteSize,
+      mtime: result.remoteMtime,
+    },
   }));
   if (checks.length === 0) {
     return;

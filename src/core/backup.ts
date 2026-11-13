@@ -37,7 +37,9 @@ export function resolveBackup(
   }
   const value = config.backup;
   const keep =
-    typeof value === 'object' && value && typeof value.keep === 'number' ? value.keep : DEFAULT_BACKUP_KEEP;
+    typeof value === 'object' && value && typeof value.keep === 'number'
+      ? value.keep
+      : DEFAULT_BACKUP_KEEP;
   // per server, so profiles pointing at staging and production don't share history
   const server = String(config.host || 'remote').replace(/[^\w.-]/g, '_');
   return { root: path.resolve(localBaseDir, dir, server), keep };

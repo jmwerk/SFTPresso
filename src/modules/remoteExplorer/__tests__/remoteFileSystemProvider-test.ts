@@ -15,7 +15,10 @@ jest.mock('vscode', () => {
   }
 
   class FileSystemError extends Error {
-    constructor(message: string, public code: string) {
+    constructor(
+      message: string,
+      public code: string
+    ) {
       super(message);
     }
     static FileNotFound = (m?: any) => new FileSystemError(String(m), 'FileNotFound');
@@ -48,12 +51,17 @@ jest.mock('../../../core', () => {
 const backupCalls: string[] = [];
 jest.mock('../../../core/backup', () => ({
   resolveBackup: (config: any) => (config.backup ? { root: '/bak', keep: 5 } : undefined),
-  backupRemoteFile: jest.fn(async (_option: any, remoteFs: any, _remotePath: string, path: string) => {
-    backupCalls.push(`${path}=${(await remoteFs.readFile(path)).toString()}`);
-  }),
+  backupRemoteFile: jest.fn(
+    async (_option: any, remoteFs: any, _remotePath: string, path: string) => {
+      backupCalls.push(`${path}=${(await remoteFs.readFile(path)).toString()}`);
+    }
+  ),
 }));
 
-jest.mock('../../../logger', () => ({ __esModule: true, default: { info: jest.fn(), warn: jest.fn() } }));
+jest.mock('../../../logger', () => ({
+  __esModule: true,
+  default: { info: jest.fn(), warn: jest.fn() },
+}));
 
 const extSetting: { openRemoteFilesReadOnly?: boolean } = {};
 jest.mock('../../ext', () => ({ getExtensionSetting: () => extSetting }));
@@ -81,7 +89,13 @@ function fakeRemoteFs(files: Record<string, Entry>) {
     lstat: async (path: string) => {
       const entry = files[path];
       if (!entry) throw notFound();
-      return { type: entry.type, mode: entry.mode, size: entry.data ? entry.data.length : 0, mtime: entry.mtime, atime: 0 };
+      return {
+        type: entry.type,
+        mode: entry.mode,
+        size: entry.data ? entry.data.length : 0,
+        mtime: entry.mtime,
+        atime: 0,
+      };
     },
     open: async (path: string) => {
       const entry = resolve(path);
@@ -90,7 +104,13 @@ function fakeRemoteFs(files: Record<string, Entry>) {
     },
     fstat: async (path: string) => {
       const entry = resolve(path);
-      return { type: entry.type, mode: entry.mode, size: entry.data!.length, mtime: entry.mtime, atime: 0 };
+      return {
+        type: entry.type,
+        mode: entry.mode,
+        size: entry.data!.length,
+        mtime: entry.mtime,
+        atime: 0,
+      };
     },
     close: async () => {},
     list: async (dir: string) =>
@@ -102,9 +122,15 @@ function fakeRemoteFs(files: Record<string, Entry>) {
       const chunks: Buffer[] = [];
       for await (const chunk of input) chunks.push(chunk);
       fs.puts.push({ path, mode: option && option.mode });
-      const link = files[path] && files[path].type === FileType.SymbolicLink ? files[path].target! : path;
+      const link =
+        files[path] && files[path].type === FileType.SymbolicLink ? files[path].target! : path;
       const previous = files[link];
-      files[link] = { type: FileType.File, data: Buffer.concat(chunks), mode: previous ? previous.mode : 0o644, mtime: 2000 };
+      files[link] = {
+        type: FileType.File,
+        data: Buffer.concat(chunks),
+        mode: previous ? previous.mode : 0o644,
+        mtime: 2000,
+      };
     },
     unlink: async (path: string) => {
       if (!files[path]) throw notFound();
@@ -178,7 +204,9 @@ describe('RemoteFileSystemProvider', () => {
   test('a missing file is FileNotFound, so VS Code can offer to create it', async () => {
     const { provider } = setup({});
 
-    await expect(provider.stat(uriOf('/srv/nope.txt'))).rejects.toMatchObject({ code: 'FileNotFound' });
+    await expect(provider.stat(uriOf('/srv/nope.txt'))).rejects.toMatchObject({
+      code: 'FileNotFound',
+    });
   });
 
   test('saving writes the file in place and keeps its permissions', async () => {
@@ -232,7 +260,10 @@ describe('RemoteFileSystemProvider', () => {
   });
 
   test('useTempFile uploads beside the file and renames it over', async () => {
-    const { provider, remoteFs, files } = setup({ '/srv/a.txt': file('old') }, { useTempFile: true });
+    const { provider, remoteFs, files } = setup(
+      { '/srv/a.txt': file('old') },
+      { useTempFile: true }
+    );
 
     await provider.writeFile(uriOf('/srv/a.txt'), Buffer.from('new'), CREATE);
 
@@ -257,7 +288,12 @@ describe('RemoteFileSystemProvider', () => {
     const { provider, files } = setup(
       {
         '/srv/real.php': file('old'),
-        '/srv/link.php': { type: FileType.SymbolicLink, mode: 0o777, mtime: 0, target: '/srv/real.php' },
+        '/srv/link.php': {
+          type: FileType.SymbolicLink,
+          mode: 0o777,
+          mtime: 0,
+          target: '/srv/real.php',
+        },
       },
       { useTempFile: true }
     );
@@ -289,12 +325,17 @@ describe('RemoteFileSystemProvider', () => {
     });
 
     await expect(
-      provider.writeFile(uriOf('/srv/missing.txt'), Buffer.from('x'), { create: false, overwrite: true })
+      provider.writeFile(uriOf('/srv/missing.txt'), Buffer.from('x'), {
+        create: false,
+        overwrite: true,
+      })
     ).rejects.toMatchObject({ code: 'FileNotFound' });
     await expect(
       provider.writeFile(uriOf('/srv/a.txt'), Buffer.from('x'), { create: true, overwrite: false })
     ).rejects.toMatchObject({ code: 'FileExists' });
-    await expect(provider.writeFile(uriOf('/srv/dir'), Buffer.from('x'), CREATE)).rejects.toMatchObject({
+    await expect(
+      provider.writeFile(uriOf('/srv/dir'), Buffer.from('x'), CREATE)
+    ).rejects.toMatchObject({
       code: 'FileIsADirectory',
     });
   });
@@ -316,11 +357,15 @@ describe('RemoteFileSystemProvider', () => {
     const { provider, files } = setup({ '/srv/a.txt': file('old') });
     const uri = uriOf('/srv/a.txt');
 
-    await expect(provider.stat(uri)).resolves.toMatchObject({ permissions: vscode.FilePermission.Readonly });
+    await expect(provider.stat(uri)).resolves.toMatchObject({
+      permissions: vscode.FilePermission.Readonly,
+    });
     await expect(provider.writeFile(uri, Buffer.from('x'), CREATE)).rejects.toMatchObject({
       code: 'NoPermissions',
     });
-    await expect(provider.delete(uri, { recursive: false })).rejects.toMatchObject({ code: 'NoPermissions' });
+    await expect(provider.delete(uri, { recursive: false })).rejects.toMatchObject({
+      code: 'NoPermissions',
+    });
     expect(files['/srv/a.txt'].data!.toString()).toBe('old');
   });
 

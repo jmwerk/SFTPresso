@@ -111,9 +111,9 @@ describe('connect / authenticate', () => {
   });
 
   test('a refused port reports the friendly connection error', async () => {
-    await expect(
-      connectSftpOnce({ port: 2223, connectTimeout: 5000 })
-    ).rejects.toThrow(/Connection refused by|is unreachable|timed out/);
+    await expect(connectSftpOnce({ port: 2223, connectTimeout: 5000 })).rejects.toThrow(
+      /Connection refused by|is unreachable|timed out/
+    );
   });
 
   test('end() notifies onDisconnected listeners', async () => {
@@ -723,7 +723,10 @@ describe('probe', () => {
     await new Promise(resolve => setTimeout(resolve, 300));
 
     const outcome = await Promise.race([
-      sftp.probe().then(() => 'settled', () => 'settled'),
+      sftp.probe().then(
+        () => 'settled',
+        () => 'settled'
+      ),
       new Promise(resolve => setTimeout(() => resolve('hung'), 2000)),
     ]);
 

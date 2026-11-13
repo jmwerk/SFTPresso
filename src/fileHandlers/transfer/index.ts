@@ -160,7 +160,10 @@ function trackUploads() {
   };
 }
 
-function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx: FileHandlerContext) => string) {
+function createTransferHandle(
+  direction: TransferDirection,
+  progressTitle?: (ctx: FileHandlerContext) => string
+) {
   return async function handle(this: FileHandlerContext, option) {
     // Stale-remote guard (gated by conflictCheck). Anything but "proceed"
     // leaves the remote untouched.

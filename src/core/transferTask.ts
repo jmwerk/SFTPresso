@@ -73,12 +73,7 @@ interface ProgressSample {
 
 // network/transport hiccups: the same transfer has a decent chance of working
 // on a fresh connection
-const RETRYABLE_ERROR_CODES = new Set([
-  'ECONNRESET',
-  'ETIMEDOUT',
-  'EPIPE',
-  'ENOTCONN',
-]);
+const RETRYABLE_ERROR_CODES = new Set(['ECONNRESET', 'ETIMEDOUT', 'EPIPE', 'ENOTCONN']);
 
 // the transfer would fail the same way however many times we run it
 const FATAL_ERROR_CODES = new Set(['EACCES', 'ENOENT']);
@@ -431,13 +426,7 @@ export default class TransferTask implements Task {
         }
         break;
       case FileType.SymbolicLink:
-        await fileOperations.transferSymlink(
-          src,
-          target,
-          srcFs,
-          targetFs,
-          this._TransferOption
-        );
+        await fileOperations.transferSymlink(src, target, srcFs, targetFs, this._TransferOption);
         break;
       default:
         logger.warn(`Unsupported file type (type = ${this.fileType}). File ${src}`);
@@ -506,16 +495,8 @@ export default class TransferTask implements Task {
     const target = this._targetFsPath;
     const srcFs = this._srcFs;
     const targetFs = this._targetFs;
-    const {
-      perserveTargetMode,
-      useTempFile,
-      openSsh,
-      fallbackMode,
-      atime,
-      mtime,
-      filePerm,
-      size,
-    } = this._TransferOption;
+    const { perserveTargetMode, useTempFile, openSsh, fallbackMode, atime, mtime, filePerm, size } =
+      this._TransferOption;
     let mode = filePerm ? parseInt(String(filePerm), 8) : this._TransferOption.mode;
     const uploadTarget = target + (useTempFile ? '.new' : '');
     const totalSize = size || 0;
@@ -562,9 +543,7 @@ export default class TransferTask implements Task {
       } catch (error) {
         if (!hasWarnedModifedTimePermission) {
           hasWarnedModifedTimePermission = true;
-          logger.warn(
-            `Can't set modified time to the file because ${error.message}`
-          );
+          logger.warn(`Can't set modified time to the file because ${error.message}`);
         }
       }
     }
@@ -589,29 +568,23 @@ export default class TransferTask implements Task {
     const target = this._targetFsPath;
     const srcFs = this._srcFs;
     const targetFs = this._targetFs;
-    const {
-      perserveTargetMode,
-      useTempFile,
-      openSsh,
-      fallbackMode,
-      atime,
-      mtime,
-      filePerm
-    } = this._TransferOption;
+    const { perserveTargetMode, useTempFile, openSsh, fallbackMode, atime, mtime, filePerm } =
+      this._TransferOption;
     // Set the mode if it's specified in the config, otherwise get mode from server.
     let mode = filePerm ? parseInt(String(filePerm), 8) : this._TransferOption.mode;
     let targetFd; // Destination file
     let uploadFd; // Temp file or destination file when no temp file is used
-    const uploadTarget = target + (useTempFile ? ".new" : "");
+    const uploadTarget = target + (useTempFile ? '.new' : '');
 
     // Use mode first.
     // Then check perserveTargetMode and fallback to fallbackMode if fail to get mode of target
     if (mode === undefined && perserveTargetMode) {
       if (useTempFile) {
         [targetFd, uploadFd] = await Promise.all([
-          targetFs.open(target, 'r')  // Get handle for reading the target mode
+          targetFs
+            .open(target, 'r') // Get handle for reading the target mode
             .catch(() => null), // Return null if target file doesn't exist
-          targetFs.open(uploadTarget, 'w')  // Get handle for the file upload
+          targetFs.open(uploadTarget, 'w'), // Get handle for the file upload
         ]);
       } else {
         targetFd = uploadFd = await targetFs.open(uploadTarget, 'w');
@@ -629,12 +602,10 @@ export default class TransferTask implements Task {
         if (useTempFile) {
           targetFs.close(targetFd);
         }
-
       } else {
         this._handle = await srcFs.get(src);
         mode = fallbackMode;
       }
-
     } else {
       [this._handle, uploadFd] = await Promise.all([
         srcFs.get(src),
@@ -644,7 +615,7 @@ export default class TransferTask implements Task {
 
     try {
       if (useTempFile) {
-        logger.info("uploading temp file: " + uploadTarget);
+        logger.info('uploading temp file: ' + uploadTarget);
       }
       await targetFs.put(this._handle, uploadTarget, {
         mode,
@@ -654,35 +625,28 @@ export default class TransferTask implements Task {
       });
       if (atime && mtime) {
         try {
-          await targetFs.futimes(
-            uploadFd,
-            Math.floor(atime / 1000),
-            Math.floor(mtime / 1000)
-          );
+          await targetFs.futimes(uploadFd, Math.floor(atime / 1000), Math.floor(mtime / 1000));
         } catch (error) {
           if (!hasWarnedModifedTimePermission) {
             hasWarnedModifedTimePermission = true;
-            logger.warn(
-              `Can't set modified time to the file because ${error.message}`
-            );
+            logger.warn(`Can't set modified time to the file because ${error.message}`);
           }
         }
       }
 
       if (useTempFile) {
-        logger.info("moving from: " + target + ".new" + " to: " + target);
-        if(openSsh) {
+        logger.info('moving from: ' + target + '.new' + ' to: ' + target);
+        if (openSsh) {
           await targetFs.renameAtomic(uploadTarget, target);
         } else {
           try {
             await targetFs.unlink(target);
-          } catch(error) {
+          } catch (error) {
             // Just ignore
           }
           await targetFs.rename(uploadTarget, target);
         }
       }
-
     } finally {
       await targetFs.close(uploadFd);
     }

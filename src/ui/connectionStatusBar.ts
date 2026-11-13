@@ -132,8 +132,6 @@ export default class ConnectionStatusBar {
       label: `SFTPresso connection: ${tooltip}`,
       role: 'button',
     };
-    this.statusBarItem.backgroundColor = background
-      ? new vscode.ThemeColor(background)
-      : undefined;
+    this.statusBarItem.backgroundColor = background ? new vscode.ThemeColor(background) : undefined;
   }
 }

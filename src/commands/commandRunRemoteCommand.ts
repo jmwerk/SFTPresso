@@ -1,6 +1,11 @@
 import { Uri, window } from 'vscode';
 import { COMMAND_RUN_REMOTE_COMMAND } from '../constants';
-import { showConfirmMessage, showErrorMessage, showInformationMessage, isWorkspaceTrusted } from '../host';
+import {
+  showConfirmMessage,
+  showErrorMessage,
+  showInformationMessage,
+  isWorkspaceTrusted,
+} from '../host';
 import { RemoteFileSystem } from '../core/fs';
 import { execCommand } from '../core/remote-client/exec';
 import { SSHClient } from '../core/remote-client';
@@ -18,7 +23,9 @@ interface CommandPick {
   command?: string;
 }
 
-async function promptForCommand(remoteCommands?: Record<string, string>): Promise<string | undefined> {
+async function promptForCommand(
+  remoteCommands?: Record<string, string>
+): Promise<string | undefined> {
   const saved = remoteCommands ? Object.entries(remoteCommands) : [];
   if (saved.length <= 0) {
     return window.showInputBox({
@@ -32,7 +39,9 @@ async function promptForCommand(remoteCommands?: Record<string, string>): Promis
     ...saved.map(([label, command]) => ({ label, description: command, command })),
     { label: ENTER_COMMAND },
   ];
-  const picked = await window.showQuickPick(items, { placeHolder: 'Select a remote command to run' });
+  const picked = await window.showQuickPick(items, {
+    placeHolder: 'Select a remote command to run',
+  });
   if (!picked) {
     return undefined;
   }
@@ -96,7 +105,9 @@ export default checkCommand({
     }
 
     const timeout =
-      typeof config.remoteCommandTimeout === 'number' ? config.remoteCommandTimeout : DEFAULT_TIMEOUT;
+      typeof config.remoteCommandTimeout === 'number'
+        ? config.remoteCommandTimeout
+        : DEFAULT_TIMEOUT;
 
     let fs: RemoteFileSystem;
     try {

@@ -14,9 +14,9 @@ declare global {
   }
 }
 
-Array.prototype.formatSep = function() {
-  return this.map(str => str.replace(/\//g, path.sep))
-}
+Array.prototype.formatSep = function () {
+  return this.map(str => str.replace(/\//g, path.sep));
+};
 
 function createRemoteFs({ remoteTimeOffsetInHours = 0 } = {}) {
   return new RemoteFs(path, {
@@ -136,7 +136,9 @@ describe('transfer algorithm', () => {
           '/remote/c/c-b',
           '/remote/c/d/d-a',
           '/remote/c/d/d-b',
-        ].formatSep().sort()
+        ]
+          .formatSep()
+          .sort()
       );
     });
 
@@ -197,7 +199,9 @@ describe('transfer algorithm', () => {
           '/remote/c/c-b',
           '/remote/c/d/d-a',
           '/remote/c/d/d-b',
-        ].formatSep().sort()
+        ]
+          .formatSep()
+          .sort()
       );
     });
 
@@ -258,7 +262,9 @@ describe('transfer algorithm', () => {
           '/remote/c/c-b',
           '/remote/c/d/d-a',
           '/remote/c/d/d-b',
-        ].formatSep().sort()
+        ]
+          .formatSep()
+          .sort()
       );
     });
 
@@ -296,9 +302,7 @@ describe('transfer algorithm', () => {
       await runSync();
       expect(task.length).toEqual(1);
       expect(deleted.length).toEqual(0);
-      expect(mapList(task, 'targetFsPath').sort()).toEqual(
-        ['/remote/a'].formatSep().sort()
-      );
+      expect(mapList(task, 'targetFsPath').sort()).toEqual(['/remote/a'].formatSep().sort());
       task.length = 0;
       deleted.length = 0;
       await runSync();
@@ -398,12 +402,7 @@ describe('transfer algorithm', () => {
       expect(task.length).toEqual(4);
       expect(deleted.length).toEqual(0);
       expect(mapList(task, 'targetFsPath').sort()).toEqual(
-        [
-          '/remote/b',
-          '/remote/c/c-b',
-          '/remote/c/d/d-a',
-          '/remote/c/d/d-b',
-        ].formatSep().sort()
+        ['/remote/b', '/remote/c/c-b', '/remote/c/d/d-a', '/remote/c/d/d-b'].formatSep().sort()
       );
     });
 
@@ -465,7 +464,9 @@ describe('transfer algorithm', () => {
           '/remote/c/d/d-a',
           '/local/c/d/d-b',
           '/local/c/d/d-c',
-        ].formatSep().sort()
+        ]
+          .formatSep()
+          .sort()
       );
     });
 
@@ -526,7 +527,9 @@ describe('transfer algorithm', () => {
           '/local/c/c-b',
           '/remote/c/d/d-a',
           '/local/c/d/d-b',
-        ].formatSep().sort()
+        ]
+          .formatSep()
+          .sort()
       );
     });
   });

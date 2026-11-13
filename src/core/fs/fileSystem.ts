@@ -142,7 +142,11 @@ export default abstract class FileSystem {
     throw new Error('getToFile is not supported by this file system');
   }
 
-  putFromFile(localPath: string, remotePath: string, option: ParallelTransferOption): Promise<void> {
+  putFromFile(
+    localPath: string,
+    remotePath: string,
+    option: ParallelTransferOption
+  ): Promise<void> {
     throw new Error('putFromFile is not supported by this file system');
   }
 

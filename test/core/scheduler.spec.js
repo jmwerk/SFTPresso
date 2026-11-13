@@ -1,6 +1,6 @@
 const Scheduler = require('../../src/core/scheduler').default;
 
-const randomInt = function(min, max) {
+const randomInt = function (min, max) {
   if (max === undefined) {
     max = min;
     min = 0;
@@ -72,7 +72,11 @@ describe('scheduler', () => {
   // failure surfaced as a 5s timeout rather than as the bound it actually
   // missed. Overlap and completion order say the same thing without a clock.
   test('.add() - concurrency: 1', async () => {
-    const input = [[10, 30], [20, 20], [30, 10]];
+    const input = [
+      [10, 30],
+      [20, 20],
+      [30, 10],
+    ];
 
     const queue = new Scheduler({ concurrency: 1 });
     const finished = [];
@@ -124,10 +128,22 @@ describe('scheduler', () => {
   test('.add() - priority', done => {
     const result = [];
     const queue = new Scheduler({ concurrency: 1 });
-    queue.add(wrapTask(async () => result.push(0)), { priority: 0 });
-    queue.add(wrapTask(async () => result.push(1)), { priority: 1 });
-    queue.add(wrapTask(async () => result.push(2)), { priority: 1 });
-    queue.add(wrapTask(async () => result.push(3)), { priority: 2 });
+    queue.add(
+      wrapTask(async () => result.push(0)),
+      { priority: 0 }
+    );
+    queue.add(
+      wrapTask(async () => result.push(1)),
+      { priority: 1 }
+    );
+    queue.add(
+      wrapTask(async () => result.push(2)),
+      { priority: 1 }
+    );
+    queue.add(
+      wrapTask(async () => result.push(3)),
+      { priority: 2 }
+    );
     queue.onIdle(() => {
       expect(result).toEqual([0, 3, 1, 2]);
       done();

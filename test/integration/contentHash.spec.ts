@@ -102,7 +102,10 @@ describe('server-side hashing on a real OpenSSH server', () => {
       const plain = upath.join(dir, 'plain.txt');
       const plainStat = await sftp.lstat(plain);
       const [lockedOutcome, plainOutcome] = await new ContentHasher().contentDiffers([
-        [localSide('secret', '/local/locked.txt'), { fs: sftp, entry: { fspath: locked, size: 6, mtime: 0 } }],
+        [
+          localSide('secret', '/local/locked.txt'),
+          { fs: sftp, entry: { fspath: locked, size: 6, mtime: 0 } },
+        ],
         [
           localSide('content of plain.txt', '/local/plain.txt'),
           { fs: sftp, entry: { fspath: plain, size: plainStat.size, mtime: plainStat.mtime } },

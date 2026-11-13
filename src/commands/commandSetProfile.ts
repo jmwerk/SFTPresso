@@ -22,7 +22,9 @@ export default checkCommand({
   id: COMMAND_SET_PROFILE,
 
   async handleCommand(definedProfile) {
-    const services = getAllFileService().filter(service => service.getAvailableProfiles().length > 0);
+    const services = getAllFileService().filter(
+      service => service.getAvailableProfiles().length > 0
+    );
     // the base config is only worth offering where no profile already stands for it
     const baseIsRedundant =
       services.length > 0 && services.every(service => !!service.getBaseEquivalentProfile());
@@ -34,9 +36,7 @@ export default checkCommand({
     const baseAddresses = services
       .map(service => addressUnder(service, null))
       .filter((address): address is string => !!address);
-    const profiles = services.reduce<
-      Array<vscode.QuickPickItem & { value: string | null }>
-    >(
+    const profiles = services.reduce<Array<vscode.QuickPickItem & { value: string | null }>>(
       (acc, service) => {
         service.getAvailableProfiles().forEach(profile => {
           acc.push({

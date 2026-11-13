@@ -21,7 +21,10 @@ jest.mock('vscode', () => {
             Promise.resolve(
               task(
                 { report() {} },
-                { isCancellationRequested: false, onCancellationRequested: () => ({ dispose() {} }) }
+                {
+                  isCancellationRequested: false,
+                  onCancellationRequested: () => ({ dispose() {} }),
+                }
               )
             );
         }

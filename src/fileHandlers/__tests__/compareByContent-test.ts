@@ -166,7 +166,11 @@ describe('sync with a content hasher', () => {
 
   test('remote → local is content-aware too', async () => {
     const { tasks } = await run(TransferDirection.REMOTE_TO_LOCAL);
-    expect(targets(tasks)).toEqual(['/local/edited.txt', '/local/grown.txt', '/local/sub/deep.txt']);
+    expect(targets(tasks)).toEqual([
+      '/local/edited.txt',
+      '/local/grown.txt',
+      '/local/sub/deep.txt',
+    ]);
   });
 
   test('both directions no longer copies identical files back and forth', async () => {

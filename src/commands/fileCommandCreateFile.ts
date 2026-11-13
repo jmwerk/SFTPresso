@@ -13,26 +13,24 @@ export default checkFileCommand({
     if (!targets) {
       return;
     }
-   /* const filename = Array.isArray(targets)
+    /* const filename = Array.isArray(targets)
     ? targets.map(t => upath.basename(t.fsPath)).join(',')
     : upath.basename(targets.fsPath);
 */
     const result = await window.showInputBox({
-        value: '',
-        prompt: 'Please input file name',
+      value: '',
+      prompt: 'Please input file name',
     });
 
-
     if (result !== undefined) {
-        // window.showInformationMessage(targets.toString() + '%252F' + result);
+      // window.showInformationMessage(targets.toString() + '%252F' + result);
 
-        return Uri.parse(targets.toString() + '/' + result);
+      return Uri.parse(targets.toString() + '/' + result);
     }
 
-    
     return undefined;
-    
-/*
+
+    /*
     const filename = Array.isArray(targets)
       ? targets.map(t => upath.basename(t.fsPath)).join(',')
       : upath.basename(targets.fsPath);

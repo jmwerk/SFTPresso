@@ -77,18 +77,18 @@ describe('afterUpload command wrapper against a real OpenSSH server', () => {
     const dir = "/tmp/after upload's dir";
     await execCommand(rawClient(), `mkdir -p "${dir}"`);
 
-    const result = await execCommand(rawClient(), buildRemoteCommand(dir, 'pwd'), { closeStdin: true });
+    const result = await execCommand(rawClient(), buildRemoteCommand(dir, 'pwd'), {
+      closeStdin: true,
+    });
 
     expect(result.code).toBe(0);
     expect(result.stdout.trim()).toBe(dir);
   });
 
   it('does not run the command when remotePath is missing', async () => {
-    const result = await execCommand(
-      rawClient(),
-      buildRemoteCommand('/no/such/dir', 'echo ran'),
-      { closeStdin: true }
-    );
+    const result = await execCommand(rawClient(), buildRemoteCommand('/no/such/dir', 'echo ran'), {
+      closeStdin: true,
+    });
 
     expect(result.code).not.toBe(0);
     expect(result.stdout).not.toContain('ran');

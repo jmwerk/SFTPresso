@@ -16,7 +16,10 @@ jest.mock('vscode', () => {
     changeHandlers: Array<(uri: any) => void> = [];
     deleteHandlers: Array<(uri: any) => void> = [];
 
-    constructor(public base: string, public pattern: string) {
+    constructor(
+      public base: string,
+      public pattern: string
+    ) {
       created.push(this);
     }
 
@@ -41,8 +44,7 @@ jest.mock('vscode', () => {
     __fireWillRename: (files: any[]) => onWillRenameHandler && onWillRenameHandler({ files }),
     __fireDidRename: (files: any[]) => onDidRenameHandler && onDidRenameHandler({ files }),
     workspace: {
-      createFileSystemWatcher: (pattern: any) =>
-        new FakeWatcher(pattern.base, pattern.pattern),
+      createFileSystemWatcher: (pattern: any) => new FakeWatcher(pattern.base, pattern.pattern),
       onWillRenameFiles: (fn: any) => {
         onWillRenameHandler = fn;
       },
@@ -51,7 +53,10 @@ jest.mock('vscode', () => {
       },
     },
     RelativePattern: class {
-      constructor(public base: string, public pattern: string) {}
+      constructor(
+        public base: string,
+        public pattern: string
+      ) {}
     },
   };
 });
@@ -207,11 +212,7 @@ describe('watcher queue', () => {
     fireChange(watcher, '/ws/deep/nested/b.ts');
     jest.runOnlyPendingTimers();
 
-    expect(uploadedPaths()).toEqual([
-      '/ws/prime.ts',
-      '/ws/deep/nested/b.ts',
-      '/ws/a.ts',
-    ]);
+    expect(uploadedPaths()).toEqual(['/ws/prime.ts', '/ws/deep/nested/b.ts', '/ws/a.ts']);
   });
 
   test('deletes are deduped the same way', () => {
@@ -269,9 +270,7 @@ describe('watcher ignore rules', () => {
     watcherService.create('/ws', watcherConfig);
     const watcher = lastWatcher();
 
-    watcher.changeHandlers.forEach(fn =>
-      fn({ fsPath: '/ws/a.ts', scheme: 'sftp' })
-    );
+    watcher.changeHandlers.forEach(fn => fn({ fsPath: '/ws/a.ts', scheme: 'sftp' }));
     jest.runOnlyPendingTimers();
 
     expect(uploadMock).not.toHaveBeenCalled();

@@ -127,7 +127,10 @@ describe('RemoteFileSystem operationTimeout', () => {
   test('waits indefinitely when the timeout is 0, as it always did', async () => {
     const fs = createFs(0);
     let settled = false;
-    fs.lstat('/srv/www').then(() => (settled = true), () => (settled = true));
+    fs.lstat('/srv/www').then(
+      () => (settled = true),
+      () => (settled = true)
+    );
 
     await jest.advanceTimersByTimeAsync(60 * 60 * 1000);
 

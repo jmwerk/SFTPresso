@@ -154,9 +154,9 @@ describe('setRemotePermissions', () => {
 
   test('refuses a symlink target', async () => {
     const fs = new FakeRemoteFs(tree);
-    await expect(setRemotePermissions(contextFor('/www/link', fs), { mode: 0o644 })).rejects.toThrow(
-      /symbolic link/
-    );
+    await expect(
+      setRemotePermissions(contextFor('/www/link', fs), { mode: 0o644 })
+    ).rejects.toThrow(/symbolic link/);
     expect(fs.chmods).toEqual([]);
   });
 });

@@ -130,8 +130,7 @@ function reportTransferFailure(error: Error, context: string) {
     failureReportTimer = null;
     failureCount = 0;
 
-    const message =
-      count === 1 ? '1 file failed to transfer' : `${count} files failed to transfer`;
+    const message = count === 1 ? '1 file failed to transfer' : `${count} files failed to transfer`;
     showErrorMessage(message, 'Show Log').then(result => {
       if (result === 'Show Log') {
         output.show();

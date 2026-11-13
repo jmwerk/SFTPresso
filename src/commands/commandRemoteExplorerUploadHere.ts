@@ -29,6 +29,10 @@ export default checkCommand({
       return;
     }
 
-    await uploadLocalPaths(destRoot, item.resource.fsPath, picked.map(uri => uri.fsPath));
+    await uploadLocalPaths(
+      destRoot,
+      item.resource.fsPath,
+      picked.map(uri => uri.fsPath)
+    );
   },
 });

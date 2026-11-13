@@ -4,11 +4,7 @@ import StatusBarItem from './ui/statusBarItem';
 import ConnectionStatusBar from './ui/connectionStatusBar';
 import UploadOnSaveStatusBar from './ui/uploadOnSaveStatusBar';
 import { STATUS_PRIORITY } from './ui/statusBarPriority';
-import {
-  COMMAND_TOGGLE_OUTPUT,
-  VIEW_TRANSFERS_FOCUS,
-  COMMAND_SET_PROFILE,
-} from './constants';
+import { COMMAND_TOGGLE_OUTPUT, VIEW_TRANSFERS_FOCUS, COMMAND_SET_PROFILE } from './constants';
 import AppState from './modules/appState';
 import RemoteExplorer from './modules/remoteExplorer';
 import TransferView from './modules/transferView';
@@ -42,8 +38,7 @@ app.sftpBarItem = new StatusBarItem(
   // upload on save has its own toggle item next to this one
   () =>
     app.state.availableProfiles.length > 0 ? 'SFTPresso — click to switch profile' : 'SFTPresso',
-  () =>
-    app.state.availableProfiles.length > 0 ? COMMAND_SET_PROFILE : COMMAND_TOGGLE_OUTPUT
+  () => (app.state.availableProfiles.length > 0 ? COMMAND_SET_PROFILE : COMMAND_TOGGLE_OUTPUT)
 );
 app.connectionBarItem = new ConnectionStatusBar();
 app.uploadOnSaveBarItem = new UploadOnSaveStatusBar();

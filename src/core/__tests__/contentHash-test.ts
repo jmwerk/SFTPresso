@@ -130,7 +130,9 @@ describe('ContentHasher', () => {
     const local = new MemFs('/l').file('/l/a', 'x');
     const remote = new MemFs('/r').file('/r/a', 'x');
     const hasher = new ContentHasher({ resolveServerHasher: () => async () => null });
-    const [outcome] = await hasher.contentDiffers([[side(local, '/l/a', 1), side(remote, '/r/a', 1)]]);
+    const [outcome] = await hasher.contentDiffers([
+      [side(local, '/l/a', 1), side(remote, '/r/a', 1)],
+    ]);
     expect(outcome).toBe(false);
     expect(remote.reads).toEqual(['/r/a']);
   });
@@ -152,7 +154,9 @@ describe('ContentHasher', () => {
     const remote = new MemFs('/r').file('/r/a', 'x');
     const hasher = new ContentHasher();
     hasher.cancel();
-    const [outcome] = await hasher.contentDiffers([[side(local, '/l/a', 1), side(remote, '/r/a', 1)]]);
+    const [outcome] = await hasher.contentDiffers([
+      [side(local, '/l/a', 1), side(remote, '/r/a', 1)],
+    ]);
     expect(outcome).toBeInstanceOf(HashCancelledError);
     expect(remote.reads).toEqual([]);
   });
@@ -170,7 +174,10 @@ describe('ContentHasher', () => {
       const remote = new MemFs('/r').file('/r/x', 'x');
       const now = Date.now();
       const pairs = (): Array<[HashSide, HashSide]> => [
-        [{ fs: localFs, entry: { fspath: old, size: 1, mtime: now - 60000 } }, side(remote, '/r/x', 1)],
+        [
+          { fs: localFs, entry: { fspath: old, size: 1, mtime: now - 60000 } },
+          side(remote, '/r/x', 1),
+        ],
         [{ fs: localFs, entry: { fspath: fresh, size: 1, mtime: now } }, side(remote, '/r/x', 1)],
       ];
 

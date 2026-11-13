@@ -5,12 +5,7 @@ import logger from '../logger';
 import app from '../app';
 import { ConnectionState } from '../ui/connectionStatusBar';
 import { ConnectOption } from './remote-client/remoteClient';
-import {
-  FileSystem,
-  RemoteFileSystem,
-  SFTPFileSystem,
-  FTPFileSystem,
-} from './fs';
+import { FileSystem, RemoteFileSystem, SFTPFileSystem, FTPFileSystem } from './fs';
 import localFs from './localFs';
 import { connectionIdentity } from './connectionIdentity';
 
@@ -198,10 +193,7 @@ class KeepAliveRemoteFs {
   // connection from the outside. Probing on the way out instead means a live
   // connection simply answers and is handed straight back, and only one that
   // has actually gone away is dropped.
-  private async isStale(
-    policy: ConnectionPolicy,
-    option: ConnectOption
-  ): Promise<boolean> {
+  private async isStale(policy: ConnectionPolicy, option: ConnectOption): Promise<boolean> {
     const idleTimeout = policy.idleTimeout || 0;
     if (idleTimeout <= 0 || this.lastUsedAt === 0) {
       return false;
@@ -243,9 +235,7 @@ class KeepAliveRemoteFs {
       logger.debug('probe answered, reusing the connection');
       return false;
     } catch (err) {
-      logger.info(
-        `reconnecting: ${(err as Error).message} (idle for ${idleFor}ms)`
-      );
+      logger.info(`reconnecting: ${(err as Error).message} (idle for ${idleFor}ms)`);
       return true;
     } finally {
       clearTimeout(timer as NodeJS.Timeout);

@@ -54,11 +54,7 @@ export default class LocalRemoteFileSystem extends RemoteFileSystem {
   }
 
   futimes(fd: number, atime: number, mtime: number): Promise<void> {
-    return fse.futimes(
-      fd,
-      this.toRemoteTimeInSecnonds(atime),
-      this.toRemoteTimeInSecnonds(mtime)
-    );
+    return fse.futimes(fd, this.toRemoteTimeInSecnonds(atime), this.toRemoteTimeInSecnonds(mtime));
   }
 
   // Stands in for a real SFTP connection's parallel-chunk support (see
@@ -68,7 +64,11 @@ export default class LocalRemoteFileSystem extends RemoteFileSystem {
     return true;
   }
 
-  async getToFile(remotePath: string, localPath: string, option: ParallelTransferOption): Promise<void> {
+  async getToFile(
+    remotePath: string,
+    localPath: string,
+    option: ParallelTransferOption
+  ): Promise<void> {
     const srcFd = await open(remotePath, 'r');
     try {
       const dstFd = await open(localPath, 'w');
@@ -82,7 +82,11 @@ export default class LocalRemoteFileSystem extends RemoteFileSystem {
     }
   }
 
-  async putFromFile(localPath: string, remotePath: string, option: ParallelTransferOption): Promise<void> {
+  async putFromFile(
+    localPath: string,
+    remotePath: string,
+    option: ParallelTransferOption
+  ): Promise<void> {
     const srcFd = await open(localPath, 'r');
     try {
       const dstFd = await open(remotePath, 'w');

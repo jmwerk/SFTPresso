@@ -91,7 +91,8 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
       return {
         // a link whose target can't be told apart is opened as a file, the common case
         type: isLink
-          ? vscode.FileType.SymbolicLink | (resolved ? toVscodeFileType(resolved.type) : vscode.FileType.File)
+          ? vscode.FileType.SymbolicLink |
+            (resolved ? toVscodeFileType(resolved.type) : vscode.FileType.File)
           : toVscodeFileType(stat.type),
         ctime: target.mtime,
         mtime: target.mtime,
@@ -104,7 +105,9 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
   readDirectory(uri: vscode.Uri): Promise<[string, vscode.FileType][]> {
     return this._run(uri, async ({ remoteFs, path }) => {
       const entries = await remoteFs.list(path);
-      return entries.map(entry => [entry.name, toVscodeFileType(entry.type)] as [string, vscode.FileType]);
+      return entries.map(
+        entry => [entry.name, toVscodeFileType(entry.type)] as [string, vscode.FileType]
+      );
     });
   }
 
@@ -135,8 +138,8 @@ export default class RemoteFileSystemProvider implements vscode.FileSystemProvid
       const mode = config.filePerm
         ? parseInt(String(config.filePerm), 8)
         : existing
-        ? existing.mode & 0o7777
-        : undefined;
+          ? existing.mode & 0o7777
+          : undefined;
       const backup = existing && existing.type === FileType.File && resolveBackup(config, baseDir);
       if (backup) {
         await backupRemoteFile(backup, remoteFs, config.remotePath, path);

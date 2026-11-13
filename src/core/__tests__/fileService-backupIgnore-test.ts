@@ -31,7 +31,9 @@ beforeEach(() => {
 describe('backup folder is never transferred', () => {
   test('the default folder is ignored, the rest is not', () => {
     const ignore = ignoreFor({ backup: true } as any)!;
-    expect(ignore(local('.sftpresso-backup', 'example.com', 'a.20261112-153000-000.php'))).toBe(true);
+    expect(ignore(local('.sftpresso-backup', 'example.com', 'a.20261112-153000-000.php'))).toBe(
+      true
+    );
     expect(ignore(local('a.php'))).toBe(false);
   });
 

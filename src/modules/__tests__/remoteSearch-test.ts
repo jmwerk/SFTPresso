@@ -12,7 +12,13 @@ import {
 } from '../remoteSearch';
 
 const execMock = execCommand as jest.Mock;
-const ok = (stdout: string, stderr = '') => ({ code: 0, signal: null, stdout, stderr, timedOut: false });
+const ok = (stdout: string, stderr = '') => ({
+  code: 0,
+  signal: null,
+  stdout,
+  stderr,
+  timedOut: false,
+});
 
 describe('query building', () => {
   test('smart case: an uppercase letter makes it case-sensitive', () => {
@@ -109,6 +115,8 @@ describe('searchRemote', () => {
 
   test('a timeout is reported', async () => {
     execMock.mockResolvedValueOnce({ ...ok(''), timedOut: true });
-    await expect(searchRemote({} as any, '/www', smartCase('x'), [], 5)).rejects.toThrow(/timed out/);
+    await expect(searchRemote({} as any, '/www', smartCase('x'), [], 5)).rejects.toThrow(
+      /timed out/
+    );
   });
 });

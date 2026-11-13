@@ -113,11 +113,7 @@ export default class SFTPFileSystem extends RemoteFileSystem {
     });
   }
 
-  open(
-    path: string,
-    flags: string,
-    mode?: number
-  ): Promise<SFTPFileDescriptor> {
+  open(path: string, flags: string, mode?: number): Promise<SFTPFileDescriptor> {
     return new Promise((resolve, reject) => {
       this.sftp.open(path, flags, mode, (err, handle) => {
         if (err) {
@@ -212,13 +208,13 @@ export default class SFTPFileSystem extends RemoteFileSystem {
   async chmod(path: string, mode: number): Promise<void> {
     return new Promise((resolve, reject) => {
       this.sftp.chmod(path, mode, err => {
-        if(err) {
-          reject(err)
-          return
+        if (err) {
+          reject(err);
+          return;
         }
         resolve();
       });
-    })
+    });
   }
 
   get(path, option?: FileOption): Promise<Readable> {
@@ -459,10 +455,7 @@ export default class SFTPFileSystem extends RemoteFileSystem {
       // itself — waiting on 'finish' alone hangs forever in the latter case.
       // Both fire after the server has acknowledged every write.
       const transferred = () => resolve();
-      writer
-        .once('error', reject)
-        .once('finish', transferred)
-        .once('close', transferred);
+      writer.once('error', reject).once('finish', transferred).once('close', transferred);
 
       input.once('error', err => {
         reject(err);
@@ -556,7 +549,11 @@ export default class SFTPFileSystem extends RemoteFileSystem {
 
   // Remote -> local, both ends real files, as concurrent positional chunks
   // instead of one piped stream. See parallelTransfer.ts for why.
-  async getToFile(remotePath: string, localPath: string, option: ParallelTransferOption): Promise<void> {
+  async getToFile(
+    remotePath: string,
+    localPath: string,
+    option: ParallelTransferOption
+  ): Promise<void> {
     const remoteHandle = await this._openHandle(remotePath, 'r');
     let localFd: number;
     try {
@@ -583,7 +580,11 @@ export default class SFTPFileSystem extends RemoteFileSystem {
   }
 
   // Local -> remote, both ends real files. See getToFile() above.
-  async putFromFile(localPath: string, remotePath: string, option: ParallelTransferOption): Promise<void> {
+  async putFromFile(
+    localPath: string,
+    remotePath: string,
+    option: ParallelTransferOption
+  ): Promise<void> {
     const localFd = await this._openLocal(localPath, 'r');
     let remoteHandle: Buffer;
     try {
@@ -598,7 +599,9 @@ export default class SFTPFileSystem extends RemoteFileSystem {
         // Mirrors put()'s fd-based mode handling: the mode is applied
         // explicitly rather than passed to open(), and a server that only
         // supports the non-f variant is tolerated.
-        await this.fchmod({ handle: remoteHandle, path: remotePath }, option.mode).catch(() => undefined);
+        await this.fchmod({ handle: remoteHandle, path: remotePath }, option.mode).catch(
+          () => undefined
+        );
       }
       await parallelCopy(this._localReader(localFd), this._remoteWriter(remoteHandle), {
         size: option.size,

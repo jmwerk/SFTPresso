@@ -78,14 +78,12 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
   private _activeProfile: string | null = null;
   private _availableProfiles: string[] = [];
 
-  private _onDidChangeFolder: vscode.EventEmitter<
-    ExplorerItem | undefined | null | void
-  > = new vscode.EventEmitter<ExplorerItem | undefined | null | void>();
+  private _onDidChangeFolder: vscode.EventEmitter<ExplorerItem | undefined | null | void> =
+    new vscode.EventEmitter<ExplorerItem | undefined | null | void>();
   // files whose open editors should reload; RemoteExplorer forwards these to the file system
   private _onDidChangeFile: vscode.EventEmitter<vscode.Uri> = new vscode.EventEmitter<vscode.Uri>();
-  readonly onDidChangeTreeData: vscode.Event<
-    ExplorerItem | undefined | null | void
-  > = this._onDidChangeFolder.event;
+  readonly onDidChangeTreeData: vscode.Event<ExplorerItem | undefined | null | void> =
+    this._onDidChangeFolder.event;
   readonly onDidChange: vscode.Event<vscode.Uri> = this._onDidChangeFile.event;
 
   async refresh(item?: ExplorerItem): Promise<any> {
@@ -108,9 +106,7 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
 
       // refresh top level files as well
       const children = await this.getChildren(item);
-      children
-        .filter(i => !i.isDirectory)
-        .forEach(i => this._onDidChangeFile.fire(i.resource.uri));
+      children.filter(i => !i.isDirectory).forEach(i => this._onDidChangeFile.fire(i.resource.uri));
     } else {
       const parent = await this.getParent(item);
       if (parent) {
@@ -145,8 +141,8 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
       contextValue: isRoot
         ? contextValue('root', item as ExplorerRoot)
         : item.isDirectory
-        ? contextValue('folder', this.findRoot(item.resource.uri))
-        : 'file',
+          ? contextValue('folder', this.findRoot(item.resource.uri))
+          : 'file',
       command: item.isDirectory
         ? undefined
         : {
@@ -286,7 +282,11 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
     return Promise.all(entries.map(file => this._matchesQuery(root, file, query)));
   }
 
-  private async _matchesQuery(root: ExplorerRoot, file: FileEntry, query: string): Promise<boolean> {
+  private async _matchesQuery(
+    root: ExplorerRoot,
+    file: FileEntry,
+    query: string
+  ): Promise<boolean> {
     const basename = upath.basename(file.fspath).toLowerCase();
     if (basename.includes(query)) {
       return true;
@@ -436,7 +436,12 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
       this._rootsMap!.set(id, item);
       this._map.set(item.resource.uri.query, item);
     });
-    this._roots.sort((a,b) => a.explorerContext.config.remoteExplorer.order - b.explorerContext.config.remoteExplorer.order || a.explorerContext.fileService.name.localeCompare(b.explorerContext.fileService.name));
+    this._roots.sort(
+      (a, b) =>
+        a.explorerContext.config.remoteExplorer.order -
+          b.explorerContext.config.remoteExplorer.order ||
+        a.explorerContext.fileService.name.localeCompare(b.explorerContext.fileService.name)
+    );
     return this._roots;
   }
 }

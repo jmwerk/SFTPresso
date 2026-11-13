@@ -29,7 +29,7 @@ interface FileHandlerOption<T> {
 export function handleCtxFromUri(uri: Uri): FileHandlerContext {
   const fileService = getFileService(uri);
   if (!fileService) {
-    if (uri.toString(true) === "file:///${command:sftp.sync.remoteToLocal}") {
+    if (uri.toString(true) === 'file:///${command:sftp.sync.remoteToLocal}') {
       throw '';
     } else {
       throw new Error(`Config Not Found. (${uri.toString(true)})`);
@@ -56,7 +56,7 @@ export function handleCtxFromUri(uri: Uri): FileHandlerContext {
 export function allHandleCtxFromUri(uri: Uri): Array<FileHandlerContext> {
   const fileService = getFileService(uri);
   if (!fileService) {
-    if (uri.toString(true) === "file:///${command:sftp.sync.remoteToLocal}") {
+    if (uri.toString(true) === 'file:///${command:sftp.sync.remoteToLocal}') {
       throw '';
     } else {
       throw new Error(`Config Not Found. (${uri.toString(true)})`);
@@ -81,7 +81,7 @@ export function allHandleCtxFromUri(uri: Uri): Array<FileHandlerContext> {
       config,
       target,
     };
-  })
+  });
 }
 
 export default function createFileHandler<T>(
@@ -114,14 +114,14 @@ export default function createFileHandler<T>(
       // callers, none of which read anything off an empty option) merged
       // with the caller's overrides; handle() has always assumed a full T.
       await handlerOption.handle.call(handleCtx, invokeOption as T);
-    // } catch (error) {
-    //   reportError(error, `when ${handlerOption.name} ${target.localFsPath}`);
-    //   Object.defineProperty(error, 'reported', {
-    //     configurable: false,
-    //     enumerable: false,
-    //     value: true,
-    //   });
-    //   throw error;
+      // } catch (error) {
+      //   reportError(error, `when ${handlerOption.name} ${target.localFsPath}`);
+      //   Object.defineProperty(error, 'reported', {
+      //     configurable: false,
+      //     enumerable: false,
+      //     value: true,
+      //   });
+      //   throw error;
     } finally {
       app.sftpBarItem.stopSpinner();
     }

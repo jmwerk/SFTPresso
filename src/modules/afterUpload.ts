@@ -63,7 +63,9 @@ function targetLabel(config: ServiceConfig): string {
 // Identifies "these commands on this server", so a change to either asks again.
 function approvalId(config: ServiceConfig, option: AfterUploadOption): string {
   return createHash('sha256')
-    .update([config.username, config.host, config.port, config.remotePath, ...option.commands].join('\n'))
+    .update(
+      [config.username, config.host, config.port, config.remotePath, ...option.commands].join('\n')
+    )
     .digest('hex');
 }
 
@@ -100,10 +102,16 @@ export function buildRemoteCommand(remotePath: string, command: string): string 
   return `cd ${shellQuote(remotePath)} && ${command}`;
 }
 
-async function runCommands(fileService: FileService, config: ServiceConfig, option: AfterUploadOption) {
+async function runCommands(
+  fileService: FileService,
+  config: ServiceConfig,
+  option: AfterUploadOption
+) {
   const label = targetLabel(config);
   if (config.protocol !== 'sftp') {
-    logger.warn(`afterUpload skipped on ${label}: remote commands need SFTP, not ${config.protocol}`);
+    logger.warn(
+      `afterUpload skipped on ${label}: remote commands need SFTP, not ${config.protocol}`
+    );
     return;
   }
   if (!isWorkspaceTrusted()) {
@@ -137,12 +145,16 @@ async function runCommands(fileService: FileService, config: ServiceConfig, opti
     logger.info(`afterUpload on ${label}: ${command}`);
     let result;
     try {
-      result = await execCommand(client.getRawClient(), buildRemoteCommand(config.remotePath, command), {
-        timeout,
-        closeStdin: true,
-        onStdout: printChunk,
-        onStderr: printChunk,
-      });
+      result = await execCommand(
+        client.getRawClient(),
+        buildRemoteCommand(config.remotePath, command),
+        {
+          timeout,
+          closeStdin: true,
+          onStdout: printChunk,
+          onStderr: printChunk,
+        }
+      );
     } catch (error) {
       logger.error(error, 'afterUpload');
       showErrorMessage(`afterUpload failed on ${label}: ${error.message}`);
@@ -150,11 +162,16 @@ async function runCommands(fileService: FileService, config: ServiceConfig, opti
     }
 
     if (result.timedOut || result.code !== 0) {
-      const reason = result.timedOut ? `timed out after ${timeout}ms` : `exited with code ${result.code}`;
+      const reason = result.timedOut
+        ? `timed out after ${timeout}ms`
+        : `exited with code ${result.code}`;
       print(`[${reason}]`);
       logger.warn(`afterUpload on ${label} ${reason}: ${command}`);
       app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
-      const choice = await showErrorMessage(`afterUpload on ${label} ${reason}: ${command}`, 'Show Output');
+      const choice = await showErrorMessage(
+        `afterUpload on ${label} ${reason}: ${command}`,
+        'Show Output'
+      );
       if (choice === 'Show Output') {
         showOutput();
       }
@@ -193,7 +210,9 @@ export function reportUploadBatch(
     if (failed > 0) {
       const files = failed === 1 ? 'upload' : 'uploads';
       logger.warn(`afterUpload skipped on ${targetLabel(config)}: ${failed} ${files} failed`);
-      showWarningMessage(`afterUpload skipped on ${targetLabel(config)}: ${failed} ${files} failed.`);
+      showWarningMessage(
+        `afterUpload skipped on ${targetLabel(config)}: ${failed} ${files} failed.`
+      );
       return;
     }
     runCommands(fileService, config, option).catch(error => logger.error(error, 'afterUpload'));

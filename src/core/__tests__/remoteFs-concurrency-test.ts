@@ -14,7 +14,10 @@ jest.mock('../fs', () => {
     probeImpl: () => Promise<void> = () => Promise.resolve();
     disconnectListeners: Array<(reason: string, err?: Error) => void> = [];
 
-    constructor(public pathResolver: any, public option: any) {
+    constructor(
+      public pathResolver: any,
+      public option: any
+    ) {
       FakeRemoteFs.instances.push(this);
     }
 

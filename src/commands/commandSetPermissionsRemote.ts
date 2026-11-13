@@ -67,7 +67,9 @@ export default checkCommand({
     }
 
     const name =
-      targets.length === 1 ? `'${upath.basename(targets[0].ctx.target.remoteFsPath)}'` : `${targets.length} items`;
+      targets.length === 1
+        ? `'${upath.basename(targets[0].ctx.target.remoteFsPath)}'`
+        : `${targets.length} items`;
     const sameMode = targets.every(t => (t.mode & 0o7777) === (targets[0].mode & 0o7777));
     const hasFolder = targets.some(t => t.isDirectory);
 
@@ -103,7 +105,10 @@ export default checkCommand({
         const fileInput = await window.showInputBox({
           title: `Set Permissions: ${name}`,
           prompt: 'Octal mode for files inside, e.g. 644',
-          value: filePerm && parseMode(String(filePerm)) !== undefined ? String(filePerm) : DEFAULT_FILE_MODE,
+          value:
+            filePerm && parseMode(String(filePerm)) !== undefined
+              ? String(filePerm)
+              : DEFAULT_FILE_MODE,
           validateInput: validator(false),
         });
         fileMode = fileInput === undefined ? undefined : parseMode(fileInput);
@@ -154,7 +159,11 @@ export default checkCommand({
     } else if (result.cancelled) {
       showInformationMessage(`Set Permissions cancelled after ${summary}.`);
     } else {
-      app.sftpBarItem.showMsg(`$(check) ${formatMode(mode)}`, `Permissions set on ${summary}`, 4000);
+      app.sftpBarItem.showMsg(
+        `$(check) ${formatMode(mode)}`,
+        `Permissions set on ${summary}`,
+        4000
+      );
     }
   },
 });

@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
-import { COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE, EXTENSION_NAME, REMOTE_SCHEME } from '../../constants';
+import {
+  COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE,
+  EXTENSION_NAME,
+  REMOTE_SCHEME,
+} from '../../constants';
 import { STATUS_PRIORITY } from '../../ui/statusBarPriority';
 import { upath } from '../../core';
 import { getExtensionSetting } from '../ext';
@@ -91,9 +95,13 @@ function isRemote(uri: vscode.Uri | undefined): uri is vscode.Uri {
  * Makes a file opened from the Remote Explorer unmistakable: a status bar item while it's the
  * active tab, and a coloured, badged tab title for every open remote file.
  */
-export default class RemoteFileIndicator implements vscode.FileDecorationProvider, vscode.Disposable {
+export default class RemoteFileIndicator
+  implements vscode.FileDecorationProvider, vscode.Disposable
+{
   private readonly _statusBarItem: vscode.StatusBarItem;
-  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri[] | undefined>();
+  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<
+    vscode.Uri[] | undefined
+  >();
   readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
   private readonly _disposables: vscode.Disposable[] = [];
   private _openUris = new Map<string, vscode.Uri>();
@@ -181,7 +189,12 @@ export default class RemoteFileIndicator implements vscode.FileDecorationProvide
     } catch {
       root = null;
     }
-    return presentRemoteFile(uri, root, this._activeProfile, !!getExtensionSetting().openRemoteFilesReadOnly);
+    return presentRemoteFile(
+      uri,
+      root,
+      this._activeProfile,
+      !!getExtensionSetting().openRemoteFilesReadOnly
+    );
   }
 
   // Tabs opening and closing change which uris are decorated, so both sides get re-asked.

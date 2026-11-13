@@ -32,10 +32,7 @@ async function addToIgnore(uri: Uri) {
     return;
   }
 
-  const relativePath = path
-    .relative(service.baseDir, uri.fsPath)
-    .split(path.sep)
-    .join('/');
+  const relativePath = path.relative(service.baseDir, uri.fsPath).split(path.sep).join('/');
   const entry = stat.type === FileType.Directory ? `${relativePath}/**` : relativePath;
 
   const configPath = getConfigPath(service.workspace);

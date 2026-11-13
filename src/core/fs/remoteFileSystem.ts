@@ -86,10 +86,7 @@ export default abstract class RemoteFileSystem extends FileSystem {
   }
 
   connect(connectOpetion: ConnectOption, config: RemoteClientConfig): Promise<void> {
-    return this.client.connect(
-      connectOpetion,
-      config
-    );
+    return this.client.connect(connectOpetion, config);
   }
 
   onDisconnected(cb) {

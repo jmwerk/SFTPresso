@@ -60,7 +60,10 @@ import RemoteFileIndicator, { presentRemoteFile, REMOTE_FILE_BADGE } from '../re
 const LIVE = { host: 'example.com', port: 62909 };
 const STAGING = { host: 'example.com', port: 15526 };
 
-function rootFor(remote: { host: string; port: number }, profiles: string[] = ['Live', 'Staging']): any {
+function rootFor(
+  remote: { host: string; port: number },
+  profiles: string[] = ['Live', 'Staging']
+): any {
   return {
     resource: UResource.makeResource({ remote, fsPath: '/www', remoteId: 1 }),
     explorerContext: {
@@ -70,7 +73,8 @@ function rootFor(remote: { host: string; port: number }, profiles: string[] = ['
   };
 }
 
-const uriOf = (fsPath: string, remote = LIVE) => UResource.makeResource({ remote, fsPath, remoteId: 1 }).uri;
+const uriOf = (fsPath: string, remote = LIVE) =>
+  UResource.makeResource({ remote, fsPath, remoteId: 1 }).uri;
 const tabFor = (uri: vscode.Uri) => ({ input: { uri } });
 
 function openTabs(...uris: vscode.Uri[]) {
@@ -112,13 +116,21 @@ describe('presentRemoteFile', () => {
   test('is quieter and says read-only when openRemoteFilesReadOnly is on', () => {
     const presentation = presentRemoteFile(uriOf('/www/a.txt'), rootFor(LIVE), 'Live', true);
 
-    expect(presentation).toMatchObject({ text: '$(lock) Remote (read-only): Live', writable: false });
+    expect(presentation).toMatchObject({
+      text: '$(lock) Remote (read-only): Live',
+      writable: false,
+    });
     expect(presentation.background).toBeUndefined();
   });
 
   test('flags a tab whose server the config no longer points at', () => {
     // opened on Live, then the profile switched the config to Staging's port
-    const presentation = presentRemoteFile(uriOf('/www/a.txt', LIVE), rootFor(STAGING), 'Staging', false);
+    const presentation = presentRemoteFile(
+      uriOf('/www/a.txt', LIVE),
+      rootFor(STAGING),
+      'Staging',
+      false
+    );
 
     expect(presentation).toMatchObject({
       text: '$(debug-disconnect) Remote: example.com:62909',

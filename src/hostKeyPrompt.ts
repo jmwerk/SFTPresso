@@ -10,8 +10,7 @@ import * as output from './ui/output';
 
 // OpenSSH's own explanation of a changed host key. Linked rather than
 // paraphrased so the user can check it against a source that is not us.
-const LEARN_MORE_URL =
-  'https://man.openbsd.org/ssh#STRICT_HOST_KEY_CHECKING';
+const LEARN_MORE_URL = 'https://man.openbsd.org/ssh#STRICT_HOST_KEY_CHECKING';
 
 const CONNECT = 'Connect Once';
 const CONNECT_AND_REMEMBER = 'Connect and Remember';
@@ -41,9 +40,7 @@ function hostKeyFileName(keyType: string): string | undefined {
  * `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` prints, so it can be
  * compared character for character without converting anything.
  */
-async function confirmUnknownHost(
-  ctx: UnknownHostPromptContext
-): Promise<UnknownHostAnswer> {
+async function confirmUnknownHost(ctx: UnknownHostPromptContext): Promise<UnknownHostAnswer> {
   const token = hostToken(ctx.host, ctx.port);
   const keyFile = hostKeyFileName(ctx.key.type);
   const howToCheck = keyFile

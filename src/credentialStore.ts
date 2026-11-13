@@ -42,12 +42,18 @@ async function getStoredSecret(
   try {
     return await secrets.get(secretKey(prefix, identity));
   } catch (error) {
-    logger.warn(`read ${kind} for ${connectionToken(identity)} from secret storage failed: ${error.message}`);
+    logger.warn(
+      `read ${kind} for ${connectionToken(identity)} from secret storage failed: ${error.message}`
+    );
     return undefined;
   }
 }
 
-async function storeSecret(prefix: string, identity: ConnectIdentity, value: string): Promise<void> {
+async function storeSecret(
+  prefix: string,
+  identity: ConnectIdentity,
+  value: string
+): Promise<void> {
   const secrets = getSecretStorage();
   if (!secrets) {
     throw new Error('Secret storage is unavailable.');
@@ -102,7 +108,13 @@ export function clearStoredPassword(identity: ConnectIdentity): Promise<boolean>
 }
 
 export function offerToRememberPassword(identity: ConnectIdentity, password: string) {
-  return offerToRememberSecret(SECRET_KEY_PREFIX_PASSWORD, identity, password, 'password', 'Remember password');
+  return offerToRememberSecret(
+    SECRET_KEY_PREFIX_PASSWORD,
+    identity,
+    password,
+    'password',
+    'Remember password'
+  );
 }
 
 export function getStoredPassphrase(identity: ConnectIdentity): Promise<string | undefined> {

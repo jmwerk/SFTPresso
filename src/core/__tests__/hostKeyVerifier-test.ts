@@ -121,7 +121,9 @@ describe('verifyHostKey — an unknown host', () => {
     const { promise, remembered } = run({ policy: 'yes' });
 
     await expect(promise).rejects.toBeInstanceOf(HostKeyError);
-    await expect(promise).rejects.toThrow(/authenticity of host example\.com cannot be established/);
+    await expect(promise).rejects.toThrow(
+      /authenticity of host example\.com cannot be established/
+    );
     expect(remembered).toHaveLength(0);
   });
 
