@@ -1115,6 +1115,8 @@
     "dev": "node esbuild.mjs --watch",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src test",
+    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.{ts,js}\" \"__mocks__/**/*.js\" \"*.mjs\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.{ts,js}\" \"__mocks__/**/*.js\" \"*.mjs\"",
     "test": "jest",
     "test:integration": "jest --config test/integration/jest.config.js",
     "test:integration:up": "sh test/integration/openssh/prepare-keys.sh && docker compose -f test/integration/docker-compose.yml up -d --build --wait",
@@ -1133,6 +1135,7 @@
     "jest": "^30.5.2",
     "memfs": "4.80.0",
     "patch-package": "^8.0.1",
+    "prettier": "3.10.1",
     "ts-jest": "^29.4.15",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.1"

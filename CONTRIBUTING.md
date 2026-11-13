@@ -26,6 +26,7 @@ Development requires Node 22+ (see `.nvmrc`).
 npm test        # jest, no network or Docker required
 npm run typecheck
 npm run lint
+npm run format  # prettier; CI runs format:check
 ```
 
 ### FTP and SFTP integration tests
