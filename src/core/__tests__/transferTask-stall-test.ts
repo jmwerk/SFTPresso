@@ -90,7 +90,10 @@ describe('stallTimeout', () => {
     const { task, wasAborted } = createTask(5000);
 
     const run = task.run();
-    const outcome = run.then(() => 'resolved', (err: Error) => err);
+    const outcome = run.then(
+      () => 'resolved',
+      (err: Error) => err
+    );
     await settle();
 
     await jest.advanceTimersByTimeAsync(5000);
@@ -106,7 +109,10 @@ describe('stallTimeout', () => {
     const { task } = createTask(5000);
 
     const run = task.run();
-    const outcome = run.then(() => null, (err: Error) => err);
+    const outcome = run.then(
+      () => null,
+      (err: Error) => err
+    );
     await settle();
     await jest.advanceTimersByTimeAsync(5000);
 
@@ -117,7 +123,10 @@ describe('stallTimeout', () => {
     const { task, progress, finish, wasAborted } = createTask(5000);
 
     const run = task.run();
-    const outcome = run.then(() => 'resolved', (err: Error) => err);
+    const outcome = run.then(
+      () => 'resolved',
+      (err: Error) => err
+    );
     await settle();
 
     // a byte every 4s for 40s: far longer than the timeout, never stalled
@@ -135,7 +144,10 @@ describe('stallTimeout', () => {
     const { task, progress } = createTask(5000);
 
     const run = task.run();
-    const outcome = run.then(() => 'resolved', (err: Error) => err);
+    const outcome = run.then(
+      () => 'resolved',
+      (err: Error) => err
+    );
     await settle();
 
     await jest.advanceTimersByTimeAsync(4000);
@@ -143,10 +155,7 @@ describe('stallTimeout', () => {
     // 4s more is 8s in total, but only 4s since the last byte
     await jest.advanceTimersByTimeAsync(4000);
 
-    const stillRunning = await Promise.race([
-      outcome,
-      Promise.resolve('pending'),
-    ]);
+    const stillRunning = await Promise.race([outcome, Promise.resolve('pending')]);
     expect(stillRunning).toBe('pending');
 
     await jest.advanceTimersByTimeAsync(1000);
@@ -157,15 +166,15 @@ describe('stallTimeout', () => {
     const { task, finish, wasAborted } = createTask(0);
 
     const run = task.run();
-    const outcome = run.then(() => 'resolved', (err: Error) => err);
+    const outcome = run.then(
+      () => 'resolved',
+      (err: Error) => err
+    );
     await settle();
 
     // an hour with no progress at all, and it still waits
     await jest.advanceTimersByTimeAsync(60 * 60 * 1000);
-    const stillRunning = await Promise.race([
-      outcome,
-      Promise.resolve('pending'),
-    ]);
+    const stillRunning = await Promise.race([outcome, Promise.resolve('pending')]);
     expect(stillRunning).toBe('pending');
     expect(wasAborted()).toBe(false);
 

@@ -88,9 +88,9 @@ describe('renameRemote', () => {
   test('refuses when the destination already exists, without calling rename', async () => {
     const { ctx, remoteFs } = contextFor('/srv/www/a.txt', '/srv/www', ['/srv/www/b.txt']);
 
-    await expect(
-      renameRemote(ctx as any, { newRemotePath: '/srv/www/b.txt' })
-    ).rejects.toThrow(/already exists/);
+    await expect(renameRemote(ctx as any, { newRemotePath: '/srv/www/b.txt' })).rejects.toThrow(
+      /already exists/
+    );
 
     expect(remoteFs.renameCalls).toHaveLength(0);
   });
@@ -98,9 +98,9 @@ describe('renameRemote', () => {
   test('refuses a destination outside the configured remotePath', async () => {
     const { ctx, remoteFs } = contextFor('/srv/www/a.txt', '/srv/www');
 
-    await expect(
-      renameRemote(ctx as any, { newRemotePath: '/srv/other/a.txt' })
-    ).rejects.toThrow(/outside/);
+    await expect(renameRemote(ctx as any, { newRemotePath: '/srv/other/a.txt' })).rejects.toThrow(
+      /outside/
+    );
 
     expect(remoteFs.renameCalls).toHaveLength(0);
   });
@@ -121,9 +121,9 @@ describe('renameRemote', () => {
   test('refuses renaming a path onto itself, without calling rename', async () => {
     const { ctx, remoteFs } = contextFor('/srv/www/a.txt', '/srv/www');
 
-    await expect(
-      renameRemote(ctx as any, { newRemotePath: '/srv/www/a.txt' })
-    ).rejects.toThrow(/into itself/);
+    await expect(renameRemote(ctx as any, { newRemotePath: '/srv/www/a.txt' })).rejects.toThrow(
+      /into itself/
+    );
 
     expect(remoteFs.renameCalls).toHaveLength(0);
   });

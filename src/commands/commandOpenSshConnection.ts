@@ -107,7 +107,10 @@ const CONFIRM_TERMINAL_COUNT = 5;
 
 // The folders to open a terminal in: the whole selection when the clicked item is part of
 // it, else just the clicked item. Files are skipped, since a shell can't start in one.
-export function terminalTargets(clicked?: ExplorerItem, selection?: ExplorerItem[]): ExplorerItem[] {
+export function terminalTargets(
+  clicked?: ExplorerItem,
+  selection?: ExplorerItem[]
+): ExplorerItem[] {
   if (!clicked) {
     return [];
   }

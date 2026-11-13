@@ -58,13 +58,11 @@ export async function createFile(path: string, fs: FileSystem, option): Promise<
     logger.warn(`Can't create file becase file already exist`);
     window.showErrorMessage(`Can't create file becase file already exist`);
     return;
-  } catch (error) {
-
-  }
+  } catch (error) {}
 
   const targetFd = await fs.open(path, 'w');
   const s = new Readable();
-  s._read = () => { };
+  s._read = () => {};
   s.push(null);
   return fs.put(s, path, { fd: targetFd });
 }

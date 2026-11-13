@@ -150,7 +150,7 @@ async function showFiles<T extends FileListChildItem>(
 export function listFiles<T extends FileListItem>(
   items: T[],
   option?: IFilePickerOption
-): Promise<T & FileListChildItem | undefined> {
+): Promise<(T & FileListChildItem) | undefined> {
   const baseItems = items.map(item => Object.assign({}, item, { parentFsPath: ROOT }));
   const fileLookUp = {
     [ROOT]: baseItems,

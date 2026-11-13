@@ -58,19 +58,13 @@ export default class SSHClient extends RemoteClient {
     );
   }
 
-  async _doConnect(
-    connectOption: ConnectOption,
-    config: Config
-  ): Promise<void> {
+  async _doConnect(connectOption: ConnectOption, config: Config): Promise<void> {
     const { hop, ...option } = connectOption;
 
     let lastOption: ConnectOption = option;
     let fs: FileSystem | RemoteFileSystem = localFs;
     let sock;
-    if (
-      (Array.isArray(hop) && hop.length > 0) ||
-      (hop && Object.keys(hop).length > 0)
-    ) {
+    if ((Array.isArray(hop) && hop.length > 0) || (hop && Object.keys(hop).length > 0)) {
       this.hoppingClients = [];
       // Every host in the chain is verified in its own right, so each hop
       // inherits the config's policy unless it overrides it. A bastion is
@@ -80,10 +74,9 @@ export default class SSHClient extends RemoteClient {
           ? { ...opt, strictHostKeyChecking: option.strictHostKeyChecking }
           : opt;
 
-      const connectOptions = (Array.isArray(hop)
-        ? [option].concat(hop)
-        : [option, hop]
-      ).map(inheritPolicy);
+      const connectOptions = (Array.isArray(hop) ? [option].concat(hop) : [option, hop]).map(
+        inheritPolicy
+      );
       lastOption = connectOptions.pop()!;
 
       for (let index = 0; index < connectOptions.length; index++) {
@@ -110,11 +103,7 @@ export default class SSHClient extends RemoteClient {
       }
 
       const lastClient = this.hoppingClients[this.hoppingClients.length - 1];
-      sock = await this._makeHopping(
-        lastClient,
-        lastOption.host,
-        lastOption.port
-      );
+      sock = await this._makeHopping(lastClient, lastOption.host, lastOption.port);
       fs = new SFTPFileSystem(upath, {
         client: lastClient,
       });
@@ -334,8 +323,7 @@ export default class SSHClient extends RemoteClient {
     // store up front costs one small file read and keeps the extended deadline
     // off every other connection, where a stalled handshake should still give
     // up in `connectTimeout`.
-    const willPromptForHostKey =
-      policy === 'ask' && !(await isKnownHost(option.host, option.port));
+    const willPromptForHostKey = policy === 'ask' && !(await isKnownHost(option.host, option.port));
 
     // explict compare to true, cause we want to distinct between string and true
     if (option.passphrase === true) {
@@ -356,44 +344,30 @@ export default class SSHClient extends RemoteClient {
 
     return new Promise<void>((resolve, reject) => {
       if (interactiveAuth) {
-        client.on('keyboard-interactive', function redo(
-          name,
-          instructions,
-          instructionsLang,
-          prompts,
-          finish,
-          stackedAnswers
-        ) {
-          const answers = stackedAnswers ||
-            // load predefined answeres if any
-            (Array.isArray(interactiveAuth) ? interactiveAuth : undefined) ||
-            [];
-          if (answers.length < prompts.length) {
-            config
-              .askForPasswd(
-                `[${option.host}]: ${prompts[answers.length].prompt}`
-              )
-              .then(answer => {
-                if (answer === undefined) {
-                  return reject(
-                    new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled')
-                  );
-                }
+        client.on(
+          'keyboard-interactive',
+          function redo(name, instructions, instructionsLang, prompts, finish, stackedAnswers) {
+            const answers =
+              stackedAnswers ||
+              // load predefined answeres if any
+              (Array.isArray(interactiveAuth) ? interactiveAuth : undefined) ||
+              [];
+            if (answers.length < prompts.length) {
+              config
+                .askForPasswd(`[${option.host}]: ${prompts[answers.length].prompt}`)
+                .then(answer => {
+                  if (answer === undefined) {
+                    return reject(new CustomError(ErrorCode.CONNECT_CANCELLED, 'cancelled'));
+                  }
 
-                answers.push(answer);
-                redo(
-                  name,
-                  instructions,
-                  instructionsLang,
-                  prompts,
-                  finish,
-                  answers
-                );
-              });
-          } else {
-            finish(answers);
+                  answers.push(answer);
+                  redo(name, instructions, instructionsLang, prompts, finish, answers);
+                });
+            } else {
+              finish(answers);
+            }
           }
-        });
+        );
       }
 
       client
@@ -409,10 +383,10 @@ export default class SSHClient extends RemoteClient {
           readyTimeout: willPromptForHostKey
             ? Math.max(HOST_KEY_PROMPT_READY_TIMEOUT, connectTimeout || 0)
             : interactiveAuth
-            ? Math.max(60 * 1000, connectTimeout || 0) // 60 secs, original
-            // ? Math.max(1800 * 1000, connectTimeout || 0) // 30 mins
-            // ? Math.max(10800 * 1000, connectTimeout || 0) // 180 mins
-            : connectTimeout,
+              ? Math.max(60 * 1000, connectTimeout || 0) // 60 secs, original
+              : // ? Math.max(1800 * 1000, connectTimeout || 0) // 30 mins
+                // ? Math.max(10800 * 1000, connectTimeout || 0) // 180 mins
+                connectTimeout,
           ...option,
           tryKeyboard: !!interactiveAuth,
           // last, so nothing in the user's config can spread over it and turn

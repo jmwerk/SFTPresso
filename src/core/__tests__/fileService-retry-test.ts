@@ -3,10 +3,7 @@ import TransferTask from '../transferTask';
 
 // A stand-in for TransferTask exposing only what the scheduler touches, so the
 // test can drive failures without a real file system.
-function createFakeTask(
-  results: (Error | null)[],
-  option: { cancelled?: boolean } = {}
-) {
+function createFakeTask(results: (Error | null)[], option: { cancelled?: boolean } = {}) {
   const runsAt: number[] = [];
   const refreshedFs: unknown[] = [];
   const task = {
@@ -227,12 +224,7 @@ describe('transfer retry', () => {
       .mockResolvedValue(freshFs as any);
     const task = createFakeTask([transientError(), null]);
     const config = { some: 'config' } as any;
-    const scheduler = service.createTransferScheduler(
-      1,
-      { attempts: 2, delay: 1000 },
-      0,
-      config
-    );
+    const scheduler = service.createTransferScheduler(1, { attempts: 2, delay: 1000 }, 0, config);
     scheduler.add(task as unknown as TransferTask);
 
     await runToCompletion(scheduler);
@@ -248,12 +240,7 @@ describe('transfer retry', () => {
     jest.spyOn(service, 'getRemoteFileSystem').mockRejectedValue(reconnectError);
     const task = createFakeTask([transientError()]);
     const config = { some: 'config' } as any;
-    const scheduler = service.createTransferScheduler(
-      1,
-      { attempts: 2, delay: 1000 },
-      0,
-      config
-    );
+    const scheduler = service.createTransferScheduler(1, { attempts: 2, delay: 1000 }, 0, config);
     scheduler.add(task as unknown as TransferTask);
 
     await runToCompletion(scheduler);
@@ -275,12 +262,7 @@ describe('transfer retry', () => {
     );
     const task = createFakeTask([error]);
     const config = { some: 'config' } as any;
-    const scheduler = service.createTransferScheduler(
-      1,
-      { attempts: 2, delay: 1000 },
-      0,
-      config
-    );
+    const scheduler = service.createTransferScheduler(1, { attempts: 2, delay: 1000 }, 0, config);
     scheduler.add(task as unknown as TransferTask);
 
     const done = scheduler.run();

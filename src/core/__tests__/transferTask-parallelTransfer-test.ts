@@ -18,15 +18,10 @@ function createRemoteFs() {
 // Well over the 256KB auto threshold, so 'auto' picks the parallel path too.
 const BIG_SIZE = 500 * 1024;
 
-function makeTask(
-  direction: TransferDirection,
-  transferOption: Record<string, any>
-) {
+function makeTask(direction: TransferDirection, transferOption: Record<string, any>) {
   const remoteFs = createRemoteFs();
   const [srcFs, targetFs] =
-    direction === TransferDirection.LOCAL_TO_REMOTE
-      ? [localFs, remoteFs]
-      : [remoteFs, localFs];
+    direction === TransferDirection.LOCAL_TO_REMOTE ? [localFs, remoteFs] : [remoteFs, localFs];
   const [srcPath, targetPath] =
     direction === TransferDirection.LOCAL_TO_REMOTE
       ? ['/local/big.bin', '/remote/big.bin']

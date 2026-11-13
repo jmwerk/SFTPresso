@@ -48,7 +48,13 @@ describe('searchRemote against a real OpenSSH server', () => {
     matches.filter(m => !m.fsPath.endsWith('bin.dat'));
 
   it('finds the text with its line, case-sensitively for an uppercase query, skipping excluded folders', async () => {
-    const result = await searchRemote(rawClient(), dir, smartCase('DB_NAME'), DEFAULT_EXCLUDE_DIRS, 30000);
+    const result = await searchRemote(
+      rawClient(),
+      dir,
+      smartCase('DB_NAME'),
+      DEFAULT_EXCLUDE_DIRS,
+      30000
+    );
 
     expect(text(result.matches)).toEqual([
       { fsPath: upath.join(dir, 'wp/config.php'), line: 2, preview: "define('DB_NAME', 'site');" },
@@ -58,7 +64,13 @@ describe('searchRemote against a real OpenSSH server', () => {
   });
 
   it('a lowercase query matches any case', async () => {
-    const result = await searchRemote(rawClient(), dir, smartCase('db_name'), DEFAULT_EXCLUDE_DIRS, 30000);
+    const result = await searchRemote(
+      rawClient(),
+      dir,
+      smartCase('db_name'),
+      DEFAULT_EXCLUDE_DIRS,
+      30000
+    );
 
     expect(text(result.matches).map(m => (m as any).line)).toEqual([2, 3]);
   });

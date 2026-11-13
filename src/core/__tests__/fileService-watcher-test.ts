@@ -3,11 +3,7 @@ jest.mock('fs');
 import * as path from 'path';
 import { vol } from 'memfs';
 import app from '../../app';
-import FileService, {
-  FileServiceConfig,
-  WatcherConfig,
-  WatcherService,
-} from '../fileService';
+import FileService, { FileServiceConfig, WatcherConfig, WatcherService } from '../fileService';
 
 interface CreateCall {
   base: string;

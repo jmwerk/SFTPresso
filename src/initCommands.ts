@@ -2,7 +2,11 @@ import { ExtensionContext } from 'vscode';
 import logger from './logger';
 import { registerCommand } from './host';
 import Command from './commands/abstract/command';
-import { createCommand, createFileCommand, createFileMultiCommand } from './commands/abstract/createCommand';
+import {
+  createCommand,
+  createFileCommand,
+  createFileMultiCommand,
+} from './commands/abstract/createCommand';
 import commandModules from './commands';
 
 export default function init(context: ExtensionContext) {

@@ -125,9 +125,10 @@ describe('checkForLegacyExtensions', () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(executeCommand).toHaveBeenCalledWith('workbench.extensions.action.showExtensionsWithIds', [
-      'liximomo.sftp',
-    ]);
+    expect(executeCommand).toHaveBeenCalledWith(
+      'workbench.extensions.action.showExtensionsWithIds',
+      ['liximomo.sftp']
+    );
   });
 
   it('persists suppression for the workspace when "Don\'t Show Again" is chosen', async () => {

@@ -49,9 +49,7 @@ export function detectUploadConflict(
 
   // No baseline (first upload this workspace has seen for the file). Fall back
   // to mtime: a remote newer than our copy was written after we last got it.
-  return Math.floor(remote.mtime / 1000) > Math.floor(local.mtime / 1000)
-    ? 'conflict'
-    : 'proceed';
+  return Math.floor(remote.mtime / 1000) > Math.floor(local.mtime / 1000) ? 'conflict' : 'proceed';
 }
 
 async function statOrNull(fs, fsPath: string): Promise<(FileStat & { type: FileType }) | null> {

@@ -95,13 +95,15 @@ async function handleCommand(hint: any) {
     }
   }
 
-  await Promise.all(creates.concat(uploads).map(async change => {
-    try {
-      await uploadFile(change.uri);
-    } catch (e) {
-      logger.error('Upload failed.', e);
-    }
-  }));
+  await Promise.all(
+    creates.concat(uploads).map(async change => {
+      try {
+        await uploadFile(change.uri);
+      } catch (e) {
+        logger.error('Upload failed.', e);
+      }
+    })
+  );
   await Promise.all(
     renames.map(async change => {
       try {
@@ -121,13 +123,15 @@ async function handleCommand(hint: any) {
       }
     })
   );
-  await Promise.all(deletes.map(async change => {
-    try {
-      await removeRemote(change.uri);
-    } catch (e) {
-      logger.error('Deletion failed.', e);
-    }
-  }));
+  await Promise.all(
+    deletes.map(async change => {
+      try {
+        await removeRemote(change.uri);
+      } catch (e) {
+        logger.error('Deletion failed.', e);
+      }
+    })
+  );
 
   logger.log('');
   logger.log('------ Upload Changed Files Result ------');

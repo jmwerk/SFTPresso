@@ -32,9 +32,7 @@ function keyBlob(type: string, body: Buffer = randomBytes(32)): Buffer {
 
 function hashedPattern(token: string): string {
   const salt = randomBytes(20);
-  const hash = createHmac('sha1', salt)
-    .update(token)
-    .digest();
+  const hash = createHmac('sha1', salt).update(token).digest();
   return `|1|${salt.toString('base64')}|${hash.toString('base64')}`;
 }
 
@@ -127,8 +125,7 @@ describe('parseKnownHosts', () => {
 });
 
 describe('entryMatchesHost', () => {
-  const entryFor = (patterns: string) =>
-    parseKnownHosts(`${patterns} ssh-ed25519 AAAA`, '/kh')[0];
+  const entryFor = (patterns: string) => parseKnownHosts(`${patterns} ssh-ed25519 AAAA`, '/kh')[0];
 
   test('matches a plain hostname exactly', () => {
     expect(entryMatchesHost(entryFor('example.com'), 'example.com')).toBe(true);
@@ -160,10 +157,7 @@ describe('entryMatchesHost', () => {
   });
 
   test('matches hashed entries, which is what HashKnownHosts writes', () => {
-    const entry = parseKnownHosts(
-      `${hashedPattern('example.com')} ssh-ed25519 AAAA`,
-      '/kh'
-    )[0];
+    const entry = parseKnownHosts(`${hashedPattern('example.com')} ssh-ed25519 AAAA`, '/kh')[0];
 
     expect(entryMatchesHost(entry, 'example.com')).toBe(true);
     expect(entryMatchesHost(entry, 'evil.com')).toBe(false);

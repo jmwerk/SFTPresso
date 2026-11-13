@@ -14,7 +14,10 @@ export function hostAddress(config: { host: string; port?: number }): string {
 
 // The profile a config is actually using: the active one only if this config defines it.
 // undefined for a config without profiles.
-export function configProfile(activeProfile: string | null, configProfiles: string[]): string | undefined {
+export function configProfile(
+  activeProfile: string | null,
+  configProfiles: string[]
+): string | undefined {
   if (configProfiles.length <= 0) {
     return undefined;
   }

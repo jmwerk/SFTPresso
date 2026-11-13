@@ -1,4 +1,12 @@
-import { ProgressLocation, QuickPickItem, QuickPickItemKind, Range, Selection, window, workspace } from 'vscode';
+import {
+  ProgressLocation,
+  QuickPickItem,
+  QuickPickItemKind,
+  Range,
+  Selection,
+  window,
+  workspace,
+} from 'vscode';
 import { COMMAND_SEARCH_REMOTE } from '../constants';
 import { FileService, ServiceConfig, UResource, upath } from '../core';
 import { RemoteFileSystem } from '../core/fs';
@@ -56,7 +64,12 @@ function toPicks(matches: SearchMatch[], dir: string): MatchPick[] {
   return picks;
 }
 
-async function openMatch(fileService: FileService, config: ServiceConfig, match: SearchMatch, query: SearchQuery) {
+async function openMatch(
+  fileService: FileService,
+  config: ServiceConfig,
+  match: SearchMatch,
+  query: SearchQuery
+) {
   const uri = UResource.makeResource({
     remote: { host: config.host, port: config.port },
     fsPath: match.fsPath,
@@ -105,14 +118,21 @@ export default checkCommand({
       return;
     }
     const query = smartCase(text);
-    const excludeDirs = excludeDirsFrom(config.remoteExplorer && config.remoteExplorer.filesExclude);
+    const excludeDirs = excludeDirsFrom(
+      config.remoteExplorer && config.remoteExplorer.filesExclude
+    );
     const timeout =
-      typeof config.remoteCommandTimeout === 'number' ? config.remoteCommandTimeout : DEFAULT_TIMEOUT;
+      typeof config.remoteCommandTimeout === 'number'
+        ? config.remoteCommandTimeout
+        : DEFAULT_TIMEOUT;
 
     let result;
     try {
       result = await window.withProgress(
-        { location: ProgressLocation.Notification, title: `Searching ${config.host} for "${text}"…` },
+        {
+          location: ProgressLocation.Notification,
+          title: `Searching ${config.host} for "${text}"…`,
+        },
         async () => {
           const fs = (await fileService.getRemoteFileSystem(config)) as RemoteFileSystem;
           const client = fs.getClient();

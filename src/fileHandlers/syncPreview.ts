@@ -165,8 +165,8 @@ export async function confirmSyncOrProceed(
   const dirLabel = option.bothDiretions
     ? 'Both Directions'
     : direction === TransferDirection.LOCAL_TO_REMOTE
-    ? 'Local → Remote'
-    : 'Remote → Local';
+      ? 'Local → Remote'
+      : 'Remote → Local';
 
   if (total === 0 && plan.unreadable.length === 0) {
     window.showInformationMessage(
@@ -178,8 +178,8 @@ export async function confirmSyncOrProceed(
   const createLabel = option.bothDiretions
     ? 'transfer'
     : direction === TransferDirection.LOCAL_TO_REMOTE
-    ? 'upload'
-    : 'download';
+      ? 'upload'
+      : 'download';
 
   const parts = [
     pluralize(plan.create.length, createLabel),
@@ -201,10 +201,6 @@ export async function confirmSyncOrProceed(
   }
   const detail = buildDetail(plan, createLabel);
 
-  const choice = await window.showWarningMessage(
-    summary,
-    { modal: true, detail },
-    'Proceed'
-  );
+  const choice = await window.showWarningMessage(summary, { modal: true, detail }, 'Proceed');
   return choice === 'Proceed';
 }

@@ -31,7 +31,10 @@ class Meter {
 class FakeFs extends FileSystem {
   readonly listed: string[] = [];
 
-  constructor(private readonly _meter: Meter, private readonly _slow = true) {
+  constructor(
+    private readonly _meter: Meter,
+    private readonly _slow = true
+  ) {
     super(upath);
   }
 
@@ -199,10 +202,13 @@ async function compareFoldersSequentially(
   const results: CompareResult[] = [];
 
   const toHash = (entries: FileEntry[]) =>
-    entries.reduce((hash, entry) => {
-      hash[entry.name] = entry;
-      return hash;
-    }, {} as { [name: string]: FileEntry });
+    entries.reduce(
+      (hash, entry) => {
+        hash[entry.name] = entry;
+        return hash;
+      },
+      {} as { [name: string]: FileEntry }
+    );
 
   const walk = async (localDir: string, remoteDir: string, relativeDir: string) => {
     const [localEntries, remoteEntries] = await Promise.all([
@@ -323,7 +329,9 @@ describe('compareFolders — parallel result matches sequential', () => {
     const parallel = buildTrees(meter, { width: 4, depth: 3 });
     const sequential = buildTrees(new Meter(), { width: 4, depth: 3, slow: false });
 
-    const parallelResults = await compareFolders(contextFor(parallel.localFs, parallel.remoteFs, 4));
+    const parallelResults = await compareFolders(
+      contextFor(parallel.localFs, parallel.remoteFs, 4)
+    );
     const sequentialResults = await compareFoldersSequentially(
       sequential.localFs,
       sequential.remoteFs
@@ -420,9 +428,7 @@ describe('compareFolders — a failed listing is not an empty directory', () => 
 
     const results = await compareFolders(contextFor(localFs, remoteFs, 4));
 
-    expect(results.find(r => r.relativePath === 'good/only-local.txt')!.status).toBe(
-      'localOnly'
-    );
+    expect(results.find(r => r.relativePath === 'good/only-local.txt')!.status).toBe('localOnly');
   });
 
   test('a failure at the root fails the whole compare rather than reporting nothing', async () => {

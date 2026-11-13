@@ -128,8 +128,8 @@ export default class TransferTreeDataProvider implements vscode.TreeDataProvider
         task.transferredBytes > 0
           ? this._progressDescription(task)
           : isUpload
-          ? 'uploading'
-          : 'downloading';
+            ? 'uploading'
+            : 'downloading';
       item.iconPath = task.isStalled
         ? new vscode.ThemeIcon('warning', new vscode.ThemeColor('list.warningForeground'))
         : new vscode.ThemeIcon(isUpload ? 'cloud-upload' : 'cloud-download');

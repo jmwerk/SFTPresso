@@ -10,7 +10,10 @@ jest.mock('vscode', () => {
   const base = jest.requireActual('../../__mocks__/vscode.js');
 
   class FileSystemError extends Error {
-    constructor(message: string, public code: string) {
+    constructor(
+      message: string,
+      public code: string
+    ) {
       super(message);
     }
     static FileNotFound = (m?: any) => new FileSystemError(String(m), 'FileNotFound');
@@ -34,7 +37,9 @@ jest.mock('vscode', () => {
     FileChangeType: { Changed: 1, Created: 2, Deleted: 3 },
     FilePermission: { Readonly: 1 },
   };
-  return new Proxy(base, { get: (target, key) => (key in overrides ? overrides[key] : target[key]) });
+  return new Proxy(base, {
+    get: (target, key) => (key in overrides ? overrides[key] : target[key]),
+  });
 });
 
 jest.mock('../../src/modules/ext', () => ({ getExtensionSetting: () => ({}) }));
@@ -58,8 +63,22 @@ interface Server {
 }
 
 const SERVERS: Server[] = [
-  { name: 'OpenSSH (SFTP)', host: SSH_HOST, port: SSH_PORT, connect: () => connectSftp(), dir: uniqueSshDir, modes: true },
-  { name: VSFTPD.name, host: VSFTPD.host, port: VSFTPD.port, connect: () => connectFs(VSFTPD), dir: () => uniqueFtpDir(VSFTPD), modes: false },
+  {
+    name: 'OpenSSH (SFTP)',
+    host: SSH_HOST,
+    port: SSH_PORT,
+    connect: () => connectSftp(),
+    dir: uniqueSshDir,
+    modes: true,
+  },
+  {
+    name: VSFTPD.name,
+    host: VSFTPD.host,
+    port: VSFTPD.port,
+    connect: () => connectFs(VSFTPD),
+    dir: () => uniqueFtpDir(VSFTPD),
+    modes: false,
+  },
 ];
 
 describe.each(SERVERS)('RemoteFileSystemProvider — $name', server => {
@@ -71,7 +90,10 @@ describe.each(SERVERS)('RemoteFileSystemProvider — $name', server => {
     config = { host: server.host, port: server.port, remotePath: dir, ...overrides };
     const root: any = {
       resource: UResource.makeResource({ remote: server, fsPath: dir, remoteId: 1 }),
-      explorerContext: { config, fileService: { name: 'it', getRemoteFileSystem: async () => remoteFs } },
+      explorerContext: {
+        config,
+        fileService: { name: 'it', getRemoteFileSystem: async () => remoteFs },
+      },
     };
     return new RemoteFileSystemProvider(() => root);
   };
@@ -103,7 +125,10 @@ describe.each(SERVERS)('RemoteFileSystemProvider — $name', server => {
 
   test('a shorter save truncates instead of leaving the old tail', async () => {
     const provider = providerFor();
-    await remoteFs.put(Readable.from([Buffer.from('a much longer original')]), upath.join(dir, 'short.txt'));
+    await remoteFs.put(
+      Readable.from([Buffer.from('a much longer original')]),
+      upath.join(dir, 'short.txt')
+    );
 
     await provider.writeFile(uriOf('short.txt'), Buffer.from('short'), CREATE);
     expect(await read('short.txt')).toBe('short');

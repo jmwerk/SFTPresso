@@ -29,10 +29,7 @@ export function describeConnectError(err: any, host: string): Error {
         friendly = `Authentication to ${host} failed. Check your username, password, or private key.`;
       } else if (err && err.level === 'client-timeout') {
         friendly = `Connection to ${host} timed out while waiting for a response.`;
-      } else if (
-        typeof raw === 'string' &&
-        /handshake|host key|fingerprint/i.test(raw)
-      ) {
+      } else if (typeof raw === 'string' && /handshake|host key|fingerprint/i.test(raw)) {
         friendly = `Failed to verify the host key for ${host}: ${raw}`;
       } else {
         friendly = `[${host}]: ${raw}`;

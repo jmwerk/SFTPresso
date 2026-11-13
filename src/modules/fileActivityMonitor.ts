@@ -55,9 +55,7 @@ function scheduleConfigReload(uri: vscode.Uri) {
 // only the workspace folder's own .vscode/sftp.json defines its services
 function isWorkspaceConfig(uri: vscode.Uri) {
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-  return (
-    !!workspaceFolder && uri.fsPath === path.join(workspaceFolder.uri.fsPath, CONFIG_PATH)
-  );
+  return !!workspaceFolder && uri.fsPath === path.join(workspaceFolder.uri.fsPath, CONFIG_PATH);
 }
 
 async function handleConfigSave(uri: vscode.Uri) {

@@ -20,9 +20,7 @@ const nullable = schema => schema.optional().allow(null);
 
 const afterUploadCommand = Joi.alternatives().try(
   Joi.string().trim().min(1),
-  Joi.array()
-    .items(Joi.string().trim().min(1))
-    .min(1)
+  Joi.array().items(Joi.string().trim().min(1)).min(1)
 );
 
 const configScheme = Joi.object({
@@ -62,13 +60,9 @@ const configScheme = Joi.object({
   openSsh: Joi.boolean(),
   downloadOnOpen: Joi.boolean().allow('confirm'),
 
-  ignore: Joi.array()
-    .min(0)
-    .items(Joi.string()),
+  ignore: Joi.array().min(0).items(Joi.string()),
   ignoreFile: Joi.string(),
-  maxFileSize: Joi.number()
-    .integer()
-    .min(0),
+  maxFileSize: Joi.number().integer().min(0),
   watcher: {
     files: Joi.string().allow(false, null),
     autoUpload: Joi.boolean(),
@@ -79,33 +73,19 @@ const configScheme = Joi.object({
   transferMode: Joi.any().valid('auto', 'parallel', 'stream'),
 
   retry: {
-    attempts: Joi.number()
-      .integer()
-      .min(0),
-    delay: Joi.number()
-      .integer()
-      .min(0),
+    attempts: Joi.number().integer().min(0),
+    delay: Joi.number().integer().min(0),
   },
 
-  idleTimeout: Joi.number()
-    .integer()
-    .min(0),
+  idleTimeout: Joi.number().integer().min(0),
 
-  stallTimeout: Joi.number()
-    .integer()
-    .min(0),
+  stallTimeout: Joi.number().integer().min(0),
 
-  operationTimeout: Joi.number()
-    .integer()
-    .min(0),
+  operationTimeout: Joi.number().integer().min(0),
 
-  keepaliveInterval: Joi.number()
-    .integer()
-    .min(0),
+  keepaliveInterval: Joi.number().integer().min(0),
 
-  keepaliveCountMax: Joi.number()
-    .integer()
-    .min(0),
+  keepaliveCountMax: Joi.number().integer().min(0),
 
   syncOption: {
     delete: Joi.boolean(),
@@ -121,31 +101,26 @@ const configScheme = Joi.object({
       Joi.boolean(),
       Joi.object({
         dir: Joi.string().trim().min(1),
-        keep: Joi.number()
-          .integer()
-          .min(0),
+        keep: Joi.number().integer().min(0),
       })
     )
     // null lets a profile turn off the base config's backups
     .allow(null),
   remoteTimeOffsetInHours: Joi.number(),
-  afterUpload: Joi.alternatives().try(
-    afterUploadCommand,
-    Joi.object({
-      command: afterUploadCommand.required(),
-      onSave: Joi.boolean(),
-      delay: Joi.number()
-        .integer()
-        .min(0),
-    })
-  )
+  afterUpload: Joi.alternatives()
+    .try(
+      afterUploadCommand,
+      Joi.object({
+        command: afterUploadCommand.required(),
+        onSave: Joi.boolean(),
+        delay: Joi.number().integer().min(0),
+      })
+    )
     // null lets a profile turn off the base config's command
     .allow(null),
 
   remoteExplorer: {
-    filesExclude: Joi.array()
-      .min(0)
-      .items(Joi.string()),
+    filesExclude: Joi.array().min(0).items(Joi.string()),
     order: Joi.number(),
     enableDragAndDrop: Joi.boolean(),
   },
@@ -323,7 +298,12 @@ async function silencePlaintextPasswordWarning(configPath: string, configs: any[
     .filter(index => index >= 0);
   // sequential: each edit re-reads the file the previous one wrote
   for (const target of indexes) {
-    await writeConfigValue(configPath, 'warnPlaintextPassword', false, (_, index) => index === target);
+    await writeConfigValue(
+      configPath,
+      'warnPlaintextPassword',
+      false,
+      (_, index) => index === target
+    );
   }
 }
 

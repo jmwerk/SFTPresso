@@ -57,9 +57,9 @@ describe('resolveBackup', () => {
   });
 
   test('dir is relative to the context; keep 0 is allowed', () => {
-    expect(
-      resolveBackup({ host: 'h:x', backup: { dir: '../bak', keep: 0 } } as any, BASE)
-    ).toEqual({ root: path.resolve(BASE, '../bak', 'h_x'), keep: 0 });
+    expect(resolveBackup({ host: 'h:x', backup: { dir: '../bak', keep: 0 } } as any, BASE)).toEqual(
+      { root: path.resolve(BASE, '../bak', 'h_x'), keep: 0 }
+    );
   });
 });
 

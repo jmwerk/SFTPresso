@@ -43,8 +43,8 @@ export default checkCommand({
       closed === 0
         ? 'Nothing was connected.'
         : closed === 1
-        ? 'Disconnected. The next command will reconnect.'
-        : `Disconnected ${closed} connections. The next command will reconnect.`
+          ? 'Disconnected. The next command will reconnect.'
+          : `Disconnected ${closed} connections. The next command will reconnect.`
     );
   },
 });

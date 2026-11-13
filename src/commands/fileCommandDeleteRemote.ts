@@ -19,7 +19,8 @@ export default checkFileCommand({
       list.length === 1
         ? `Delete '${upath.basename(list[0].fsPath)}' from the server?`
         : `Delete ${list.length} items from the server?`;
-    const names = list.length > 1 ? list.map(t => upath.basename(t.fsPath)).join(', ') + '\n\n' : '';
+    const names =
+      list.length > 1 ? list.map(t => upath.basename(t.fsPath)).join(', ') + '\n\n' : '';
     const detail = `${names}This can't be undone.`;
     const result = await showDestructiveConfirm(message, detail, 'Delete');
 

@@ -5,7 +5,12 @@ fs.__mock__ = true;
 
 // memfs >= 4.80 exposes stream classes via getters over a symbol slot that graceful-fs's clone drops
 for (const name of ['ReadStream', 'WriteStream', 'FileReadStream', 'FileWriteStream']) {
-  Object.defineProperty(fs, name, { value: fs[name], writable: true, enumerable: true, configurable: true });
+  Object.defineProperty(fs, name, {
+    value: fs[name],
+    writable: true,
+    enumerable: true,
+    configurable: true,
+  });
 }
 
 // memfs@2.17.1 (pinned -- see package.json) predates fs.rm/fs.rmSync, which

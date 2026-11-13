@@ -65,7 +65,8 @@ export default class FTPClient extends RemoteClient {
       port,
       user: username,
       password,
-      secure: secure === true || secure === 'implicit' ? secure : secure === 'control' ? true : false,
+      secure:
+        secure === true || secure === 'implicit' ? secure : secure === 'control' ? true : false,
       secureOptions: secureOptions as TLSConnectionOptions,
     });
 

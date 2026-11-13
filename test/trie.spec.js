@@ -199,9 +199,14 @@ describe('Trie Tests', () => {
 
       trie.remove('a/b/c/d');
       const node = trie.findNode(trie.root, trie.splitPath('a/b/c'));
-      
+
       expect(node).toBeTruthy();
-      expect(node.getChildren().map(n => n.value).sort()).toEqual([2, 3]);
+      expect(
+        node
+          .getChildren()
+          .map(n => n.value)
+          .sort()
+      ).toEqual([2, 3]);
     });
 
     test('nested branch', () => {
@@ -227,6 +232,5 @@ describe('Trie Tests', () => {
       expect(trie.findPrefix('a/b/c/d')).toEqual(1);
       expect(trie.findPrefix('a/b')).toEqual(null);
     });
-
   });
 });

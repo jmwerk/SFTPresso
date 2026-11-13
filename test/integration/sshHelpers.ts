@@ -13,12 +13,7 @@ export const SSH_BASE_DIR = `/home/${SSH_USER}`;
 
 // Generated on the host by ./openssh/prepare-keys.sh (gitignored); the public
 // half is mounted into the container as authorized_keys.
-export const PRIVATE_KEY_PATH = path.join(
-  __dirname,
-  'openssh',
-  'keys',
-  'id_ed25519'
-);
+export const PRIVATE_KEY_PATH = path.join(__dirname, 'openssh', 'keys', 'id_ed25519');
 
 export function connectOption(overrides: Partial<ConnectOption> = {}): ConnectOption {
   return {
@@ -72,9 +67,7 @@ export async function connectSftp(
 }
 
 /** Single attempt, for specs that assert on a connection failure. */
-export function connectSftpOnce(
-  overrides: Partial<ConnectOption> = {}
-): Promise<SFTPFileSystem> {
+export function connectSftpOnce(overrides: Partial<ConnectOption> = {}): Promise<SFTPFileSystem> {
   const option = connectOption(overrides);
   const fs = newFs(option, DEFAULT_OPERATION_TIMEOUT);
   return fs

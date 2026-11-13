@@ -1,7 +1,7 @@
 import { terminalTargets } from '../commandOpenSshConnection';
 
-const folder = (name: string) => ({ name, isDirectory: true } as any);
-const file = (name: string) => ({ name, isDirectory: false } as any);
+const folder = (name: string) => ({ name, isDirectory: true }) as any;
+const file = (name: string) => ({ name, isDirectory: false }) as any;
 
 describe('terminalTargets', () => {
   it('is empty without a clicked item (Command Palette)', () => {

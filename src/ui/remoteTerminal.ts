@@ -95,10 +95,7 @@ export default class RemoteTerminal implements Pseudoterminal {
     }
     this.channel = channel;
     this.state = 'open';
-    if (
-      this.dimensions.columns !== requested.columns ||
-      this.dimensions.rows !== requested.rows
-    ) {
+    if (this.dimensions.columns !== requested.columns || this.dimensions.rows !== requested.rows) {
       this.resize();
     }
 

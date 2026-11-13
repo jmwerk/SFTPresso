@@ -135,9 +135,7 @@ describe('host key verification against the OpenSSH container', () => {
   });
 
   test('strictHostKeyChecking: true refuses a host it has never seen', async () => {
-    await expect(connect(true)).rejects.toThrow(
-      /authenticity of host .* cannot be established/
-    );
+    await expect(connect(true)).rejects.toThrow(/authenticity of host .* cannot be established/);
     expect(await storedFingerprints()).toHaveLength(0);
   });
 
@@ -154,24 +152,28 @@ describe('host key verification against the OpenSSH container', () => {
     expect(second.asked).toHaveLength(0);
   });
 
-  test('the handshake survives a slow answer to the first-sight prompt', async () => {
-    // ssh2's readyTimeout runs from connect() to 'ready', and the verifier
-    // holds the handshake open while the modal is up. With connectTimeout at
-    // 10s, a user taking a normal amount of time to compare a fingerprint would
-    // otherwise have the connection torn down underneath them.
-    const slow: HostKeyPrompt = {
-      async confirmUnknownHost() {
-        await new Promise(resolve => setTimeout(resolve, 12 * 1000));
-        return 'connect-and-remember';
-      },
-      reportChangedHostKey() {
-        /* not reached */
-      },
-    };
+  test(
+    'the handshake survives a slow answer to the first-sight prompt',
+    async () => {
+      // ssh2's readyTimeout runs from connect() to 'ready', and the verifier
+      // holds the handshake open while the modal is up. With connectTimeout at
+      // 10s, a user taking a normal amount of time to compare a fingerprint would
+      // otherwise have the connection torn down underneath them.
+      const slow: HostKeyPrompt = {
+        async confirmUnknownHost() {
+          await new Promise(resolve => setTimeout(resolve, 12 * 1000));
+          return 'connect-and-remember';
+        },
+        reportChangedHostKey() {
+          /* not reached */
+        },
+      };
 
-    await expect(connectAndUse('ask', slow)).resolves.toBeUndefined();
-    expect(await storedFingerprints()).toHaveLength(1);
-  }, 60 * 1000);
+      await expect(connectAndUse('ask', slow)).resolves.toBeUndefined();
+      expect(await storedFingerprints()).toHaveLength(1);
+    },
+    60 * 1000
+  );
 
   test('ask + cancel refuses the connection and remembers nothing', async () => {
     const { prompt } = recordingPrompt('cancel');
@@ -191,10 +193,7 @@ describe('host key verification against the OpenSSH container', () => {
     const impostor = Buffer.from(entry.keyBase64, 'base64');
     // flip a bit deep in the key body, past the algorithm name
     impostor[impostor.length - 1] ^= 0xff;
-    await fsp.writeFile(
-      storePath,
-      `${TOKEN} ${entry.keyType} ${impostor.toString('base64')}\n`
-    );
+    await fsp.writeFile(storePath, `${TOKEN} ${entry.keyType} ${impostor.toString('base64')}\n`);
 
     const { prompt, alarms } = recordingPrompt('connect-and-remember');
     await expect(connect('accept-new', prompt)).rejects.toThrow(
@@ -213,10 +212,7 @@ describe('host key verification against the OpenSSH container', () => {
     const entry = parseKnownHosts(content, storePath)[0];
     const impostor = Buffer.from(entry.keyBase64, 'base64');
     impostor[impostor.length - 1] ^= 0xff;
-    await fsp.writeFile(
-      storePath,
-      `${TOKEN} ${entry.keyType} ${impostor.toString('base64')}\n`
-    );
+    await fsp.writeFile(storePath, `${TOKEN} ${entry.keyType} ${impostor.toString('base64')}\n`);
 
     await expect(connect('accept-new')).rejects.toThrow(/IDENTIFICATION HAS CHANGED/);
 
@@ -229,10 +225,7 @@ describe('host key verification against the OpenSSH container', () => {
   test('a @revoked entry refuses the connection outright', async () => {
     await connectAndUse('accept-new');
     const entry = parseKnownHosts(await fsp.readFile(storePath, 'utf8'), storePath)[0];
-    await fsp.writeFile(
-      storePath,
-      `@revoked ${TOKEN} ${entry.keyType} ${entry.keyBase64}\n`
-    );
+    await fsp.writeFile(storePath, `@revoked ${TOKEN} ${entry.keyType} ${entry.keyBase64}\n`);
 
     await expect(connect('no')).rejects.toThrow(/@revoked/);
   });
@@ -242,10 +235,7 @@ describe('host key verification against the OpenSSH container', () => {
     const entry = parseKnownHosts(await fsp.readFile(storePath, 'utf8'), storePath)[0];
     const impostor = Buffer.from(entry.keyBase64, 'base64');
     impostor[impostor.length - 1] ^= 0xff;
-    await fsp.writeFile(
-      storePath,
-      `${TOKEN} ${entry.keyType} ${impostor.toString('base64')}\n`
-    );
+    await fsp.writeFile(storePath, `${TOKEN} ${entry.keyType} ${impostor.toString('base64')}\n`);
 
     // the documented escape hatch, and the only value that allows this
     await expect(connectAndUse(false)).resolves.toBeUndefined();

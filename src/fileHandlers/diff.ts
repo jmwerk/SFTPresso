@@ -37,7 +37,9 @@ export const diff = createFileHandler<DiffOption>({
       exists(remoteFs, remoteFsPath),
     ]);
     if (!hasRemote) {
-      throw new Error(`${name} doesn't exist on the remote (${remoteFsPath}), so there is nothing to diff.`);
+      throw new Error(
+        `${name} doesn't exist on the remote (${remoteFsPath}), so there is nothing to diff.`
+      );
     }
     if (!hasLocal) {
       throw new Error(`${name} has no local copy (${localFsPath}). Download it first to diff.`);

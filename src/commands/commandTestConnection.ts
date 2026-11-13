@@ -34,7 +34,9 @@ export default checkCommand({
         `Successfully connected to ${config.host}:${config.port} via ${config.protocol.toUpperCase()}.`
       );
     } else {
-      showErrorMessage(`Failed to connect to ${config.host}:${config.port}: ${result.error.message}`);
+      showErrorMessage(
+        `Failed to connect to ${config.host}:${config.port}: ${result.error.message}`
+      );
     }
   },
 });

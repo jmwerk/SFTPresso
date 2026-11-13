@@ -70,7 +70,7 @@ export default class UResource {
     return uri.scheme === REMOTE_SCHEME;
   }
 
-  static makeResource(config: RemoteResourceConfig & { fsPath: string } | Uri): Resource {
+  static makeResource(config: (RemoteResourceConfig & { fsPath: string }) | Uri): Resource {
     if (config instanceof Uri) {
       return new _Resource(config);
     }

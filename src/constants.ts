@@ -47,7 +47,8 @@ export const COMMAND_UPLOAD_TO_ALL_PROFILES = 'sftp.upload.to.allProfiles';
 export const COMMAND_UPLOAD_FILE_TO_ALL_PROFILES = 'sftp.upload.file.to.allProfiles';
 export const COMMAND_UPLOAD_ACTIVEFILE_TO_ALL_PROFILES = 'sftp.upload.activeFile.to.allProfiles';
 export const COMMAND_UPLOAD_FOLDER_TO_ALL_PROFILES = 'sftp.upload.folder.to.allProfiles';
-export const COMMAND_UPLOAD_ACTIVEFOLDER_TO_ALL_PROFILES = 'sftp.upload.activeFolder.to.allProfiles';
+export const COMMAND_UPLOAD_ACTIVEFOLDER_TO_ALL_PROFILES =
+  'sftp.upload.activeFolder.to.allProfiles';
 export const COMMAND_UPLOAD_PROJECT_TO_ALL_PROFILES = 'sftp.upload.project.to.allProfiles';
 
 export const COMMAND_FORCE_DOWNLOAD = 'sftp.forceDownload';
@@ -76,7 +77,7 @@ export const COMMAND_REVEAL_IN_REMOTE_EXPLORER = 'sftp.revealInRemoteExplorer';
 export const COMMAND_COPY_REMOTE_PATH = 'sftp.copyRemotePath';
 
 export const COMMAND_REMOTEEXPLORER_REFRESH = 'sftp.remoteExplorer.refresh';
-export const COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE = "sftp.remoteExplorer.refreshActiveFile"
+export const COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE = 'sftp.remoteExplorer.refreshActiveFile';
 export const COMMAND_REMOTEEXPLORER_EDITINLOCAL = 'sftp.remoteExplorer.editInLocal';
 export const COMMAND_REMOTEEXPLORER_DIFF_WITH_LOCAL = 'sftp.remoteExplorer.diffWithLocal';
 export const COMMAND_REMOTEEXPLORER_COMPARE_WITH_LOCAL = 'sftp.remoteExplorer.compareWithLocal';

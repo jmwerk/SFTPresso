@@ -85,9 +85,7 @@ export async function selectRemoteConnection(): Promise<ConnectIdentity | undefi
     let configs;
     try {
       configs =
-        service.getAvailableProfiles().length > 0
-          ? service.getAllConfig()
-          : [service.getConfig()];
+        service.getAvailableProfiles().length > 0 ? service.getAllConfig() : [service.getConfig()];
     } catch (error) {
       logger.warn(`skip config at ${service.baseDir}: ${error.message}`);
       continue;

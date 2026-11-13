@@ -418,7 +418,8 @@ function stepPassphraseValue(
       value: '',
       prompt: 'Passphrase',
       password: true,
-      validate: v => (v ? undefined : 'Passphrase is required, or go back and pick a different option.'),
+      validate: v =>
+        v ? undefined : 'Passphrase is required, or go back and pick a different option.',
     });
     return next();
   };
@@ -612,7 +613,11 @@ function stepTransferMode(wizard: WizardState): InputStep {
         description: 'Use parallel-chunk transfer for large files automatically (recommended)',
         value: 'auto',
       },
-      { label: 'stream', description: 'Always use the classic single-pipe transfer', value: 'stream' },
+      {
+        label: 'stream',
+        description: 'Always use the classic single-pipe transfer',
+        value: 'stream',
+      },
       {
         label: 'parallel',
         description: 'Force chunked parallel transfer regardless of file size (SFTP only)',
@@ -648,7 +653,9 @@ function stepConcurrency(wizard: WizardState): InputStep {
       prompt: 'Number of files to transfer in parallel',
       validate: v => {
         const num = Number(v.trim());
-        return Number.isInteger(num) && num >= 1 ? undefined : 'Concurrency must be a positive integer.';
+        return Number.isInteger(num) && num >= 1
+          ? undefined
+          : 'Concurrency must be a positive integer.';
       },
     });
     wizard.concurrency = Number(value.trim());
@@ -671,7 +678,8 @@ function stepStrictHostKeyChecking(wizard: WizardState): InputStep {
       },
       {
         label: 'accept-new',
-        description: "Accept an unknown host automatically, refuse a key that changed (this extension's overall default)",
+        description:
+          "Accept an unknown host automatically, refuse a key that changed (this extension's overall default)",
         value: 'accept-new',
       },
       {
@@ -704,7 +712,11 @@ function stepHopGate(wizard: WizardState): InputStep {
     const { step, totalSteps } = stepInfo(wizard, 'hopGate');
     const items = [
       { label: 'No', description: 'Connect directly', value: false },
-      { label: 'Yes', description: 'Connect through an intermediate SSH host (bastion)', value: true },
+      {
+        label: 'Yes',
+        description: 'Connect through an intermediate SSH host (bastion)',
+        value: true,
+      },
     ];
     const active = items.find(i => i.value === (wizard.hopEnabled ?? false));
     const picked = await input.showQuickPick({
@@ -732,7 +744,9 @@ function afterHopPort(wizard: WizardState): InputStep {
 }
 
 function afterHopUsername(wizard: WizardState): InputStep {
-  return stepAuthMethod(wizard, hopTarget(wizard), 'hopAuthMethod', () => afterHopAuthMethod(wizard));
+  return stepAuthMethod(wizard, hopTarget(wizard), 'hopAuthMethod', () =>
+    afterHopAuthMethod(wizard)
+  );
 }
 
 function afterHopAuthMethod(wizard: WizardState): InputStep {
@@ -907,7 +921,10 @@ function buildConfigFromState(wizard: WizardState): any {
   };
 
   // A profile left unset inherits the base config's policy instead of being made stricter.
-  if (wizard.protocol === 'sftp' && !(wizard.isProfile && wizard.strictHostKeyChecking === undefined)) {
+  if (
+    wizard.protocol === 'sftp' &&
+    !(wizard.isProfile && wizard.strictHostKeyChecking === undefined)
+  ) {
     // Written explicitly rather than left to the default so a config created
     // today gets the stricter behaviour, and so the option is visible in the
     // file the user is about to read. "ask" rather than true: true refuses
@@ -951,7 +968,12 @@ function collectPendingSecrets(wizard: WizardState, config: any): PendingSecret[
     wizard.connection.passphraseValue
   ) {
     secrets.push({
-      identity: { protocol: wizard.protocol, host: config.host, port: config.port, username: config.username },
+      identity: {
+        protocol: wizard.protocol,
+        host: config.host,
+        port: config.port,
+        username: config.username,
+      },
       value: wizard.connection.passphraseValue,
     });
   }
@@ -963,7 +985,12 @@ function collectPendingSecrets(wizard: WizardState, config: any): PendingSecret[
     wizard.hop.passphraseValue
   ) {
     secrets.push({
-      identity: { protocol: 'sftp', host: config.hop.host, port: config.hop.port, username: config.hop.username },
+      identity: {
+        protocol: 'sftp',
+        host: config.hop.host,
+        port: config.hop.port,
+        username: config.hop.username,
+      },
       value: wizard.hop.passphraseValue,
     });
   }
@@ -1132,7 +1159,11 @@ export async function addProfileConfig(basePath: string) {
       // edits just the new profile's span, leaving the rest of the file --
       // including any comments -- untouched. Only what differs from the base
       // config is written; the rest is inherited.
-      await setConfigValueAtPath(configPath, ['profiles', name], profileConfig(config, rootConfig, basePath));
+      await setConfigValueAtPath(
+        configPath,
+        ['profiles', name],
+        profileConfig(config, rootConfig, basePath)
+      );
       const services = await reloadFileServices(basePath, configPath);
 
       for (const secret of collectPendingSecrets(wizard, config)) {
@@ -1151,7 +1182,12 @@ export async function addProfileConfig(basePath: string) {
         showInformationMessage(`Profile "${name}" added. Switch to it with "SFTP: Set Profile".`);
       }
 
-      const outcome = await presentTestResult(service, serviceConfig, configPath, `Profile "${name}"`);
+      const outcome = await presentTestResult(
+        service,
+        serviceConfig,
+        configPath,
+        `Profile "${name}"`
+      );
       if (outcome === 'retry') {
         entry = stepReview(wizard);
         continue;

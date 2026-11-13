@@ -26,7 +26,9 @@ export function formatMode(mode: number): string {
   return (mode & 0o7777).toString(8).padStart(3, '0');
 }
 
-export const setRemotePermissions = createFileHandler<SetPermissionsOption & { result?: SetPermissionsResult }>({
+export const setRemotePermissions = createFileHandler<
+  SetPermissionsOption & { result?: SetPermissionsResult }
+>({
   name: 'setRemotePermissions',
   async handle({ mode, fileMode, token, onProgress, result }) {
     const remoteFs = await this.fileService.getRemoteFileSystem(this.config);
@@ -75,7 +77,9 @@ export const setRemotePermissions = createFileHandler<SetPermissionsOption & { r
     const { remoteFsPath } = this.target;
     const stat = await remoteFs.lstat(remoteFsPath);
     if (stat.type === FileType.SymbolicLink) {
-      throw new Error(`'${remoteFsPath}' is a symbolic link; set permissions on its target instead.`);
+      throw new Error(
+        `'${remoteFsPath}' is a symbolic link; set permissions on its target instead.`
+      );
     }
 
     if (stat.type === FileType.Directory && fileMode !== undefined) {

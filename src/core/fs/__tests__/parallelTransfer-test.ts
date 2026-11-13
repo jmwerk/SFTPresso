@@ -136,9 +136,9 @@ describe('parallelCopy', () => {
     const { token, cancel } = fakeToken();
     cancel();
 
-    await expect(
-      parallelCopy(fakeSource(size), writer, { size, token })
-    ).rejects.toThrow(/Transfer Aborted/);
+    await expect(parallelCopy(fakeSource(size), writer, { size, token })).rejects.toThrow(
+      /Transfer Aborted/
+    );
   });
 
   test('an aborted copy is recognised by FileSystem.isAbortedError', async () => {

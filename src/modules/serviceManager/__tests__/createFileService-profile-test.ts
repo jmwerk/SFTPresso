@@ -57,7 +57,10 @@ describe('createFileService — profile identical to the base config', () => {
   });
 
   it('still lets defaultProfile win', () => {
-    const service = createFileService({ ...liveMatchesBase, defaultProfile: 'Staging' }, '/workspace');
+    const service = createFileService(
+      { ...liveMatchesBase, defaultProfile: 'Staging' },
+      '/workspace'
+    );
     expect(app.state.profile).toBe('Staging');
     disposeFileService(service);
   });
