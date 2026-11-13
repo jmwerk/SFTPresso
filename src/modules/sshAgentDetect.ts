@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -68,14 +69,22 @@ export async function detectAgentCandidates(
     [
       path.join(home, 'Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock'),
       '1Password',
-      'macOS 1Password SSH agent',
+      l10n.t('macOS 1Password SSH agent'),
     ],
-    [path.join(home, '.1password/agent.sock'), '1Password', 'Linux 1Password SSH agent'],
-    [path.join(home, '.gnupg/S.gpg-agent.ssh'), 'GPG Agent', 'gpg-agent with SSH support enabled'],
+    [path.join(home, '.1password/agent.sock'), '1Password', l10n.t('Linux 1Password SSH agent')],
+    [
+      path.join(home, '.gnupg/S.gpg-agent.ssh'),
+      'GPG Agent',
+      l10n.t('gpg-agent with SSH support enabled'),
+    ],
   ];
   const uid = typeof process.getuid === 'function' ? process.getuid() : undefined;
   if (uid !== undefined) {
-    wellKnown.push([`/run/user/${uid}/keyring/ssh`, 'GNOME Keyring', 'gnome-keyring SSH agent']);
+    wellKnown.push([
+      `/run/user/${uid}/keyring/ssh`,
+      'GNOME Keyring',
+      l10n.t('gnome-keyring SSH agent'),
+    ]);
   }
   for (const [candidatePath, label, description] of wellKnown) {
     if (isSocket(candidatePath)) {
@@ -115,16 +124,16 @@ export async function detectAgentCandidates(
 // actually listed under \\.\pipe\ right now.
 function detectWindowsAgents(): AgentCandidate[] {
   const livePipes = new Set(listDir('\\\\.\\pipe\\'));
-  const marker = (name: string) => (livePipes.has(name) ? ' (detected)' : '');
+  const marker = (name: string) => (livePipes.has(name) ? ' ' + l10n.t('(detected)') : '');
   return [
     {
       label: `OpenSSH Agent${marker('openssh-ssh-agent')}`,
-      description: 'Windows OpenSSH agent service (also used by 1Password)',
+      description: l10n.t('Windows OpenSSH agent service (also used by 1Password)'),
       value: '\\\\.\\pipe\\openssh-ssh-agent',
     },
     {
       label: `Pageant${marker('pageant')}`,
-      description: "PuTTY's agent",
+      description: l10n.t("PuTTY's agent"),
       value: 'pageant',
     },
   ];

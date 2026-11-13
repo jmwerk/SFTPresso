@@ -1,4 +1,4 @@
-import { window, ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation, window } from 'vscode';
 import { TransferDirection } from '../core';
 import { ContentHasher } from '../core/contentHash';
 import { compareFolders, CompareResult } from './compareFolders';
@@ -86,26 +86,58 @@ export function computeSyncPlan(
   return plan;
 }
 
-function pluralize(count: number, noun: string): string {
-  return `${count} ${noun}${count === 1 ? '' : 's'}`;
+// Both forms are passed already translated so the l10n extractor sees each string.
+function plural(count: number, one: string, other: string): string {
+  return count === 1 ? one : other;
 }
 
-function buildDetail(plan: SyncPlan, createLabel: string): string {
+type CreateKind = 'transfer' | 'upload' | 'download';
+
+function createCount(kind: CreateKind, count: number): string {
+  switch (kind) {
+    case 'upload':
+      return plural(count, l10n.t('1 upload'), l10n.t('{0} uploads', count));
+    case 'download':
+      return plural(count, l10n.t('1 download'), l10n.t('{0} downloads', count));
+    default:
+      return plural(count, l10n.t('1 transfer'), l10n.t('{0} transfers', count));
+  }
+}
+
+function createLine(kind: CreateKind, fsPath: string): string {
+  switch (kind) {
+    case 'upload':
+      return l10n.t('+ upload: {0}', fsPath);
+    case 'download':
+      return l10n.t('+ download: {0}', fsPath);
+    default:
+      return l10n.t('+ transfer: {0}', fsPath);
+  }
+}
+
+function buildDetail(plan: SyncPlan, createKind: CreateKind): string {
   const lines: string[] = [];
   if (plan.identical > 0) {
     lines.push(
-      `= ${pluralize(plan.identical, 'file')} with different timestamps but identical contents, skipped`
+      plural(
+        plan.identical,
+        l10n.t('= 1 file with different timestamps but identical contents, skipped'),
+        l10n.t(
+          '= {0} files with different timestamps but identical contents, skipped',
+          plan.identical
+        )
+      )
     );
   }
   // first, so an incomplete preview is the first thing read
-  plan.unreadable.forEach(p => lines.push(`! could not read: ${p}`));
-  plan.create.forEach(p => lines.push(`+ ${createLabel}: ${p}`));
-  plan.overwrite.forEach(p => lines.push(`~ overwrite: ${p}`));
-  plan.delete.forEach(p => lines.push(`- delete: ${p}`));
+  plan.unreadable.forEach(p => lines.push(l10n.t('! could not read: {0}', p)));
+  plan.create.forEach(p => lines.push(createLine(createKind, p)));
+  plan.overwrite.forEach(p => lines.push(l10n.t('~ overwrite: {0}', p)));
+  plan.delete.forEach(p => lines.push(l10n.t('- delete: {0}', p)));
 
   if (lines.length > MAX_DETAIL_LINES) {
     const shown = lines.slice(0, MAX_DETAIL_LINES);
-    shown.push(`… and ${lines.length - MAX_DETAIL_LINES} more`);
+    shown.push(l10n.t('… and {0} more', lines.length - MAX_DETAIL_LINES));
     return shown.join('\n');
   }
   return lines.join('\n');
@@ -136,7 +168,7 @@ export async function confirmSyncOrProceed(
   const results = await window.withProgress(
     {
       location: ProgressLocation.Notification,
-      title: 'SFTP: preparing sync preview',
+      title: l10n.t('SFTP: preparing sync preview'),
       cancellable: true,
     },
     (progress, token) => {
@@ -163,44 +195,61 @@ export async function confirmSyncOrProceed(
   const total = plan.create.length + plan.overwrite.length + plan.delete.length;
 
   const dirLabel = option.bothDiretions
-    ? 'Both Directions'
+    ? l10n.t('Both Directions')
     : direction === TransferDirection.LOCAL_TO_REMOTE
-      ? 'Local → Remote'
-      : 'Remote → Local';
+      ? l10n.t('Local → Remote')
+      : l10n.t('Remote → Local');
 
   if (total === 0 && plan.unreadable.length === 0) {
     window.showInformationMessage(
-      `SFTP Sync ${dirLabel}: nothing to do — local and remote already match.`
+      l10n.t('SFTP Sync {0}: nothing to do — local and remote already match.', dirLabel)
     );
     return false;
   }
 
-  const createLabel = option.bothDiretions
+  const createKind: CreateKind = option.bothDiretions
     ? 'transfer'
     : direction === TransferDirection.LOCAL_TO_REMOTE
       ? 'upload'
       : 'download';
 
   const parts = [
-    pluralize(plan.create.length, createLabel),
-    pluralize(plan.overwrite.length, 'overwrite'),
+    createCount(createKind, plan.create.length),
+    plural(
+      plan.overwrite.length,
+      l10n.t('1 overwrite'),
+      l10n.t('{0} overwrites', plan.overwrite.length)
+    ),
   ];
   if (!option.bothDiretions) {
-    parts.push(pluralize(plan.delete.length, 'deletion'));
+    parts.push(
+      plural(plan.delete.length, l10n.t('1 deletion'), l10n.t('{0} deletions', plan.delete.length))
+    );
   }
 
-  let summary = `Sync ${dirLabel}: ${parts.join(', ')}. Proceed?`;
+  let summary = l10n.t('Sync {0}: {1}. Proceed?', dirLabel, parts.join(', '));
   if (plan.unreadable.length > 0) {
     // The plan below is built from what could be read, so it is not the whole
     // picture -- say so before the user approves it. The sync itself will fail
     // on these directories rather than acting on the gap.
-    summary =
-      `Sync ${dirLabel}: ${plan.unreadable.length}` +
-      ` ${plan.unreadable.length === 1 ? 'entry' : 'entries'} could not be read,` +
-      ` so this preview is incomplete. Of what could be read: ${parts.join(', ')}. Proceed?`;
+    summary = plural(
+      plan.unreadable.length,
+      l10n.t(
+        'Sync {0}: 1 entry could not be read, so this preview is incomplete. Of what could be read: {1}. Proceed?',
+        dirLabel,
+        parts.join(', ')
+      ),
+      l10n.t(
+        'Sync {0}: {1} entries could not be read, so this preview is incomplete. Of what could be read: {2}. Proceed?',
+        dirLabel,
+        plan.unreadable.length,
+        parts.join(', ')
+      )
+    );
   }
-  const detail = buildDetail(plan, createLabel);
+  const detail = buildDetail(plan, createKind);
 
-  const choice = await window.showWarningMessage(summary, { modal: true, detail }, 'Proceed');
-  return choice === 'Proceed';
+  const proceed = l10n.t('Proceed');
+  const choice = await window.showWarningMessage(summary, { modal: true, detail }, proceed);
+  return choice === proceed;
 }

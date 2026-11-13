@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import * as path from 'path';
 import { diffFiles } from '../host';
 import { FileSystem, isNotFoundError } from '../core';
@@ -38,17 +39,23 @@ export const diff = createFileHandler<DiffOption>({
     ]);
     if (!hasRemote) {
       throw new Error(
-        `${name} doesn't exist on the remote (${remoteFsPath}), so there is nothing to diff.`
+        l10n.t(
+          "{0} doesn't exist on the remote ({1}), so there is nothing to diff.",
+          name,
+          remoteFsPath
+        )
       );
     }
     if (!hasLocal) {
-      throw new Error(`${name} has no local copy (${localFsPath}). Download it first to diff.`);
+      throw new Error(
+        l10n.t('{0} has no local copy ({1}). Download it first to diff.', name, localFsPath)
+      );
     }
 
     await diffFiles(
       remoteUri,
       localUri,
-      `${name} (${this.fileService.name || 'remote'} ↔ local)`,
+      l10n.t('{0} ({1} ↔ local)', name, this.fileService.name || l10n.t('remote')),
       option && (option.preview !== undefined || option.preserveFocus !== undefined)
         ? { preview: option.preview, preserveFocus: option.preserveFocus }
         : undefined

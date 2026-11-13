@@ -1,4 +1,4 @@
-import { InputBoxValidationSeverity, ProgressLocation, window } from 'vscode';
+import { InputBoxValidationSeverity, l10n, ProgressLocation, window } from 'vscode';
 import app from '../app';
 import { COMMAND_SET_PERMISSIONS_REMOTE } from '../constants';
 import { FileType, upath } from '../core';
@@ -37,11 +37,11 @@ function validator(hasFolder: boolean) {
   return (value: string) => {
     const mode = parseMode(value);
     if (mode === undefined) {
-      return 'Enter 3 or 4 octal digits, e.g. 644 or 755.';
+      return l10n.t('Enter 3 or 4 octal digits, e.g. 644 or 755.');
     }
     if (hasFolder && !(mode & 0o100)) {
       return {
-        message: "Without the owner execute bit (e.g. 755) you can't open the folder.",
+        message: l10n.t("Without the owner execute bit (e.g. 755) you can't open the folder."),
         severity: InputBoxValidationSeverity.Warning,
       };
     }
@@ -62,20 +62,22 @@ export default checkCommand({
     try {
       targets = await statTargets(uris.map(handleCtxFromUri));
     } catch (error) {
-      showErrorMessage(`Set Permissions: ${error.message}`);
+      showErrorMessage(l10n.t('Set Permissions: {0}', error.message));
       return;
     }
 
     const name =
       targets.length === 1
         ? `'${upath.basename(targets[0].ctx.target.remoteFsPath)}'`
-        : `${targets.length} items`;
+        : l10n.t('{0} items', targets.length);
     const sameMode = targets.every(t => (t.mode & 0o7777) === (targets[0].mode & 0o7777));
     const hasFolder = targets.some(t => t.isDirectory);
 
     const modeInput = await window.showInputBox({
-      title: `Set Permissions: ${name}`,
-      prompt: hasFolder ? 'Octal mode for the folder, e.g. 755' : 'Octal mode, e.g. 644',
+      title: l10n.t('Set Permissions: {0}', name),
+      prompt: hasFolder
+        ? l10n.t('Octal mode for the folder, e.g. 755')
+        : l10n.t('Octal mode, e.g. 644'),
       value: sameMode ? formatMode(targets[0].mode) : '',
       validateInput: validator(hasFolder),
     });
@@ -88,14 +90,14 @@ export default checkCommand({
     if (hasFolder) {
       const scope = await window.showQuickPick(
         [
-          { label: 'Selected items only', recursive: false },
+          { label: l10n.t('Selected items only'), recursive: false },
           {
-            label: 'Include contents',
-            description: `folders ${formatMode(mode)}, files set next`,
+            label: l10n.t('Include contents'),
+            description: l10n.t('folders {0}, files set next', formatMode(mode)),
             recursive: true,
           },
         ],
-        { title: `Set Permissions: ${name}`, placeHolder: 'Apply to…' }
+        { title: l10n.t('Set Permissions: {0}', name), placeHolder: l10n.t('Apply to…') }
       );
       if (!scope) {
         return;
@@ -103,8 +105,8 @@ export default checkCommand({
       if (scope.recursive) {
         const filePerm = targets[0].ctx.config.filePerm;
         const fileInput = await window.showInputBox({
-          title: `Set Permissions: ${name}`,
-          prompt: 'Octal mode for files inside, e.g. 644',
+          title: l10n.t('Set Permissions: {0}', name),
+          prompt: l10n.t('Octal mode for files inside, e.g. 644'),
           value:
             filePerm && parseMode(String(filePerm)) !== undefined
               ? String(filePerm)
@@ -122,7 +124,7 @@ export default checkCommand({
     await window.withProgress(
       {
         location: ProgressLocation.Notification,
-        title: `Setting permissions on ${name}`,
+        title: l10n.t('Setting permissions on {0}', name),
         cancellable: fileMode !== undefined,
       },
       async (progress, token) => {
@@ -137,7 +139,7 @@ export default checkCommand({
               fileMode,
               token,
               result,
-              onProgress: changed => progress.report({ message: `${changed} changed` }),
+              onProgress: changed => progress.report({ message: l10n.t('{0} changed', changed) }),
             });
           } catch (error) {
             result.failed.push({ fsPath: ctx.target.remoteFsPath, error });
@@ -146,22 +148,29 @@ export default checkCommand({
       }
     );
 
-    const summary = `${result.changed} ${result.changed === 1 ? 'item' : 'items'}`;
+    const summary = result.changed === 1 ? l10n.t('1 item') : l10n.t('{0} items', result.changed);
     if (result.failed.length > 0) {
       const first = result.failed[0];
+      const showOutputLabel = l10n.t('Show Output');
       const choice = await showErrorMessage(
-        `Set Permissions: ${result.failed.length} failed, ${summary} changed. ${first.fsPath}: ${first.error.message}`,
-        'Show Output'
+        l10n.t(
+          'Set Permissions: {0} failed, {1} changed. {2}: {3}',
+          result.failed.length,
+          summary,
+          first.fsPath,
+          first.error.message
+        ),
+        showOutputLabel
       );
-      if (choice === 'Show Output') {
+      if (choice === showOutputLabel) {
         showOutput();
       }
     } else if (result.cancelled) {
-      showInformationMessage(`Set Permissions cancelled after ${summary}.`);
+      showInformationMessage(l10n.t('Set Permissions cancelled after {0}.', summary));
     } else {
       app.sftpBarItem.showMsg(
         `$(check) ${formatMode(mode)}`,
-        `Permissions set on ${summary}`,
+        l10n.t('Permissions set on {0}', summary),
         4000
       );
     }

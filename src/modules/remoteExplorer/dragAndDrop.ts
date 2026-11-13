@@ -69,7 +69,7 @@ export function planDrop(
 
   sources.forEach(item => {
     if (isRoot(item)) {
-      skipped.push({ item, reason: "a connection root can't be moved" });
+      skipped.push({ item, reason: vscode.l10n.t("a connection root can't be moved") });
       return;
     }
 
@@ -80,17 +80,17 @@ export function planDrop(
 
     const srcRoot = findRoot(item.resource.uri);
     if (!srcRoot) {
-      skipped.push({ item, reason: "can't find its configuration" });
+      skipped.push({ item, reason: vscode.l10n.t("can't find its configuration") });
       return;
     }
     if (srcRoot.explorerContext.id !== destRoot.explorerContext.id) {
-      skipped.push({ item, reason: "can't move to a different configuration" });
+      skipped.push({ item, reason: vscode.l10n.t("can't move to a different configuration") });
       return;
     }
 
     const srcPath = item.resource.fsPath;
     if (srcPath === destDirPath || isRemotePathAtOrUnder(srcPath, destDirPath)) {
-      skipped.push({ item, reason: "can't move into itself" });
+      skipped.push({ item, reason: vscode.l10n.t("can't move into itself") });
       return;
     }
     if (upath.dirname(srcPath) === destDirPath) {
@@ -220,7 +220,10 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
 
     if (plan.skipped.length) {
       showWarningMessage(
-        `Can't move ${plan.skipped.map(s => `'${describe(s.item)}' (${s.reason})`).join(', ')}.`
+        vscode.l10n.t(
+          "Can't move {0}.",
+          plan.skipped.map(s => `'${describe(s.item)}' (${s.reason})`).join(', ')
+        )
       );
     }
 
@@ -229,12 +232,13 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
     }
 
     if (plan.moves.length > 1) {
+      const move = vscode.l10n.t('Move');
       const choice = await vscode.window.showWarningMessage(
-        `Move ${plan.moves.length} items to '${describe(target!)}'?`,
+        vscode.l10n.t("Move {0} items to '{1}'?", plan.moves.length, describe(target!)),
         { modal: true },
-        'Move'
+        move
       );
-      if (choice !== 'Move') {
+      if (choice !== move) {
         return;
       }
     }

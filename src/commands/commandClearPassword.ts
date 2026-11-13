@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { COMMAND_CLEAR_PASSWORD } from '../constants';
 import { showInformationMessage } from '../host';
 import { connectionToken, clearStoredPassword } from '../credentialStore';
@@ -16,8 +17,8 @@ export default checkCommand({
     const removed = await clearStoredPassword(identity);
     showInformationMessage(
       removed
-        ? `Password for ${connectionToken(identity)} removed from secret storage.`
-        : `No saved password for ${connectionToken(identity)}.`
+        ? l10n.t('Password for {0} removed from secret storage.', connectionToken(identity))
+        : l10n.t('No saved password for {0}.', connectionToken(identity))
     );
   },
 });

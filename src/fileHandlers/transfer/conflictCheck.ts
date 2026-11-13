@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { FileType } from '../../core';
 import logger from '../../logger';
 import { FileHandlerContext } from '../createFileHandler';
@@ -62,7 +62,7 @@ async function statOrNull(fs, fsPath: string): Promise<(FileStat & { type: FileT
 }
 
 function describe(stat: FileStat): string {
-  return `${new Date(stat.mtime).toLocaleString()} (${stat.size} bytes)`;
+  return l10n.t('{0} ({1} bytes)', new Date(stat.mtime).toLocaleString(), stat.size);
 }
 
 function basename(fsPath: string): string {
@@ -104,23 +104,30 @@ export async function confirmUpload(ctx: FileHandlerContext): Promise<UploadDeci
 
   logger.info(`[conflict-check] remote changed since last transfer: ${remoteFsPath}`);
 
+  const overwrite = l10n.t('Overwrite');
+  const openDiff = l10n.t('Open Diff');
   const choice = await window.showWarningMessage(
-    `The remote copy of ${basename(localFsPath)} changed since you last downloaded or ` +
-      `uploaded it. Uploading will overwrite those changes.`,
+    l10n.t(
+      'The remote copy of {0} changed since you last downloaded or uploaded it. Uploading will overwrite those changes.',
+      basename(localFsPath)
+    ),
     {
       modal: true,
-      detail:
-        `Remote: ${describe(remote!)}\nLocal:  ${describe(local)}\n\n` +
-        `Open Diff compares the two and leaves the remote untouched.`,
+      detail: [
+        l10n.t('Remote: {0}', describe(remote!)),
+        l10n.t('Local:  {0}', describe(local)),
+        '',
+        l10n.t('Open Diff compares the two and leaves the remote untouched.'),
+      ].join('\n'),
     },
-    'Overwrite',
-    'Open Diff'
+    overwrite,
+    openDiff
   );
 
   switch (choice) {
-    case 'Overwrite':
+    case overwrite:
       return 'proceed';
-    case 'Open Diff':
+    case openDiff:
       return 'diff';
     default:
       return 'cancel';

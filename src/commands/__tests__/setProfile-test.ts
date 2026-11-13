@@ -1,5 +1,8 @@
 const showQuickPick = jest.fn();
-jest.mock('vscode', () => ({ window: { showQuickPick: (...args) => showQuickPick(...args) } }));
+jest.mock('vscode', () => ({
+  l10n: jest.requireActual('../../../test/helper/vscodeL10n'),
+  window: { showQuickPick: (...args) => showQuickPick(...args) },
+}));
 jest.mock('../../host', () => ({ showInformationMessage: jest.fn() }));
 jest.mock('../../logger', () => ({ __esModule: true, default: { warn: jest.fn() } }));
 jest.mock('../../app', () => ({ __esModule: true, default: { state: { profile: 'staging' } } }));

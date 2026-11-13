@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { createHash } from 'crypto';
 import app from '../app';
 import { FileService, ServiceConfig } from '../core';
@@ -86,16 +87,18 @@ async function confirmRun(config: ServiceConfig, option: AfterUploadOption): Pro
     return true;
   }
 
+  const run = l10n.t('Run');
+  const alwaysRun = l10n.t('Always Run');
   const choice = await showWarningMessage(
-    `Run afterUpload on ${targetLabel(config)}? ${option.commands.join(' && ')}`,
-    'Run',
-    'Always Run',
-    'Skip'
+    l10n.t('Run afterUpload on {0}? {1}', targetLabel(config), option.commands.join(' && ')),
+    run,
+    alwaysRun,
+    l10n.t('Skip')
   );
-  if (choice === 'Always Run') {
+  if (choice === alwaysRun) {
     rememberApproval(id);
   }
-  return choice === 'Run' || choice === 'Always Run';
+  return choice === run || choice === alwaysRun;
 }
 
 export function buildRemoteCommand(remotePath: string, command: string): string {
@@ -129,7 +132,7 @@ async function runCommands(
     const fs = (await fileService.getRemoteFileSystem(config)) as RemoteFileSystem;
     client = fs.getClient();
   } catch (error) {
-    showErrorMessage(`afterUpload: failed to connect to ${label}: ${error.message}`);
+    showErrorMessage(l10n.t('afterUpload: failed to connect to {0}: {1}', label, error.message));
     return;
   }
   if (!(client instanceof SSHClient)) {
@@ -157,7 +160,7 @@ async function runCommands(
       );
     } catch (error) {
       logger.error(error, 'afterUpload');
-      showErrorMessage(`afterUpload failed on ${label}: ${error.message}`);
+      showErrorMessage(l10n.t('afterUpload failed on {0}: {1}', label, error.message));
       return;
     }
 
@@ -168,11 +171,14 @@ async function runCommands(
       print(`[${reason}]`);
       logger.warn(`afterUpload on ${label} ${reason}: ${command}`);
       app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
+      const showOutputLabel = l10n.t('Show Output');
       const choice = await showErrorMessage(
-        `afterUpload on ${label} ${reason}: ${command}`,
-        'Show Output'
+        result.timedOut
+          ? l10n.t('afterUpload on {0} timed out after {1}ms: {2}', label, timeout, command)
+          : l10n.t('afterUpload on {0} exited with code {1}: {2}', label, result.code, command),
+        showOutputLabel
       );
-      if (choice === 'Show Output') {
+      if (choice === showOutputLabel) {
         showOutput();
       }
       return;
@@ -180,7 +186,11 @@ async function runCommands(
     print('[exit 0]');
   }
 
-  app.sftpBarItem.showMsg('$(check) afterUpload', `afterUpload finished on ${label}`, 2000 * 2);
+  app.sftpBarItem.showMsg(
+    '$(check) afterUpload',
+    l10n.t('afterUpload finished on {0}', label),
+    2000 * 2
+  );
 }
 
 // Called after every upload batch. Bursts (a multi-file upload, Upload Changed
@@ -211,7 +221,9 @@ export function reportUploadBatch(
       const files = failed === 1 ? 'upload' : 'uploads';
       logger.warn(`afterUpload skipped on ${targetLabel(config)}: ${failed} ${files} failed`);
       showWarningMessage(
-        `afterUpload skipped on ${targetLabel(config)}: ${failed} ${files} failed.`
+        failed === 1
+          ? l10n.t('afterUpload skipped on {0}: 1 upload failed.', targetLabel(config))
+          : l10n.t('afterUpload skipped on {0}: {1} uploads failed.', targetLabel(config), failed)
       );
       return;
     }

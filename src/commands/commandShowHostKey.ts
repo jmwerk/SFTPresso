@@ -1,11 +1,9 @@
-import { env, window } from 'vscode';
+import { env, l10n, window } from 'vscode';
 import { COMMAND_SHOW_HOST_KEY } from '../constants';
 import { showInformationMessage } from '../host';
 import { findHostKeys, hostToken } from '../core/remote-client/hostKeyStore';
 import { checkCommand } from './abstract/createCommand';
 import { selectRemoteConnection } from './shared';
-
-const COPY = 'Copy Fingerprint';
 
 /**
  * Shows what SFTPresso will accept for a host, so a fingerprint can be checked
@@ -21,7 +19,7 @@ export default checkCommand({
     }
 
     if (identity.protocol === 'ftp') {
-      showInformationMessage('FTP connections do not use SSH host keys.');
+      showInformationMessage(l10n.t('FTP connections do not use SSH host keys.'));
       return;
     }
 
@@ -29,7 +27,10 @@ export default checkCommand({
     const stored = await findHostKeys(identity.host, identity.port);
     if (stored.length === 0) {
       showInformationMessage(
-        `No stored SSH host key for ${token}. It will be treated as a new host on the next connection.`
+        l10n.t(
+          'No stored SSH host key for {0}. It will be treated as a new host on the next connection.',
+          token
+        )
       );
       return;
     }
@@ -45,13 +46,16 @@ export default checkCommand({
       })
       .join('\n\n');
 
+    const copy = l10n.t('Copy Fingerprint');
     const choice = await window.showInformationMessage(
-      `Stored host key${stored.length === 1 ? '' : 's'} for ${token}`,
+      stored.length === 1
+        ? l10n.t('Stored host key for {0}', token)
+        : l10n.t('Stored host keys for {0}', token),
       { modal: true, detail },
-      COPY
+      copy
     );
 
-    if (choice === COPY) {
+    if (choice === copy) {
       await env.clipboard.writeText(stored.map(entry => entry.fingerprint).join('\n'));
     }
   },

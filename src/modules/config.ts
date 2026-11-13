@@ -240,8 +240,8 @@ export function validateConfig(config) {
 
 const plaintextPasswordWarned = new Set<string>();
 
-const MIGRATE_PASSWORD_LABEL = 'Migrate Password';
-const DONT_SHOW_AGAIN_LABEL = "Don't Show Again";
+const MIGRATE_PASSWORD_LABEL = vscode.l10n.t('Migrate Password');
+const DONT_SHOW_AGAIN_LABEL = vscode.l10n.t("Don't Show Again");
 
 function hasPlaintextPassword(config): boolean {
   if (typeof config.password === 'string' && config.password.length > 0) {
@@ -275,7 +275,7 @@ function warnPlaintextPassword(configPath: string, configs: any[]) {
   );
 
   showWarningMessage(
-    `A plaintext password was found in ${configPath}.`,
+    vscode.l10n.t('A plaintext password was found in {0}.', configPath),
     MIGRATE_PASSWORD_LABEL,
     DONT_SHOW_AGAIN_LABEL
   ).then(choice => {

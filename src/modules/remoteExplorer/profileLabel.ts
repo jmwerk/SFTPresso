@@ -1,6 +1,7 @@
+import { l10n } from 'vscode';
 // Profiles exist but none applies: the config runs on its top-level settings, which are a real
 // target (often the live site), so this must not read as "nothing selected".
-export const BASE_CONFIG = '(base config)';
+export const BASE_CONFIG = l10n.t('(base config)');
 
 const DEFAULT_SSH_PORT = 22;
 
@@ -36,6 +37,9 @@ export function rootTooltip(
   config: { host: string; port?: number; remotePath: string }
 ): string {
   const profile = configProfile(activeProfile, configProfiles);
-  const lines = [`Host: ${hostAddress(config)}`, `Remote path: ${config.remotePath}`];
-  return (profile ? [`Profile: ${profile}`, ...lines] : lines).join('\n');
+  const lines = [
+    l10n.t('Host: {0}', hostAddress(config)),
+    l10n.t('Remote path: {0}', config.remotePath),
+  ];
+  return (profile ? [l10n.t('Profile: {0}', profile), ...lines] : lines).join('\n');
 }

@@ -20,6 +20,7 @@ jest.mock('vscode', () => {
     );
 
   return {
+    l10n: jest.requireActual('../../../../test/helper/vscodeL10n'),
     window: ns(),
     workspace: ns(),
     commands: ns(),

@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { COMMAND_FORCE_DOWNLOAD } from '../constants';
 import { download } from '../fileHandlers';
 import { showConfirmMessage } from '../host';
@@ -14,9 +15,11 @@ export default checkFileCommand({
     }
 
     const result = await showConfirmMessage(
-      'Force download will overwrite local files with the remote versions, ignoring any exclude rules. Continue?',
-      'Download',
-      'Cancel'
+      l10n.t(
+        'Force download will overwrite local files with the remote versions, ignoring any exclude rules. Continue?'
+      ),
+      l10n.t('Download'),
+      l10n.t('Cancel')
     );
 
     return result ? targets : undefined;

@@ -1,5 +1,5 @@
 import { JSONPath } from 'jsonc-parser';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { COMMAND_MIGRATE_PASSWORD } from '../constants';
 import { showConfirmMessage, showErrorMessage, showInformationMessage } from '../host';
 import { connectionToken, storePassword, ConnectIdentity } from '../credentialStore';
@@ -64,7 +64,7 @@ function collectPlaintextEntries(): PlaintextEntry[] {
         if (profile && typeof profile.password === 'string' && profile.password.length > 0) {
           const identity = identityFrom({ ...raw, ...profile });
           entries.push({
-            label: `${connectionToken(identity)} (profile: ${name})`,
+            label: l10n.t('{0} (profile: {1})', connectionToken(identity), name),
             identity,
             password: profile.password,
             configPath,
@@ -81,7 +81,7 @@ function collectPlaintextEntries(): PlaintextEntry[] {
 async function selectPlaintextEntry(): Promise<PlaintextEntry | undefined> {
   const entries = collectPlaintextEntries();
   if (entries.length <= 0) {
-    showInformationMessage('No plaintext password found in sftp.json.');
+    showInformationMessage(l10n.t('No plaintext password found in sftp.json.'));
     return;
   }
 
@@ -91,7 +91,7 @@ async function selectPlaintextEntry(): Promise<PlaintextEntry | undefined> {
 
   const picked = await window.showQuickPick(
     entries.map(entry => ({ label: entry.label, entry })),
-    { placeHolder: 'Select a plaintext password to migrate…' }
+    { placeHolder: l10n.t('Select a plaintext password to migrate…') }
   );
   return picked ? picked.entry : undefined;
 }
@@ -106,10 +106,12 @@ export default checkCommand({
     }
 
     const confirmed = await showConfirmMessage(
-      `Move the plaintext password for ${entry.label} into VS Code's secret storage` +
-        ' and remove it from sftp.json?',
-      'Migrate',
-      'Cancel'
+      l10n.t(
+        "Move the plaintext password for {0} into VS Code's secret storage and remove it from sftp.json?",
+        entry.label
+      ),
+      l10n.t('Migrate'),
+      l10n.t('Cancel')
     );
     if (!confirmed) {
       return;
@@ -118,7 +120,7 @@ export default checkCommand({
     try {
       await storePassword(entry.identity, entry.password);
     } catch (error) {
-      showErrorMessage(`Failed to save password to secret storage: ${error.message}`);
+      showErrorMessage(l10n.t('Failed to save password to secret storage: {0}', error.message));
       return;
     }
 
@@ -126,13 +128,17 @@ export default checkCommand({
       await removeConfigValue(entry.configPath, entry.keyPath, entry.matchConfig);
     } catch (error) {
       showErrorMessage(
-        `Password saved to secret storage, but failed to remove it from ${entry.configPath}: ${error.message}`
+        l10n.t(
+          'Password saved to secret storage, but failed to remove it from {0}: {1}',
+          entry.configPath,
+          error.message
+        )
       );
       return;
     }
 
     showInformationMessage(
-      `Password for ${entry.label} moved to secret storage and removed from sftp.json.`
+      l10n.t('Password for {0} moved to secret storage and removed from sftp.json.', entry.label)
     );
   },
 });

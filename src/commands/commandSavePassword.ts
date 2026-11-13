@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { COMMAND_SAVE_PASSWORD } from '../constants';
 import { showInformationMessage } from '../host';
 import { connectionToken, storePassword } from '../credentialStore';
@@ -17,7 +17,7 @@ export default checkCommand({
     const password = await window.showInputBox({
       ignoreFocusOut: true,
       password: true,
-      prompt: `Enter the password for ${connectionToken(identity)}`,
+      prompt: l10n.t('Enter the password for {0}', connectionToken(identity)),
     });
 
     // cancelled or empty
@@ -26,6 +26,8 @@ export default checkCommand({
     }
 
     await storePassword(identity, password);
-    showInformationMessage(`Password for ${connectionToken(identity)} saved to secret storage.`);
+    showInformationMessage(
+      l10n.t('Password for {0} saved to secret storage.', connectionToken(identity))
+    );
   },
 });

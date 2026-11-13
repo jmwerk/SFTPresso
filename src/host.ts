@@ -97,8 +97,8 @@ export function showWarningMessage(message: string, ...items: string[]) {
 
 export async function showConfirmMessage(
   message: string,
-  confirmLabel: string = 'Yes',
-  cancelLabel: string = 'No'
+  confirmLabel: string = vscode.l10n.t('Yes'),
+  cancelLabel: string = vscode.l10n.t('No')
 ) {
   const result = await vscode.window.showInformationMessage(
     message,

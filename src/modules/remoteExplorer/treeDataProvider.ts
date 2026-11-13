@@ -150,7 +150,7 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
               ? COMMAND_REMOTEEXPLORER_EDITINLOCAL
               : COMMAND_REMOTEEXPLORER_VIEW_CONTENT,
             arguments: [item],
-            title: 'View Remote Resource',
+            title: vscode.l10n.t('View Remote Resource'),
           },
     };
   }
@@ -373,13 +373,19 @@ export default class RemoteTreeData implements vscode.TreeDataProvider<ExplorerN
       label: this._activeProfile || BASE_CONFIG,
       description: addressList(addresses),
       iconPath: new vscode.ThemeIcon('versions'),
-      tooltip: `Active profile: ${this._activeProfile || BASE_CONFIG}. Click to switch.`,
+      tooltip: vscode.l10n.t(
+        'Active profile: {0}. Click to switch.',
+        this._activeProfile || BASE_CONFIG
+      ),
       contextValue: 'profile',
       accessibilityInformation: {
-        label: `Active profile ${this._activeProfile || BASE_CONFIG}, switch profile`,
+        label: vscode.l10n.t(
+          'Active profile {0}, switch profile',
+          this._activeProfile || BASE_CONFIG
+        ),
         role: 'button',
       },
-      command: { command: COMMAND_SET_PROFILE, title: 'Set Profile' },
+      command: { command: COMMAND_SET_PROFILE, title: vscode.l10n.t('Set Profile') },
     };
   }
 

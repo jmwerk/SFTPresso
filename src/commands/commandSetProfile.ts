@@ -41,7 +41,7 @@ export default checkCommand({
         service.getAvailableProfiles().forEach(profile => {
           acc.push({
             value: profile,
-            label: isActive(service, profile) ? `${profile} (active)` : profile,
+            label: isActive(service, profile) ? vscode.l10n.t('{0} (active)', profile) : profile,
             description: addressUnder(service, profile),
           });
         });
@@ -52,15 +52,18 @@ export default checkCommand({
         : [
             {
               value: null,
-              label: app.state.profile === null ? `${BASE_CONFIG} (active)` : BASE_CONFIG,
+              label:
+                app.state.profile === null
+                  ? vscode.l10n.t('{0} (active)', BASE_CONFIG)
+                  : BASE_CONFIG,
               description: addressList(baseAddresses),
-              detail: "The config's top-level settings",
+              detail: vscode.l10n.t("The config's top-level settings"),
             },
           ]
     );
 
     if (profiles.filter(item => item.value !== null).length <= 0) {
-      showInformationMessage('No Available Profile.');
+      showInformationMessage(vscode.l10n.t('No Available Profile.'));
       return;
     }
 
@@ -76,7 +79,9 @@ export default checkCommand({
       return;
     }
 
-    const item = await vscode.window.showQuickPick(profiles, { placeHolder: 'Select a profile' });
+    const item = await vscode.window.showQuickPick(profiles, {
+      placeHolder: vscode.l10n.t('Select a profile'),
+    });
     if (item === undefined) return;
     app.state.profile = item.value;
   },
