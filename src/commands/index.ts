@@ -15,6 +15,7 @@ import commandRemoteExplorerClearFilter from './commandRemoteExplorerClearFilter
 import commandRemoteExplorerFilter from './commandRemoteExplorerFilter';
 import commandRemoteExplorerUploadHere from './commandRemoteExplorerUploadHere';
 import commandRenameRemote from './commandRenameRemote';
+import commandSetPermissionsRemote from './commandSetPermissionsRemote';
 import commandRetryTransfer from './commandRetryTransfer';
 import commandRunRemoteCommand from './commandRunRemoteCommand';
 import commandSavePassword from './commandSavePassword';
@@ -78,6 +79,7 @@ export default {
   commandRemoteExplorerFilter,
   commandRemoteExplorerUploadHere,
   commandRenameRemote,
+  commandSetPermissionsRemote,
   commandRetryTransfer,
   commandRunRemoteCommand,
   commandSavePassword,
