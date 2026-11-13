@@ -53,8 +53,8 @@ export interface SkippedEntry {
 interface BaseTransferHandleConfig {
   srcFsPath: string;
   targetFsPath: string;
-  dirPerm?: number,
-  filePerm?: number,
+  dirPerm?: number;
+  filePerm?: number;
   srcFs: FileSystem;
   targetFs: FileSystem;
   transferDirection: TransferDirection;
@@ -84,19 +84,14 @@ function isCancelled(config: BaseTransferHandleConfig): boolean {
 }
 
 // Every remote call in the walk goes through here so the fan-out stays bounded.
-function limited<T>(
-  config: BaseTransferHandleConfig,
-  fn: () => Promise<T>
-): Promise<T> {
+function limited<T>(config: BaseTransferHandleConfig, fn: () => Promise<T>): Promise<T> {
   return config.limiter ? config.limiter(fn) : fn();
 }
 
 function withLimiter<T extends BaseTransferHandleConfig>(config: T): T {
   return {
     ...config,
-    limiter:
-      config.limiter ||
-      createLimiter(config.walkConcurrency || DEFAULT_WALK_CONCURRENCY),
+    limiter: config.limiter || createLimiter(config.walkConcurrency || DEFAULT_WALK_CONCURRENCY),
     skipped: config.skipped || [],
   };
 }
@@ -142,9 +137,7 @@ async function applyDirPerm(
 
   logger.info(`chmod remote directory ${dirPath} as configured by dirPerm: ${dirPerm}`);
   try {
-    await limited(config, () =>
-      config.targetFs.chmod(dirPath, parseInt(String(dirPerm), 8))
-    );
+    await limited(config, () => config.targetFs.chmod(dirPath, parseInt(String(dirPerm), 8)));
   } catch (error) {
     logger.warn(describeFailure(error, 'chmod', dirPath).message);
   }
@@ -338,9 +331,7 @@ async function removeMissing(
   const { targetFs, transferOption } = config;
 
   const remove = (fsPath: string, fileType: FileType) =>
-    limited(config, () =>
-      removeFile(fsPath, targetFs, fileType, transferOption)
-    ).catch(error => {
+    limited(config, () => removeFile(fsPath, targetFs, fileType, transferOption)).catch(error => {
       throw describeFailure(error, 'delete', fsPath);
     });
 
@@ -353,7 +344,6 @@ async function _sync(
   collect: (t: TransferTask) => void,
   deleted: FileEntry[]
 ) {
-
   const { srcFsPath, targetFsPath, srcFs, targetFs, transferOption, transferDirection } = config;
   if (isCancelled(config)) {
     return;
@@ -552,7 +542,7 @@ async function _sync(
       });
     }
 
-    const transferOne = ([src, target, direction, option]: typeof file2trans[number]) =>
+    const transferOne = ([src, target, direction, option]: (typeof file2trans)[number]) =>
       transferFile(
         {
           ...config,
@@ -596,8 +586,7 @@ async function _sync(
     const removePromise = removeMissing(config, fileMissed, dirMissed);
 
     const transFilePromise = file2trans.map(transferOne);
-    const verifyPromise =
-      config.hasher && file2verify.length > 0 ? verifyContents() : undefined;
+    const verifyPromise = config.hasher && file2verify.length > 0 ? verifyContents() : undefined;
 
     const transDirPromise = dir2trans.map(([src, target]) =>
       transferFolder(
@@ -657,9 +646,7 @@ export async function transfer(
   collect: (t: TransferTask) => void
 ) {
   const walkConfig = withLimiter(config);
-  const stat = await limited(walkConfig, () =>
-    walkConfig.srcFs.lstat(walkConfig.srcFsPath)
-  );
+  const stat = await limited(walkConfig, () => walkConfig.srcFs.lstat(walkConfig.srcFsPath));
   const transferOption = {
     ...walkConfig.transferOption,
     fallbackMode: stat.mode,

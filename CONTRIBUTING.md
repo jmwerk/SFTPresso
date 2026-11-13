@@ -26,7 +26,16 @@ Development requires Node 22+ (see `.nvmrc`).
 npm test        # jest, no network or Docker required
 npm run typecheck
 npm run lint
+npm run format  # prettier; CI runs format:check
+npm run l10n:export  # refresh l10n/bundle.l10n.json; CI fails if it's stale
 ```
+
+Bulk-formatting commits are listed in `.git-blame-ignore-revs`; GitHub's blame view skips them.
+Locally, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
+
+User-facing strings go through `vscode.l10n.t()` (code) or `package.nls.json` (`package.json`
+contributions); log messages stay plain English. Pass the whole sentence with `{0}` placeholders
+rather than concatenating pieces, so a translation can reorder them.
 
 ### FTP and SFTP integration tests
 

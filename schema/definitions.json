@@ -126,6 +126,32 @@
         "description": "Before uploading a file, check whether the remote copy changed since you last downloaded or uploaded it, and prompt (Overwrite / Open Diff / Cancel) if it did. Applies to single-file uploads, including uploadOnSave.",
         "default": false
       },
+      "backup": {
+        "description": "Before an upload or Edit Remotely save overwrites a remote file, download the current remote copy into a local backup folder. true uses the defaults; null turns it off, e.g. in a profile.",
+        "oneOf": [
+          { "type": "null" },
+          { "type": "boolean" },
+          {
+            "type": "object",
+            "properties": {
+              "dir": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Local backup folder, relative to the config's context or absolute. Excluded from uploads, sync and the watcher. Defaults to .sftpresso-backup.",
+                "default": ".sftpresso-backup"
+              },
+              "keep": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Backups kept per file; older ones are deleted. 0 keeps all. Defaults to 5.",
+                "default": 5
+              }
+            },
+            "additionalProperties": false
+          }
+        ],
+        "examples": [true, { "dir": ".sftpresso-backup", "keep": 10 }]
+      },
       "ignore": {
         "type": "array",
         "description": "Files to ignore. Same behavior as gitignore.",
@@ -232,6 +258,33 @@
         "type": "number",
         "description": "Milliseconds a command started by SFTP: Run Remote Command may run before it is killed and reported as timed out. OpenSSH does not act on the kill request for a plain (non-pty) exec session, so the remote process may keep running detached after the timeout is reported.",
         "default": 60000
+      },
+      "afterUpload": {
+        "description": "Shell command(s) run on the server, in remotePath, after an upload or Sync Local -> Remote finishes. Uploads in quick succession run it once. Skipped if any upload in the batch failed. Asks before the first run of each command set. Runs over the existing SSH connection with remoteCommandTimeout. null turns it off, e.g. in a profile. SFTP only.",
+        "oneOf": [
+          { "type": "null" },
+          { "$ref": "#/afterUploadCommand" },
+          {
+            "type": "object",
+            "properties": {
+              "command": { "$ref": "#/afterUploadCommand" },
+              "onSave": {
+                "type": "boolean",
+                "description": "Also run after upload on save and watcher uploads. Defaults to false.",
+                "default": false
+              },
+              "delay": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "Milliseconds without another upload before the command runs, so a burst of uploads runs it once. Defaults to 1000.",
+                "default": 1000
+              }
+            },
+            "required": ["command"],
+            "additionalProperties": false
+          }
+        ],
+        "examples": ["wp cache flush", { "command": ["php artisan optimize:clear", "php artisan queue:restart"], "onSave": true }]
       }
     }
   },
@@ -547,5 +600,13 @@
         }
       }
     }
+  },
+
+  "afterUploadCommand": {
+    "description": "A command, or several run in order; a failing one stops the rest.",
+    "oneOf": [
+      { "type": "string", "minLength": 1 },
+      { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+    ]
   }
 }

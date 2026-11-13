@@ -65,13 +65,11 @@ export function planDrop(
   // came up in a sequential execution, surfacing as a spurious per-item error.
   const selectedPaths = sources.filter(item => !isRoot(item)).map(item => item.resource.fsPath);
   const movesWithAnotherSelectedAncestor = (srcPath: string) =>
-    selectedPaths.some(
-      other => other !== srcPath && isRemotePathAtOrUnder(other, srcPath)
-    );
+    selectedPaths.some(other => other !== srcPath && isRemotePathAtOrUnder(other, srcPath));
 
   sources.forEach(item => {
     if (isRoot(item)) {
-      skipped.push({ item, reason: "a connection root can't be moved" });
+      skipped.push({ item, reason: vscode.l10n.t("a connection root can't be moved") });
       return;
     }
 
@@ -82,17 +80,17 @@ export function planDrop(
 
     const srcRoot = findRoot(item.resource.uri);
     if (!srcRoot) {
-      skipped.push({ item, reason: "can't find its configuration" });
+      skipped.push({ item, reason: vscode.l10n.t("can't find its configuration") });
       return;
     }
     if (srcRoot.explorerContext.id !== destRoot.explorerContext.id) {
-      skipped.push({ item, reason: "can't move to a different configuration" });
+      skipped.push({ item, reason: vscode.l10n.t("can't move to a different configuration") });
       return;
     }
 
     const srcPath = item.resource.fsPath;
     if (srcPath === destDirPath || isRemotePathAtOrUnder(srcPath, destDirPath)) {
-      skipped.push({ item, reason: "can't move into itself" });
+      skipped.push({ item, reason: vscode.l10n.t("can't move into itself") });
       return;
     }
     if (upath.dirname(srcPath) === destDirPath) {
@@ -187,7 +185,10 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
     dataTransfer.set(REMOTE_EXPLORER_MIME_TYPE, new vscode.DataTransferItem(draggable));
   }
 
-  async handleDrop(target: ExplorerItem | undefined, dataTransfer: vscode.DataTransfer): Promise<void> {
+  async handleDrop(
+    target: ExplorerItem | undefined,
+    dataTransfer: vscode.DataTransfer
+  ): Promise<void> {
     // A drag out of this same view carries both mime types on some platforms
     // (VS Code adds text/uri-list itself for tree items with a resourceUri),
     // so the internal move must win over treating it as an upload.
@@ -219,7 +220,10 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
 
     if (plan.skipped.length) {
       showWarningMessage(
-        `Can't move ${plan.skipped.map(s => `'${describe(s.item)}' (${s.reason})`).join(', ')}.`
+        vscode.l10n.t(
+          "Can't move {0}.",
+          plan.skipped.map(s => `'${describe(s.item)}' (${s.reason})`).join(', ')
+        )
       );
     }
 
@@ -228,12 +232,13 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
     }
 
     if (plan.moves.length > 1) {
+      const move = vscode.l10n.t('Move');
       const choice = await vscode.window.showWarningMessage(
-        `Move ${plan.moves.length} items to '${describe(target!)}'?`,
+        vscode.l10n.t("Move {0} items to '{1}'?", plan.moves.length, describe(target!)),
         { modal: true },
-        'Move'
+        move
       );
-      if (choice !== 'Move') {
+      if (choice !== move) {
         return;
       }
     }
@@ -247,7 +252,10 @@ export class RemoteExplorerDragAndDropController implements vscode.TreeDragAndDr
         try {
           await renameRemote(handleCtxFromUri(item.resource.uri), { newRemotePath });
         } catch (err) {
-          reportError(err instanceof Error ? err : new Error(String(err)), `when moving '${describe(item)}'`);
+          reportError(
+            err instanceof Error ? err : new Error(String(err)),
+            `when moving '${describe(item)}'`
+          );
         }
       })
     );

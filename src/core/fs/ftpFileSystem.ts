@@ -33,9 +33,7 @@ const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 // Interpret it as server-local time like the old `ftp` package did, so
 // remoteTimeOffsetInHours keeps correcting it the same way.
 function parseRawModifiedAt(raw: string): number {
-  const match = raw
-    .trim()
-    .match(/^([a-zA-Z]{3})\s+(\d{1,2})\s+(?:(\d{4})|(\d{1,2}):(\d{2}))$/);
+  const match = raw.trim().match(/^([a-zA-Z]{3})\s+(\d{1,2})\s+(?:(\d{4})|(\d{1,2}):(\d{2}))$/);
   if (!match) {
     const fallback = Date.parse(raw);
     return isNaN(fallback) ? 0 : fallback;
@@ -215,7 +213,7 @@ export default class FTPFileSystem extends RemoteFileSystem {
     if (!this._supportMFMT) return Promise.resolve();
 
     return this.atomicSetLastMod(fd.path, new Date(mtime * 1000)).catch(_ => {
-      logger.info('Don\'t Support MFMT');
+      logger.info("Don't Support MFMT");
       this._supportMFMT = false;
     });
   }
@@ -381,9 +379,7 @@ export default class FTPFileSystem extends RemoteFileSystem {
     // lists them, a plain LIST (which is not sent with -a) does not.
     return stats
       .filter(item => item.name && item.name !== '.' && item.name !== '..')
-      .map(item =>
-        this.toFileEntry(this.pathResolver.join(dir, item.name), item)
-      );
+      .map(item => this.toFileEntry(this.pathResolver.join(dir, item.name), item));
   }
 
   async unlink(path: string): Promise<void> {
@@ -429,8 +425,6 @@ export default class FTPFileSystem extends RemoteFileSystem {
   }
 
   private async atomicSetLastMod(path: string, date: Date): Promise<void> {
-    await this.atomic(() =>
-      this.ftp.send(`MFMT ${toMFMTTimestamp(date)} ${path}`)
-    );
+    await this.atomic(() => this.ftp.send(`MFMT ${toMFMTTimestamp(date)} ${path}`));
   }
 }

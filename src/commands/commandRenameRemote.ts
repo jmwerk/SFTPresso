@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { COMMAND_RENAME_REMOTE } from '../constants';
 import { upath } from '../core';
 import { handleCtxFromUri, renameRemote } from '../fileHandlers';
@@ -23,19 +23,19 @@ export default checkCommand({
 
     const input = await window.showInputBox({
       value: currentName,
-      prompt: `New name for '${currentName}'`,
+      prompt: l10n.t("New name for '{0}'", currentName),
       validateInput(value) {
         const trimmed = value.trim();
         if (!trimmed) {
-          return 'Name cannot be empty.';
+          return l10n.t('Name cannot be empty.');
         }
 
         const candidate = upath.join(parentPath, trimmed);
         if (!isRemotePathAtOrUnder(remotePath, candidate)) {
-          return `Can't move outside of '${remotePath}'.`;
+          return l10n.t("Can't move outside of '{0}'.", remotePath);
         }
         if (isRemotePathAtOrUnder(remoteFsPath, candidate)) {
-          return `Can't move '${currentName}' into itself.`;
+          return l10n.t("Can't move '{0}' into itself.", currentName);
         }
 
         return undefined;

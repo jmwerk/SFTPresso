@@ -58,139 +58,134 @@ describe.each([VSFTPD, PUREFTPD_TLS, PUREFTPD_CONTROL])(
 // ---------------------------------------------------------------------------
 // Full filesystem operation set against a plain (LIST) and an FTPS (MLSD) server.
 // ---------------------------------------------------------------------------
-describe.each([VSFTPD, PUREFTPD_TLS])(
-  'filesystem operations — $name',
-  (server: ServerConfig) => {
-    let fs: FTPFileSystem;
+describe.each([VSFTPD, PUREFTPD_TLS])('filesystem operations — $name', (server: ServerConfig) => {
+  let fs: FTPFileSystem;
 
-    beforeAll(async () => {
-      fs = await connectFs(server);
-    });
+  beforeAll(async () => {
+    fs = await connectFs(server);
+  });
 
-    afterAll(() => {
-      if (fs) fs.end();
-    });
+  afterAll(() => {
+    if (fs) fs.end();
+  });
 
-    test('mkdir (nested) + list + lstat', async () => {
-      const dir = uniqueDir(server);
-      const nested = upath.join(dir, 'a', 'b');
-      await fs.ensureDir(nested);
+  test('mkdir (nested) + list + lstat', async () => {
+    const dir = uniqueDir(server);
+    const nested = upath.join(dir, 'a', 'b');
+    await fs.ensureDir(nested);
 
-      const stat = await fs.lstat(nested);
-      expect(stat.type).toBe(FileType.Directory);
+    const stat = await fs.lstat(nested);
+    expect(stat.type).toBe(FileType.Directory);
 
-      const entries = await fs.list(upath.join(dir, 'a'));
-      expect(entries.map(e => e.name)).toContain('b');
+    const entries = await fs.list(upath.join(dir, 'a'));
+    expect(entries.map(e => e.name)).toContain('b');
 
-      await fs.rmdir(dir, true);
-    });
+    await fs.rmdir(dir, true);
+  });
 
-    test('put / get text roundtrip', async () => {
-      const dir = uniqueDir(server);
-      await fs.ensureDir(dir);
-      const path = upath.join(dir, 'hello.txt');
-      const text = 'héllo\nworld — ftp roundtrip\n'.repeat(20);
+  test('put / get text roundtrip', async () => {
+    const dir = uniqueDir(server);
+    await fs.ensureDir(dir);
+    const path = upath.join(dir, 'hello.txt');
+    const text = 'héllo\nworld — ftp roundtrip\n'.repeat(20);
 
-      await upload(fs, Buffer.from(text, 'utf8'), path);
-      const got = await fs.readFile(path, { encoding: 'utf8' });
-      expect(got).toBe(text);
+    await upload(fs, Buffer.from(text, 'utf8'), path);
+    const got = await fs.readFile(path, { encoding: 'utf8' });
+    expect(got).toBe(text);
 
-      await fs.rmdir(dir, true);
-    });
+    await fs.rmdir(dir, true);
+  });
 
-    test('put / get binary roundtrip (a few MB, byte-for-byte)', async () => {
-      const dir = uniqueDir(server);
-      await fs.ensureDir(dir);
-      const path = upath.join(dir, 'blob.bin');
-      const blob = randomBytes(3 * 1024 * 1024 + 7);
+  test('put / get binary roundtrip (a few MB, byte-for-byte)', async () => {
+    const dir = uniqueDir(server);
+    await fs.ensureDir(dir);
+    const path = upath.join(dir, 'blob.bin');
+    const blob = randomBytes(3 * 1024 * 1024 + 7);
 
-      await upload(fs, blob, path);
-      const got = await download(fs, path);
-      expect(got.length).toBe(blob.length);
-      expect(Buffer.compare(got, blob)).toBe(0);
+    await upload(fs, blob, path);
+    const got = await download(fs, path);
+    expect(got.length).toBe(blob.length);
+    expect(Buffer.compare(got, blob)).toBe(0);
 
-      const stat = await fs.lstat(path);
-      expect(stat.size).toBe(blob.length);
+    const stat = await fs.lstat(path);
+    expect(stat.size).toBe(blob.length);
 
-      await fs.rmdir(dir, true);
-    });
+    await fs.rmdir(dir, true);
+  });
 
-    test('rename', async () => {
-      const dir = uniqueDir(server);
-      await fs.ensureDir(dir);
-      const src = upath.join(dir, 'src.txt');
-      const dest = upath.join(dir, 'dest.txt');
-      await upload(fs, Buffer.from('rename me'), src);
+  test('rename', async () => {
+    const dir = uniqueDir(server);
+    await fs.ensureDir(dir);
+    const src = upath.join(dir, 'src.txt');
+    const dest = upath.join(dir, 'dest.txt');
+    await upload(fs, Buffer.from('rename me'), src);
 
-      await fs.rename(src, dest);
+    await fs.rename(src, dest);
 
-      const names = (await fs.list(dir)).map(e => e.name);
-      expect(names).toContain('dest.txt');
-      expect(names).not.toContain('src.txt');
+    const names = (await fs.list(dir)).map(e => e.name);
+    expect(names).toContain('dest.txt');
+    expect(names).not.toContain('src.txt');
 
-      await fs.rmdir(dir, true);
-    });
+    await fs.rmdir(dir, true);
+  });
 
-    // list() filters nothing of its own beyond '.' and '..' -- there is no
-    // hidden-file policy at this layer, on either protocol. MLSD reports
-    // dotfiles, and on a LIST-only server the client pins "LIST -a" so they are
-    // listed too (#140). The SFTP suite has the matching test.
-    test('list includes dotfiles, minus . and ..', async () => {
-      const dir = uniqueDir(server);
-      await fs.ensureDir(dir);
-      await upload(fs, Buffer.from('secret'), upath.join(dir, '.hidden'));
-      await upload(fs, Buffer.from('plain'), upath.join(dir, 'visible.txt'));
+  // list() filters nothing of its own beyond '.' and '..' -- there is no
+  // hidden-file policy at this layer, on either protocol. MLSD reports
+  // dotfiles, and on a LIST-only server the client pins "LIST -a" so they are
+  // listed too (#140). The SFTP suite has the matching test.
+  test('list includes dotfiles, minus . and ..', async () => {
+    const dir = uniqueDir(server);
+    await fs.ensureDir(dir);
+    await upload(fs, Buffer.from('secret'), upath.join(dir, '.hidden'));
+    await upload(fs, Buffer.from('plain'), upath.join(dir, 'visible.txt'));
 
-      const names = (await fs.list(dir)).map(e => e.name).sort();
-      expect(names).toEqual(['.hidden', 'visible.txt']);
-      expect(names).not.toContain('.');
-      expect(names).not.toContain('..');
+    const names = (await fs.list(dir)).map(e => e.name).sort();
+    expect(names).toEqual(['.hidden', 'visible.txt']);
+    expect(names).not.toContain('.');
+    expect(names).not.toContain('..');
 
-      // The recursive walk must see the dotfile, or RMD fails on a non-empty dir
-      await fs.rmdir(dir, true);
-      expect((await fs.list(upath.dirname(dir))).map(e => e.name)).not.toContain(
-        upath.basename(dir)
-      );
-    });
+    // The recursive walk must see the dotfile, or RMD fails on a non-empty dir
+    await fs.rmdir(dir, true);
+    expect((await fs.list(upath.dirname(dir))).map(e => e.name)).not.toContain(upath.basename(dir));
+  });
 
-    test('delete file + recursive delete directory', async () => {
-      const dir = uniqueDir(server);
-      const sub = upath.join(dir, 'sub');
-      await fs.ensureDir(sub);
-      const top = upath.join(dir, 'top.txt');
-      const nested = upath.join(sub, 'nested.txt');
-      await upload(fs, Buffer.from('1'), top);
-      await upload(fs, Buffer.from('2'), nested);
+  test('delete file + recursive delete directory', async () => {
+    const dir = uniqueDir(server);
+    const sub = upath.join(dir, 'sub');
+    await fs.ensureDir(sub);
+    const top = upath.join(dir, 'top.txt');
+    const nested = upath.join(sub, 'nested.txt');
+    await upload(fs, Buffer.from('1'), top);
+    await upload(fs, Buffer.from('2'), nested);
 
-      await fs.unlink(top);
-      expect((await fs.list(dir)).map(e => e.name)).not.toContain('top.txt');
+    await fs.unlink(top);
+    expect((await fs.list(dir)).map(e => e.name)).not.toContain('top.txt');
 
-      await fs.rmdir(dir, true);
-      await expect(fs.lstat(dir)).rejects.toBeDefined();
-    });
+    await fs.rmdir(dir, true);
+    await expect(fs.lstat(dir)).rejects.toBeDefined();
+  });
 
-    test('passive-mode data transfer', async () => {
-      // basic-ftp opens every data connection with EPSV (passive); a completed
-      // transfer of a non-trivial payload exercises that path end-to-end.
-      const dir = uniqueDir(server);
-      await fs.ensureDir(dir);
-      const path = upath.join(dir, 'passive.bin');
-      const blob = randomBytes(512 * 1024);
+  test('passive-mode data transfer', async () => {
+    // basic-ftp opens every data connection with EPSV (passive); a completed
+    // transfer of a non-trivial payload exercises that path end-to-end.
+    const dir = uniqueDir(server);
+    await fs.ensureDir(dir);
+    const path = upath.join(dir, 'passive.bin');
+    const blob = randomBytes(512 * 1024);
 
-      await upload(fs, blob, path);
-      expect(Buffer.compare(await download(fs, path), blob)).toBe(0);
+    await upload(fs, blob, path);
+    expect(Buffer.compare(await download(fs, path), blob)).toBe(0);
 
-      await fs.rmdir(dir, true);
-    });
+    await fs.rmdir(dir, true);
+  });
 
-    test('get() rejects for a missing file', async () => {
-      const dir = uniqueDir(server);
-      await fs.ensureDir(dir);
-      await expect(download(fs, upath.join(dir, 'nope.txt'))).rejects.toBeDefined();
-      await fs.rmdir(dir, true);
-    });
-  }
-);
+  test('get() rejects for a missing file', async () => {
+    const dir = uniqueDir(server);
+    await fs.ensureDir(dir);
+    await expect(download(fs, upath.join(dir, 'nope.txt'))).rejects.toBeDefined();
+    await fs.rmdir(dir, true);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // MLSD gives machine-readable, second-precision UTC timestamps.

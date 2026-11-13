@@ -9,8 +9,8 @@ const LEGACY_EXTENSION_IDS = ['liximomo.sftp', 'Natizyskunk.sftp'];
 
 const SUPPRESS_KEY = 'sftp.legacyExtensionCheck.suppressed';
 
-const SHOW_LABEL = 'Show Me';
-const DONT_SHOW_LABEL = "Don't Show Again";
+const SHOW_LABEL = vscode.l10n.t('Show Me');
+const DONT_SHOW_LABEL = vscode.l10n.t("Don't Show Again");
 
 export function checkForLegacyExtensions(context: vscode.ExtensionContext) {
   if (context.workspaceState.get<boolean>(SUPPRESS_KEY)) {
@@ -31,8 +31,10 @@ export function checkForLegacyExtensions(context: vscode.ExtensionContext) {
   logger.warn(`Detected legacy SFTP extension "${legacyId}" alongside SFTPresso.`);
 
   showWarningMessage(
-    `SFTPresso and ${displayName} both register sftp.* commands. Only one will run. ` +
-      `Disable ${displayName} to avoid conflicts.`,
+    vscode.l10n.t(
+      'SFTPresso and {0} both register sftp.* commands. Only one will run. Disable {0} to avoid conflicts.',
+      displayName
+    ),
     SHOW_LABEL,
     DONT_SHOW_LABEL
   ).then(choice => {

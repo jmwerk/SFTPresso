@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { Uri, window } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 import { FileService, FileType } from '../core';
 import logger from '../logger';
 import { getAllFileService, getFileService } from '../modules/serviceManager';
@@ -64,7 +64,7 @@ export function selectContext(): Promise<Uri | undefined> {
 
     window
       .showQuickPick(projectsList, {
-        placeHolder: 'Select a folder…',
+        placeHolder: l10n.t('Select a folder…'),
       })
       .then(selection => {
         if (selection) {
@@ -85,9 +85,7 @@ export async function selectRemoteConnection(): Promise<ConnectIdentity | undefi
     let configs;
     try {
       configs =
-        service.getAvailableProfiles().length > 0
-          ? service.getAllConfig()
-          : [service.getConfig()];
+        service.getAvailableProfiles().length > 0 ? service.getAllConfig() : [service.getConfig()];
     } catch (error) {
       logger.warn(`skip config at ${service.baseDir}: ${error.message}`);
       continue;
@@ -118,14 +116,14 @@ export async function selectRemoteConnection(): Promise<ConnectIdentity | undefi
   }
 
   if (items.length <= 0) {
-    showInformationMessage('No sftp/ftp remote found in the current workspace.');
+    showInformationMessage(l10n.t('No sftp/ftp remote found in the current workspace.'));
     return;
   }
 
   const picked =
     items.length === 1
       ? items[0]
-      : await window.showQuickPick(items, { placeHolder: 'Select a remote…' });
+      : await window.showQuickPick(items, { placeHolder: l10n.t('Select a remote…') });
 
   return picked ? picked.identity : undefined;
 }

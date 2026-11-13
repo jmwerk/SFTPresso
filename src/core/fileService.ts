@@ -9,6 +9,7 @@ import { replaceHomePath, resolvePath } from '../helper';
 import { SETTING_KEY_REMOTE } from '../constants';
 import upath from './upath';
 import Ignore from './ignore';
+import { backupDirSetting } from './backup';
 import { FileSystem } from './fs';
 import Scheduler from './scheduler';
 import { createRemoteIfNoneExist, removeRemoteFs } from './remoteFs';
@@ -85,6 +86,13 @@ interface ServiceOption {
   // ms a remote command may run before it is killed and reported as timed
   // out.
   remoteCommandTimeout: number;
+  // command(s) run on the server after an upload batch -- see
+  // src/modules/afterUpload.ts. sftp only.
+  afterUpload?:
+    string | string[] | { command: string | string[]; onSave?: boolean; delay?: number };
+  // download the remote file locally before an upload overwrites it -- see
+  // src/core/backup.ts
+  backup?: boolean | { dir?: string; keep?: number } | null;
 }
 
 export interface RetryOption {
@@ -120,32 +128,19 @@ interface FtpOption {
   ftpTransferType?: 'binary' | 'ascii';
 }
 
-export interface FileServiceConfig
-  extends Root,
-    Host,
-    ServiceOption,
-    SftpOption,
-    FtpOption {
+export interface FileServiceConfig extends Root, Host, ServiceOption, SftpOption, FtpOption {
   profiles?: {
     [x: string]: FileServiceConfig;
   };
 }
 
 export interface ServiceConfig
-  extends Root,
-    Host,
-    Omit<ServiceOption, 'ignore'>,
-    SftpOption,
-    FtpOption {
+  extends Root, Host, Omit<ServiceOption, 'ignore'>, SftpOption, FtpOption {
   ignore?: ((fsPath: string) => boolean) | null;
 }
 
 export interface WatcherService {
-  create(
-    watcherBase: string,
-    watcherConfig: WatcherConfig,
-    ignore?: ServiceConfig['ignore']
-  ): any;
+  create(watcherBase: string, watcherConfig: WatcherConfig, ignore?: ServiceConfig['ignore']): any;
   dispose(watcherBase: string): void;
 }
 
@@ -180,9 +175,7 @@ const MAX_RETRY_DELAY = 15 * 1000;
 // otherwise crash the underlying Scheduler, which requires a number >= 1.
 const DEFAULT_CONCURRENCY = 4;
 function resolveConcurrency(concurrency: number | undefined): number {
-  return typeof concurrency === 'number' && concurrency >= 1
-    ? concurrency
-    : DEFAULT_CONCURRENCY;
+  return typeof concurrency === 'number' && concurrency >= 1 ? concurrency : DEFAULT_CONCURRENCY;
 }
 
 // Backoff before retry number `attempt` (1 for the first retry). With the
@@ -193,8 +186,7 @@ export function getRetryDelay(attempt: number, baseDelay: number): number {
 
 function filesIgnoredFromConfig(config: FileServiceConfig): string[] {
   const cache = app.fsCache;
-  const ignore: string[] =
-    config.ignore && config.ignore.length ? config.ignore : [];
+  const ignore: string[] = config.ignore && config.ignore.length ? config.ignore : [];
 
   const ignoreFile = config.ignoreFile;
   if (!ignoreFile) {
@@ -208,9 +200,7 @@ function filesIgnoredFromConfig(config: FileServiceConfig): string[] {
     ignoreFromFile = fs.readFileSync(ignoreFile).toString();
     cache.set(ignoreFile, ignoreFromFile);
   } else {
-    throw new Error(
-      `File ${ignoreFile} not found. Check your config of "ignoreFile"`
-    );
+    throw new Error(`File ${ignoreFile} not found. Check your config of "ignoreFile"`);
   }
 
   return ignore.concat(ignoreFromFile.split(/\r?\n/g));
@@ -246,6 +236,8 @@ function getHostInfo(config) {
     // must not open a second connection to the same server
     'remoteCommands',
     'remoteCommandTimeout',
+    'afterUpload',
+    'backup',
   ];
 
   return Object.keys(config).reduce((obj, key) => {
@@ -286,9 +278,7 @@ function secondsToMilliseconds(value: unknown): number | undefined {
   return Math.round(seconds * 1000);
 }
 
-function mergeConfigWithExternalRefer(
-  config: FileServiceConfig
-): FileServiceConfig {
+function mergeConfigWithExternalRefer(config: FileServiceConfig): FileServiceConfig {
   const copyed = Object.assign({}, config);
 
   if (config.remote) {
@@ -306,9 +296,7 @@ function mergeConfigWithExternalRefer(
         return;
       }
 
-      const targetKey = remoteKeyMapping.has(key)
-        ? remoteKeyMapping.get(key)
-        : key;
+      const targetKey = remoteKeyMapping.has(key) ? remoteKeyMapping.get(key) : key;
       setConfigValue(copyed, targetKey, remote[key]);
     });
   }
@@ -317,9 +305,7 @@ function mergeConfigWithExternalRefer(
     return copyed;
   }
 
-  const sshConfigPath = replaceHomePath(
-    config.sshConfigPath || DEFAULT_SSHCONFIG_FILE
-  );
+  const sshConfigPath = replaceHomePath(config.sshConfigPath || DEFAULT_SSHCONFIG_FILE);
 
   const cache = app.fsCache;
   let sshConfigContent;
@@ -387,16 +373,13 @@ function mergeConfigWithExternalRefer(
       const milliseconds = secondsToMilliseconds(value);
       if (milliseconds === undefined) {
         logger.warn(
-          `Ignoring "${param} ${value}" from ${sshConfigPath}:` +
-            ' expected a number of seconds.'
+          `Ignoring "${param} ${value}" from ${sshConfigPath}:` + ' expected a number of seconds.'
         );
         return;
       }
 
       setConfigValue(copyed, key, milliseconds);
-      logger.debug(
-        `${param} ${value} from ${sshConfigPath}` + ` -> ${key} ${copyed[key]}ms`
-      );
+      logger.debug(`${param} ${value} from ${sshConfigPath}` + ` -> ${key} ${copyed[key]}ms`);
       return;
     }
 
@@ -406,10 +389,7 @@ function mergeConfigWithExternalRefer(
   return copyed;
 }
 
-function getCompleteConfig(
-  config: FileServiceConfig,
-  workspace: string
-): FileServiceConfig {
+function getCompleteConfig(config: FileServiceConfig, workspace: string): FileServiceConfig {
   const mergedConfig = mergeConfigWithExternalRefer(config);
 
   // Applied here rather than in the config defaults, so ConnectTimeout from
@@ -429,10 +409,7 @@ function getCompleteConfig(
   // remove the './' part from a relative path
   mergedConfig.remotePath = upath.normalize(mergedConfig.remotePath);
   if (mergedConfig.privateKeyPath) {
-    mergedConfig.privateKeyPath = resolvePath(
-      workspace,
-      mergedConfig.privateKeyPath
-    );
+    mergedConfig.privateKeyPath = resolvePath(workspace, mergedConfig.privateKeyPath);
   }
 
   if (mergedConfig.ignoreFile) {
@@ -685,11 +662,7 @@ export default class FileService {
               `${transferTask.transferType} ${transferTask.localFsPath} retry` +
                 ` aborted: reconnect failed (${reconnectError.message})`
             );
-            fileService._eventEmitter.emit(
-              Event.AFTER_TRANSFER,
-              reconnectError,
-              transferTask
-            );
+            fileService._eventEmitter.emit(Event.AFTER_TRANSFER, reconnectError, transferTask);
             transferTask.dispose();
             finishRun();
             return;
@@ -808,8 +781,7 @@ export default class FileService {
 
   getConfig(useProfile = app.state.profile): ServiceConfig {
     let config = this._config;
-    const hasProfile =
-      config.profiles && Object.keys(config.profiles).length > 0;
+    const hasProfile = config.profiles && Object.keys(config.profiles).length > 0;
     // a profile only matters when the config defines some, so everything else
     // shares a single cache entry
     const activeProfile = hasProfile && useProfile ? useProfile : null;
@@ -835,8 +807,7 @@ export default class FileService {
     }
 
     const completeConfig = getCompleteConfig(config, this.workspace);
-    const error =
-      this._configValidator && this._configValidator(completeConfig);
+    const error = this._configValidator && this._configValidator(completeConfig);
     if (error) {
       let errorMsg = `Config validation fail: ${error.message}.`;
       if (hasProfile && app.state.profile == null) {
@@ -898,9 +869,7 @@ export default class FileService {
     this._disposeFileSystem();
   }
 
-  private _resolveServiceConfig(
-    fileServiceConfig: FileServiceConfig
-  ): ServiceConfig {
+  private _resolveServiceConfig(fileServiceConfig: FileServiceConfig): ServiceConfig {
     const serviceConfig: ServiceConfig = fileServiceConfig as any;
 
     if (serviceConfig.port === undefined) {
@@ -929,7 +898,16 @@ export default class FileService {
     const localContext = this.baseDir;
     const remoteContext = config.remotePath;
 
-    const ignoreConfig = filesIgnoredFromConfig(config);
+    // a copy: this can be config.ignore itself
+    const ignoreConfig = [...filesIgnoredFromConfig(config)];
+    const backupDir = backupDirSetting(config);
+    if (backupDir) {
+      // backups live in the workspace; never upload, sync or watch them
+      const relative = path.relative(localContext, path.resolve(localContext, backupDir));
+      if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+        ignoreConfig.push(`/${relative.split(path.sep).join('/')}/`);
+      }
+    }
     if (ignoreConfig.length <= 0) {
       return null;
     }
@@ -968,9 +946,7 @@ export default class FileService {
       watcherConfig = config.watcher;
       ignore = config.ignore;
     } catch (error) {
-      logger.debug(
-        `watcher falling back to the unresolved config: ${(error as Error).message}`
-      );
+      logger.debug(`watcher falling back to the unresolved config: ${(error as Error).message}`);
       watcherConfig = this._config.watcher;
     }
 

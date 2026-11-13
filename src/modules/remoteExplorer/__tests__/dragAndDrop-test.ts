@@ -159,7 +159,9 @@ describe('planExternalDrop', () => {
   test('no target means nothing to drop onto', () => {
     const root = makeRoot(1, '/srv/www');
 
-    expect(planExternalDrop(undefined, 'file:///Users/joe/a.txt', findRootFactory([root]))).toBeNull();
+    expect(
+      planExternalDrop(undefined, 'file:///Users/joe/a.txt', findRootFactory([root]))
+    ).toBeNull();
   });
 
   test('a file is not a valid drop target', () => {

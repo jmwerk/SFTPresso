@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { COMMAND_FORGET_HOST_KEY } from '../constants';
 import { showInformationMessage, showErrorMessage } from '../host';
 import {
@@ -29,14 +29,14 @@ export default checkCommand({
     }
 
     if (identity.protocol === 'ftp') {
-      showInformationMessage('FTP connections do not use SSH host keys.');
+      showInformationMessage(l10n.t('FTP connections do not use SSH host keys.'));
       return;
     }
 
     const token = hostToken(identity.host, identity.port);
     const stored = await findHostKeys(identity.host, identity.port);
     if (stored.length === 0) {
-      showInformationMessage(`No stored SSH host key for ${token}.`);
+      showInformationMessage(l10n.t('No stored SSH host key for {0}.', token));
       return;
     }
 
@@ -52,16 +52,22 @@ export default checkCommand({
               `${entry.fingerprint}  (${entry.keyType})\n    ${entry.source}:${entry.lineNumber}`
           )
           .join('\n') +
-        '\n\nThe entries below are in files maintained by your ssh client.' +
-        ' Removing them here affects ssh, scp, and everything else that reads them:\n' +
+        '\n\n' +
+        l10n.t(
+          'The entries below are in files maintained by your ssh client. Removing them here affects ssh, scp, and everything else that reads them:'
+        ) +
+        '\n' +
         foreign.map(source => `    ${source}`).join('\n');
 
+      const remove = l10n.t('Remove');
       const confirmed = await window.showWarningMessage(
-        `Remove ${stored.length} stored host key entr${stored.length === 1 ? 'y' : 'ies'} for ${token}?`,
+        stored.length === 1
+          ? l10n.t('Remove 1 stored host key entry for {0}?', token)
+          : l10n.t('Remove {0} stored host key entries for {1}?', stored.length, token),
         { modal: true, detail },
-        'Remove'
+        remove
       );
-      if (confirmed !== 'Remove') {
+      if (confirmed !== remove) {
         return;
       }
     }
@@ -71,16 +77,26 @@ export default checkCommand({
 
     if (result.failed.length > 0) {
       showErrorMessage(
-        `Could not update ${result.failed
-          .map(failure => `${failure.source} (${failure.message})`)
-          .join(', ')}. Remove the entries for ${token} by hand, or with "ssh-keygen -R".`
+        l10n.t(
+          'Could not update {0}. Remove the entries for {1} by hand, or with "ssh-keygen -R".',
+          result.failed.map(failure => `${failure.source} (${failure.message})`).join(', '),
+          token
+        )
       );
       return;
     }
 
     showInformationMessage(
-      `Removed ${removed} host key entr${removed === 1 ? 'y' : 'ies'} for ${token}.` +
-        ' The next connection will treat it as a new host.'
+      removed === 1
+        ? l10n.t(
+            'Removed 1 host key entry for {0}. The next connection will treat it as a new host.',
+            token
+          )
+        : l10n.t(
+            'Removed {0} host key entries for {1}. The next connection will treat it as a new host.',
+            removed,
+            token
+          )
     );
   },
 });

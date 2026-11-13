@@ -4,5 +4,5 @@ import fileCommandUpload from './fileCommandUpload';
 
 export default checkFileCommand({
   ...fileCommandUpload,
-  id: COMMAND_UPLOAD_TO_ALL_PROFILES
+  id: COMMAND_UPLOAD_TO_ALL_PROFILES,
 });

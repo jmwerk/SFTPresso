@@ -1,9 +1,5 @@
 import upath from '../../../core/upath';
-import FileSystem, {
-  FileEntry,
-  FileStats,
-  FileType,
-} from '../../../core/fs/fileSystem';
+import FileSystem, { FileEntry, FileStats, FileType } from '../../../core/fs/fileSystem';
 import { sync, TransferDirection } from '../transfer';
 
 /**

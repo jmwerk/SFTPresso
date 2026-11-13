@@ -33,6 +33,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Format check
+        run: npm run format:check
+
+      # l10n.t() strings must match the committed bundle translators work from
+      - name: L10n bundle check
+        run: npm run l10n:export && git diff --exit-code -- l10n
+
       - name: Build
         run: npm run compile
 

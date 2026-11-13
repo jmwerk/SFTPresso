@@ -1,4 +1,4 @@
-import { env } from 'vscode';
+import { env, l10n } from 'vscode';
 import app from '../app';
 import { COMMAND_COPY_REMOTE_PATH } from '../constants';
 import { handleCtxFromUri } from '../fileHandlers';
@@ -27,7 +27,10 @@ export default checkCommand({
     }
 
     await env.clipboard.writeText(paths.join('\n'));
-    const copied = paths.length === 1 ? paths[0] : `${paths.length} remote paths`;
-    app.sftpBarItem.showMsg(`$(copy) Copied ${copied}`, paths.join('\n'), 2000 * 2);
+    const message =
+      paths.length === 1
+        ? l10n.t('$(copy) Copied {0}', paths[0])
+        : l10n.t('$(copy) Copied {0} remote paths', paths.length);
+    app.sftpBarItem.showMsg(message, paths.join('\n'), 2000 * 2);
   },
 });

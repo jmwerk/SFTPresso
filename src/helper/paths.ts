@@ -7,40 +7,42 @@ import { pathRelativeToWorkspace, getWorkspaceFolders } from '../host';
 
 // from https://github.com/microsoft/vscode-eslint/blob/d97a8b5e99ad30d2ce32ffa5646447202f873413/server/src/eslintServer.ts#L816
 function getFileSystemPath(uri: URI | string): string {
-	let result = typeof uri === 'string' ? uri : uri.fsPath;
-	if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
-		// Node by default uses an upper case drive letter and ESLint uses
-		// === to compare paths which results in the equal check failing
-		// if the drive letter is lower case in th URI. Ensure upper case.
-		result = result[0].toUpperCase() + result.substr(1);
-	}
-	if (process.platform === 'win32' || process.platform === 'darwin') {
-		// The path may no longer exist on disk -- e.g. a delete-watcher event
-		// fires after the file is already gone -- in which case there's no
-		// real path to resolve casing against, so fall back to the input as-is.
-		try {
-			const realpath = fs.realpathSync.native(result);
-			// Only use the real path if only the casing has changed.
-			if (realpath.toLowerCase() === result.toLowerCase()) {
-				result = realpath;
-			}
-		} catch {
-			// ignore, use result unresolved
-		}
-	}
-	return result;
+  let result = typeof uri === 'string' ? uri : uri.fsPath;
+  if (process.platform === 'win32' && result.length >= 2 && result[1] === ':') {
+    // Node by default uses an upper case drive letter and ESLint uses
+    // === to compare paths which results in the equal check failing
+    // if the drive letter is lower case in th URI. Ensure upper case.
+    result = result[0].toUpperCase() + result.substr(1);
+  }
+  if (process.platform === 'win32' || process.platform === 'darwin') {
+    // The path may no longer exist on disk -- e.g. a delete-watcher event
+    // fires after the file is already gone -- in which case there's no
+    // real path to resolve casing against, so fall back to the input as-is.
+    try {
+      const realpath = fs.realpathSync.native(result);
+      // Only use the real path if only the casing has changed.
+      if (realpath.toLowerCase() === result.toLowerCase()) {
+        result = realpath;
+      }
+    } catch {
+      // ignore, use result unresolved
+    }
+  }
+  return result;
 }
 
 export function simplifyPath(absolutePath: string) {
   return pathRelativeToWorkspace(absolutePath);
 }
 
-// FIXME: use fs.pathResolver instead of upath
+// upath is every remote FileSystem's pathResolver (SFTP and FTP), so it is used directly here.
 export function toRemotePath(localPath: string, localContext: string, remoteContext: string) {
-  return upath.join(remoteContext, path.relative(getFileSystemPath(localContext), getFileSystemPath(localPath)));
+  return upath.join(
+    remoteContext,
+    path.relative(getFileSystemPath(localContext), getFileSystemPath(localPath))
+  );
 }
 
-// FIXME: use fs.pathResolver instead of upath
 export function toLocalPath(remotePath: string, remoteContext: string, localContext: string) {
   return path.join(localContext, upath.relative(remoteContext, remotePath));
 }

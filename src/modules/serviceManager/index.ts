@@ -1,4 +1,4 @@
-import { Uri, EventEmitter } from 'vscode';
+import { EventEmitter, l10n, Uri } from 'vscode';
 import * as path from 'path';
 import app from '../../app';
 import logger from '../../logger';
@@ -90,7 +90,7 @@ function updateTransferProgress() {
     stallTicker = setInterval(checkStalls, STALL_CHECK_INTERVAL);
   }
 
-  let message = `Transferring ${doneTransferCount}/${queuedTransferCount} files`;
+  let message = l10n.t('Transferring {0}/{1} files', doneTransferCount, queuedTransferCount);
   // omit the figure until at least one in-flight task has a defined rate,
   // rather than showing a misleading "0 B/s" before any samples exist
   const running = getRunningTransformTasks();
@@ -99,7 +99,7 @@ function updateTransferProgress() {
     .map(task => task.bytesPerSecond)
     .filter((rate): rate is number => rate !== undefined);
   if (running.length > 0 && moving.length === 0) {
-    message += ' — stalled';
+    message += ' — ' + l10n.t('stalled');
   } else if (rates.length > 0) {
     const combinedBytesPerSecond = rates.reduce((sum, rate) => sum + rate, 0);
     message += ` — ${formatBytes(combinedBytesPerSecond)}/s`;
@@ -131,9 +131,12 @@ function reportTransferFailure(error: Error, context: string) {
     failureCount = 0;
 
     const message =
-      count === 1 ? '1 file failed to transfer' : `${count} files failed to transfer`;
-    showErrorMessage(message, 'Show Log').then(result => {
-      if (result === 'Show Log') {
+      count === 1
+        ? l10n.t('1 file failed to transfer')
+        : l10n.t('{0} files failed to transfer', count);
+    const showLog = l10n.t('Show Log');
+    showErrorMessage(message, showLog).then(result => {
+      if (result === showLog) {
         output.show();
       }
     });
@@ -299,13 +302,17 @@ export function createFileService(config: any, workspace: string) {
     const filepath = simplifyPath(localFsPath);
     if (task.isCancelled()) {
       logger.info(`cancel transfer ${task.describe()}`);
-      app.sftpBarItem.showMsg(`$(circle-slash) ${filename}`, `Cancelled: ${filepath}`, 2000 * 2);
+      app.sftpBarItem.showMsg(
+        `$(circle-slash) ${filename}`,
+        l10n.t('Cancelled: {0}', filepath),
+        2000 * 2
+      );
     } else if (error) {
       reportTransferFailure(error, `when ${task.describe()}`);
-      app.sftpBarItem.showMsg(`$(error) ${filename}`, `Failed: ${filepath}`, 2000 * 2);
+      app.sftpBarItem.showMsg(`$(error) ${filename}`, l10n.t('Failed: {0}', filepath), 2000 * 2);
     } else {
       logger.info(task.describe());
-      app.sftpBarItem.showMsg(`$(check) ${filename}`, `Done: ${filepath}`, 2000 * 2);
+      app.sftpBarItem.showMsg(`$(check) ${filename}`, l10n.t('Done: {0}', filepath), 2000 * 2);
     }
     doneTransferCount++;
     updateTransferProgress();

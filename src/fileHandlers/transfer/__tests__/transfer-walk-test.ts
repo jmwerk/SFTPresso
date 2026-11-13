@@ -1,9 +1,5 @@
 import upath from '../../../core/upath';
-import FileSystem, {
-  FileEntry,
-  FileStats,
-  FileType,
-} from '../../../core/fs/fileSystem';
+import FileSystem, { FileEntry, FileStats, FileType } from '../../../core/fs/fileSystem';
 import TransferTask from '../../../core/transferTask';
 import logger from '../../../logger';
 import { transfer, sync, TransferDirection } from '../transfer';
@@ -202,10 +198,7 @@ describe('transfer walk — dirPerm', () => {
     targetFs.onChmod = () => gate.promise;
 
     const tasks: TransferTask[] = [];
-    const running = transfer(
-      uploadConfig(srcFs, targetFs, { dirPerm: 755 }),
-      t => tasks.push(t)
-    );
+    const running = transfer(uploadConfig(srcFs, targetFs, { dirPerm: 755 }), t => tasks.push(t));
 
     await tick();
     // blocked on the directory chmod: nothing listed, nothing collected
@@ -216,10 +209,7 @@ describe('transfer walk — dirPerm', () => {
     await running;
 
     expect(targetFs.calls).toContain('chmod /remote 755');
-    expect(tasks.map(t => t.targetFsPath).sort()).toEqual([
-      '/remote/a.txt',
-      '/remote/sub/b.txt',
-    ]);
+    expect(tasks.map(t => t.targetFsPath).sort()).toEqual(['/remote/a.txt', '/remote/sub/b.txt']);
     // every directory got the mode, and always before it was listed
     expect(targetFs.calls.indexOf('chmod /remote/sub 755')).toBeGreaterThan(-1);
     expect(targetFs.calls.indexOf('chmod /remote 755')).toBeLessThan(
@@ -271,10 +261,7 @@ describe('transfer walk — bounded concurrency', () => {
     srcFs.onList = () => tick() as Promise<void>;
     const targetFs = new FakeFs();
 
-    await transfer(
-      uploadConfig(srcFs, targetFs, { walkConcurrency: 2 }),
-      () => undefined
-    );
+    await transfer(uploadConfig(srcFs, targetFs, { walkConcurrency: 2 }), () => undefined);
 
     expect(srcFs.callsOf('list')).toHaveLength(13);
     expect(srcFs.maxConcurrentList).toBeLessThanOrEqual(2);
@@ -285,10 +272,7 @@ describe('transfer walk — bounded concurrency', () => {
     srcFs.onList = () => tick() as Promise<void>;
     const targetFs = new FakeFs();
 
-    await transfer(
-      uploadConfig(srcFs, targetFs, { walkConcurrency: 8 }),
-      () => undefined
-    );
+    await transfer(uploadConfig(srcFs, targetFs, { walkConcurrency: 8 }), () => undefined);
 
     expect(srcFs.maxConcurrentList).toBeGreaterThan(2);
     expect(srcFs.maxConcurrentList).toBeLessThanOrEqual(8);
@@ -322,9 +306,8 @@ describe('transfer walk — cancellation', () => {
     const targetFs = new FakeFs();
 
     const tasks: TransferTask[] = [];
-    await transfer(
-      uploadConfig(srcFs, targetFs, { token: { isCancelled: () => true } }),
-      t => tasks.push(t)
+    await transfer(uploadConfig(srcFs, targetFs, { token: { isCancelled: () => true } }), t =>
+      tasks.push(t)
     );
 
     expect(tasks).toHaveLength(0);
@@ -357,10 +340,7 @@ describe('transfer walk — maxFileSize', () => {
     );
 
     expect(tasks.map(t => t.targetFsPath).sort()).toEqual(['/remote/small.txt']);
-    expect(skipped.map(s => s.fsPath).sort()).toEqual([
-      '/local/big.txt',
-      '/local/sub/big2.txt',
-    ]);
+    expect(skipped.map(s => s.fsPath).sort()).toEqual(['/local/big.txt', '/local/sub/big2.txt']);
   });
 
   test('an explicitly-requested single-file transfer is never skipped, however large', async () => {
@@ -426,10 +406,7 @@ describe('transfer walk — maxFileSize', () => {
     );
 
     expect(tasks.map(t => t.targetFsPath).sort()).toEqual(['/remote/small.txt']);
-    expect(skipped.map(s => s.fsPath).sort()).toEqual([
-      '/local/big.txt',
-      '/local/sub/big2.txt',
-    ]);
+    expect(skipped.map(s => s.fsPath).sort()).toEqual(['/local/big.txt', '/local/sub/big2.txt']);
   });
 });
 
@@ -464,12 +441,10 @@ describe('sync --delete removals', () => {
     targetFs.onUnlink = () => gate.promise;
 
     let settled = false;
-    const running = sync(syncConfig(srcFs, targetFs), () => undefined).then(
-      result => {
-        settled = true;
-        return result;
-      }
-    );
+    const running = sync(syncConfig(srcFs, targetFs), () => undefined).then(result => {
+      settled = true;
+      return result;
+    });
 
     await tick();
     expect(settled).toBe(false);

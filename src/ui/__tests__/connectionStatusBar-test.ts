@@ -1,4 +1,5 @@
 jest.mock('vscode', () => ({
+  l10n: jest.requireActual('../../../test/helper/vscodeL10n'),
   window: {
     createStatusBarItem: () => ({ show() {}, hide() {}, dispose() {} }),
   },

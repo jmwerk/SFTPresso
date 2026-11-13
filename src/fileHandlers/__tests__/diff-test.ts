@@ -15,7 +15,12 @@ jest.mock('vscode', () => {
   class Uri {}
 
   return new Proxy(Nothing, {
-    get: (o, key) => (key === 'Uri' ? Uri : o[key]),
+    get: (o, key) =>
+      key === 'Uri'
+        ? Uri
+        : key === 'l10n'
+          ? jest.requireActual('../../../test/helper/vscodeL10n')
+          : o[key],
   });
 });
 
@@ -48,7 +53,11 @@ function fakeFs(existing: string[], error?: Error) {
   };
 }
 
-function contextFor({ local = true, remote = true, remoteError }: { local?: boolean; remote?: boolean; remoteError?: Error } = {}) {
+function contextFor({
+  local = true,
+  remote = true,
+  remoteError,
+}: { local?: boolean; remote?: boolean; remoteError?: Error } = {}) {
   const target = {
     localFsPath: '/work/site/index.php',
     remoteFsPath: '/www/index.php',
@@ -94,12 +103,16 @@ describe('diff', () => {
   });
 
   test('a file missing on the remote says so', async () => {
-    await expect(diff(contextFor({ remote: false }))).rejects.toThrow("doesn't exist on the remote");
+    await expect(diff(contextFor({ remote: false }))).rejects.toThrow(
+      "doesn't exist on the remote"
+    );
     expect(diffFiles).not.toHaveBeenCalled();
   });
 
   test('any other failure is not mistaken for a missing file', async () => {
-    const ctx = contextFor({ remoteError: Object.assign(new Error('Permission denied'), { code: 3 }) });
+    const ctx = contextFor({
+      remoteError: Object.assign(new Error('Permission denied'), { code: 3 }),
+    });
 
     await expect(diff(ctx)).rejects.toThrow('Permission denied');
   });

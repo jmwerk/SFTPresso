@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import app from './app';
 import logger from './logger';
 import { showInformationMessage } from './host';
@@ -42,12 +43,18 @@ async function getStoredSecret(
   try {
     return await secrets.get(secretKey(prefix, identity));
   } catch (error) {
-    logger.warn(`read ${kind} for ${connectionToken(identity)} from secret storage failed: ${error.message}`);
+    logger.warn(
+      `read ${kind} for ${connectionToken(identity)} from secret storage failed: ${error.message}`
+    );
     return undefined;
   }
 }
 
-async function storeSecret(prefix: string, identity: ConnectIdentity, value: string): Promise<void> {
+async function storeSecret(
+  prefix: string,
+  identity: ConnectIdentity,
+  value: string
+): Promise<void> {
   const secrets = getSecretStorage();
   if (!secrets) {
     throw new Error('Secret storage is unavailable.');
@@ -73,13 +80,11 @@ async function offerToRememberSecret(
   identity: ConnectIdentity,
   value: string,
   kind: string,
+  question: string,
   offerLabel: string
 ) {
   try {
-    const answer = await showInformationMessage(
-      `Remember ${kind} for ${connectionToken(identity)}?`,
-      offerLabel
-    );
+    const answer = await showInformationMessage(question, offerLabel);
     if (answer === offerLabel) {
       await storeSecret(prefix, identity, value);
       logger.info(`${kind} for ${connectionToken(identity)} saved to secret storage`);
@@ -102,7 +107,14 @@ export function clearStoredPassword(identity: ConnectIdentity): Promise<boolean>
 }
 
 export function offerToRememberPassword(identity: ConnectIdentity, password: string) {
-  return offerToRememberSecret(SECRET_KEY_PREFIX_PASSWORD, identity, password, 'password', 'Remember password');
+  return offerToRememberSecret(
+    SECRET_KEY_PREFIX_PASSWORD,
+    identity,
+    password,
+    'password',
+    l10n.t('Remember password for {0}?', connectionToken(identity)),
+    l10n.t('Remember password')
+  );
 }
 
 export function getStoredPassphrase(identity: ConnectIdentity): Promise<string | undefined> {
@@ -123,6 +135,7 @@ export function offerToRememberPassphrase(identity: ConnectIdentity, passphrase:
     identity,
     passphrase,
     'passphrase',
-    'Remember passphrase'
+    l10n.t('Remember passphrase for {0}?', connectionToken(identity)),
+    l10n.t('Remember passphrase')
   );
 }

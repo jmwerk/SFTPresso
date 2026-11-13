@@ -3,7 +3,7 @@ import { createRemoteFolder } from '../fileHandlers';
 // import { showConfirmMessage } from '../host';
 import { checkFileCommand } from './abstract/createCommand';
 import { uriFromExplorerContextOrEditorContext } from './shared';
-import { window, Uri } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 
 export default checkFileCommand({
   id: COMMAND_CREATE_FOLDER,
@@ -13,26 +13,24 @@ export default checkFileCommand({
     if (!targets) {
       return;
     }
-   /* const filename = Array.isArray(targets)
+    /* const filename = Array.isArray(targets)
     ? targets.map(t => upath.basename(t.fsPath)).join(',')
     : upath.basename(targets.fsPath);
 */
     const result = await window.showInputBox({
-        value: '',
-        prompt: 'Please input folder name',
+      value: '',
+      prompt: l10n.t('Please input folder name'),
     });
 
-
     if (result !== undefined) {
-     //   window.showInformationMessage(targets.toString() + '%252F' + result);
+      //   window.showInformationMessage(targets.toString() + '%252F' + result);
 
-        return Uri.parse(targets.toString() + '/' + result);
+      return Uri.parse(targets.toString() + '/' + result);
     }
 
-    
     return undefined;
-    
-/*
+
+    /*
     const filename = Array.isArray(targets)
       ? targets.map(t => upath.basename(t.fsPath)).join(',')
       : upath.basename(targets.fsPath);

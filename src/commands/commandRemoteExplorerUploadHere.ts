@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import app from '../app';
 import { COMMAND_REMOTEEXPLORER_UPLOAD_HERE } from '../constants';
 import { ExplorerItem } from '../modules/remoteExplorer';
@@ -22,13 +22,17 @@ export default checkCommand({
       canSelectFiles: true,
       canSelectFolders: true,
       canSelectMany: true,
-      openLabel: 'Upload',
-      title: `Upload to '${item.resource.fsPath}'`,
+      openLabel: l10n.t('Upload'),
+      title: l10n.t("Upload to '{0}'", item.resource.fsPath),
     });
     if (!picked || !picked.length) {
       return;
     }
 
-    await uploadLocalPaths(destRoot, item.resource.fsPath, picked.map(uri => uri.fsPath));
+    await uploadLocalPaths(
+      destRoot,
+      item.resource.fsPath,
+      picked.map(uri => uri.fsPath)
+    );
   },
 });

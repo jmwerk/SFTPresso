@@ -13,7 +13,7 @@ export default class UploadOnSaveStatusBar {
       vscode.StatusBarAlignment.Left,
       STATUS_PRIORITY.uploadOnSave
     );
-    this.statusBarItem.name = 'SFTPresso Upload on Save';
+    this.statusBarItem.name = vscode.l10n.t('SFTPresso Upload on Save');
     this.statusBarItem.text = '$(cloud-upload)';
     this.statusBarItem.command = COMMAND_TOGGLE_UPLOAD_ON_SAVE;
   }
@@ -24,10 +24,10 @@ export default class UploadOnSaveStatusBar {
       return;
     }
 
-    const state = uploadOnSave ? 'On' : 'Off';
-    this.statusBarItem.tooltip = `Upload on Save: ${state} — click to toggle`;
+    const state = uploadOnSave ? vscode.l10n.t('On') : vscode.l10n.t('Off');
+    this.statusBarItem.tooltip = vscode.l10n.t('Upload on Save: {0} — click to toggle', state);
     this.statusBarItem.accessibilityInformation = {
-      label: `SFTPresso upload on save: ${state}`,
+      label: vscode.l10n.t('SFTPresso upload on save: {0}', state),
       role: 'button',
     };
     this.statusBarItem.color = uploadOnSave

@@ -9,7 +9,11 @@ import { UResource } from '../../core';
 import { toRemotePath } from '../../helper';
 import { REMOTE_SCHEME } from '../../constants';
 import { getFileService } from '../serviceManager';
-import RemoteTreeDataProvider, { ExplorerItem, ExplorerNode, isProfileRow } from './treeDataProvider';
+import RemoteTreeDataProvider, {
+  ExplorerItem,
+  ExplorerNode,
+  isProfileRow,
+} from './treeDataProvider';
 import { RemoteExplorerDragAndDropController } from './dragAndDrop';
 import RemoteFileSystemProvider from './remoteFileSystemProvider';
 import RemoteFileIndicator from './remoteFileIndicator';
@@ -23,10 +27,14 @@ export default class RemoteExplorer {
   constructor(context: vscode.ExtensionContext) {
     this._treeDataProvider = new RemoteTreeDataProvider();
     const fileSystem = new RemoteFileSystemProvider(uri => this._treeDataProvider.findRoot(uri));
-    this._remoteFileIndicator = new RemoteFileIndicator(uri => this._treeDataProvider.findRoot(uri));
+    this._remoteFileIndicator = new RemoteFileIndicator(uri =>
+      this._treeDataProvider.findRoot(uri)
+    );
     context.subscriptions.push(
       this._remoteFileIndicator,
-      vscode.workspace.registerFileSystemProvider(REMOTE_SCHEME, fileSystem, { isCaseSensitive: true }),
+      vscode.workspace.registerFileSystemProvider(REMOTE_SCHEME, fileSystem, {
+        isCaseSensitive: true,
+      }),
       this._treeDataProvider.onDidChange(uri => fileSystem.notifyChanged(uri)),
       // a file saved, created or removed through an editor shows up in the tree without a refresh
       fileSystem.onDidChangeFile(events =>
@@ -51,7 +59,9 @@ export default class RemoteExplorer {
     });
 
     registerCommand(context, COMMAND_REMOTEEXPLORER_REFRESH, () => this._refreshSelection());
-    registerCommand(context, COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE, () => this._refreshActiveRemoteFile());
+    registerCommand(context, COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE, () =>
+      this._refreshActiveRemoteFile()
+    );
     registerCommand(context, COMMAND_REMOTEEXPLORER_VIEW_CONTENT, (item: ExplorerItem) =>
       this._treeDataProvider.showItem(item)
     );
@@ -62,7 +72,7 @@ export default class RemoteExplorer {
       const uri = item.resource.uri;
       const fileService = getFileService(uri);
       if (!fileService) {
-        if (uri.toString(true) === "file:///${command:sftp.sync.remoteToLocal}") {
+        if (uri.toString(true) === 'file:///${command:sftp.sync.remoteToLocal}') {
           throw '';
         } else {
           throw new Error(`Config Not Found. (${uri.toString(true)})`);
@@ -137,7 +147,6 @@ export default class RemoteExplorer {
   private _refreshActiveRemoteFile() {
     const focusedEditor = vscode.window.activeTextEditor;
     if (focusedEditor) {
-
       const remoteFileUri = focusedEditor.document.uri;
       const root = this._treeDataProvider.findRoot(remoteFileUri);
       const incompleteResource = UResource.makeResource(remoteFileUri);
@@ -147,13 +156,12 @@ export default class RemoteExplorer {
       }
       const remoteFileItem = {
         resource: UResource.updateResource(root.resource, {
-          remotePath: incompleteResource.fsPath
+          remotePath: incompleteResource.fsPath,
         }),
-        isDirectory: false
+        isDirectory: false,
       };
 
       this.refresh(remoteFileItem);
     }
-    
   }
 }

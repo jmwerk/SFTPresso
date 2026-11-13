@@ -21,9 +21,7 @@ describe('connectionIdentity', () => {
   });
 
   test('an absent option matches one explicitly undefined', () => {
-    expect(connectionIdentity({ ...base, agent: undefined })).toBe(
-      connectionIdentity({ ...base })
-    );
+    expect(connectionIdentity({ ...base, agent: undefined })).toBe(connectionIdentity({ ...base }));
   });
 
   test('function values (the injected debug callback) do not affect identity', () => {

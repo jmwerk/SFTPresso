@@ -1,4 +1,4 @@
-import { Uri, window } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 import logger from '../../logger';
 import { reportError } from '../../helper';
 import { handleCtxFromUri, allHandleCtxFromUri, FileHandlerContext } from '../../fileHandlers';
@@ -20,6 +20,16 @@ interface CommandOption extends BaseCommandOption {
 interface FileCommandOption extends BaseCommandOption {
   handleFile: (ctx: FileHandlerContext) => Promise<unknown>;
   getFileTarget: (...args: any[]) => undefined | Uri | Uri[] | Promise<undefined | Uri | Uri[]>;
+}
+
+async function confirmUploadToAllProfiles() {
+  const yes = l10n.t('Yes');
+  const answer = await window.showInformationMessage(
+    l10n.t('Are you sure you want to upload to all profiles?'),
+    yes,
+    l10n.t('No')
+  );
+  return answer === yes;
 }
 
 function checkType<T>() {
@@ -52,11 +62,14 @@ export function createFileCommand(commandOption: FileCommandOption & { name: str
     }
 
     protected async doCommandRun(...args) {
-      if ((this.id === COMMAND_UPLOAD_FILE_TO_ALL_PROFILES || this.id === COMMAND_UPLOAD_FOLDER_TO_ALL_PROFILES) 
-        && await window.showInformationMessage('Are you sure you want to upload to all profiles?', 'Yes', 'No').then(answer => answer !== 'Yes')) {
+      if (
+        (this.id === COMMAND_UPLOAD_FILE_TO_ALL_PROFILES ||
+          this.id === COMMAND_UPLOAD_FOLDER_TO_ALL_PROFILES) &&
+        !(await confirmUploadToAllProfiles())
+      ) {
         return;
       }
-      
+
       const target = await commandOption.getFileTarget(...args);
       if (!target) {
         logger.warn(`The "${this.name}" command get canceled because of missing targets.`);
@@ -86,11 +99,14 @@ export function createFileMultiCommand(commandOption: FileCommandOption & { name
     }
 
     protected async doCommandRun(...args) {
-      if ((this.id === COMMAND_UPLOAD_FILE_TO_ALL_PROFILES || this.id === COMMAND_UPLOAD_FOLDER_TO_ALL_PROFILES) 
-        && await window.showInformationMessage('Are you sure you want to upload to all profiles?', 'Yes', 'No').then(answer => answer !== 'Yes')) {
+      if (
+        (this.id === COMMAND_UPLOAD_FILE_TO_ALL_PROFILES ||
+          this.id === COMMAND_UPLOAD_FOLDER_TO_ALL_PROFILES) &&
+        !(await confirmUploadToAllProfiles())
+      ) {
         return;
       }
-      
+
       const target = await commandOption.getFileTarget(...args);
       if (!target) {
         logger.warn(`The "${this.name}" command get canceled because of missing targets.`);

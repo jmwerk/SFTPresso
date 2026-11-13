@@ -1,5 +1,9 @@
 import * as vscode from 'vscode';
-import { COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE, EXTENSION_NAME, REMOTE_SCHEME } from '../../constants';
+import {
+  COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE,
+  EXTENSION_NAME,
+  REMOTE_SCHEME,
+} from '../../constants';
 import { STATUS_PRIORITY } from '../../ui/statusBarPriority';
 import { upath } from '../../core';
 import { getExtensionSetting } from '../ext';
@@ -30,10 +34,12 @@ export function presentRemoteFile(
   // same check RemoteFileSystemProvider makes before every read and save
   if (!root || root.resource.uri.authority !== uri.authority) {
     return {
-      text: `$(debug-disconnect) Remote: ${uri.authority}`,
-      tooltip:
-        `${name} was opened from ${uri.authority}, which the config no longer points at.` +
-        ' Saving is blocked. Reopen the file from the Remote Explorer.',
+      text: vscode.l10n.t('$(debug-disconnect) Remote: {0}', uri.authority),
+      tooltip: vscode.l10n.t(
+        '{0} was opened from {1}, which the config no longer points at. Saving is blocked. Reopen the file from the Remote Explorer.',
+        name,
+        uri.authority
+      ),
       background: 'statusBarItem.errorBackground',
       badge: REMOTE_FILE_BADGE,
       writable: false,
@@ -45,26 +51,32 @@ export function presentRemoteFile(
   const target = profile || fileService.name || hostAddress(config);
   const where = [
     hostAddress(config),
-    fileService.name && `config "${fileService.name}"`,
-    profile && `profile ${profile}`,
+    fileService.name && vscode.l10n.t('config "{0}"', fileService.name),
+    profile && vscode.l10n.t('profile {0}', profile),
   ]
     .filter(Boolean)
     .join(', ');
 
   if (readOnly) {
     return {
-      text: `$(lock) Remote (read-only): ${target}`,
-      tooltip: `${name} is open read-only from the server (${where}). Click to reload it from the server.`,
+      text: vscode.l10n.t('$(lock) Remote (read-only): {0}', target),
+      tooltip: vscode.l10n.t(
+        '{0} is open read-only from the server ({1}). Click to reload it from the server.',
+        name,
+        where
+      ),
       badge: REMOTE_FILE_BADGE,
       writable: false,
     };
   }
 
   return {
-    text: `$(cloud) Remote: ${target}`,
-    tooltip:
-      `Editing ${name} directly on the server (${where}). Saving writes straight to the server.` +
-      ' Click to reload it from the server.',
+    text: vscode.l10n.t('$(cloud) Remote: {0}', target),
+    tooltip: vscode.l10n.t(
+      'Editing {0} directly on the server ({1}). Saving writes straight to the server. Click to reload it from the server.',
+      name,
+      where
+    ),
     background: 'statusBarItem.warningBackground',
     badge: REMOTE_FILE_BADGE,
     writable: true,
@@ -91,9 +103,13 @@ function isRemote(uri: vscode.Uri | undefined): uri is vscode.Uri {
  * Makes a file opened from the Remote Explorer unmistakable: a status bar item while it's the
  * active tab, and a coloured, badged tab title for every open remote file.
  */
-export default class RemoteFileIndicator implements vscode.FileDecorationProvider, vscode.Disposable {
+export default class RemoteFileIndicator
+  implements vscode.FileDecorationProvider, vscode.Disposable
+{
   private readonly _statusBarItem: vscode.StatusBarItem;
-  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<vscode.Uri[] | undefined>();
+  private readonly _onDidChangeFileDecorations = new vscode.EventEmitter<
+    vscode.Uri[] | undefined
+  >();
   readonly onDidChangeFileDecorations = this._onDidChangeFileDecorations.event;
   private readonly _disposables: vscode.Disposable[] = [];
   private _openUris = new Map<string, vscode.Uri>();
@@ -105,7 +121,7 @@ export default class RemoteFileIndicator implements vscode.FileDecorationProvide
       vscode.StatusBarAlignment.Left,
       STATUS_PRIORITY.remoteFile
     );
-    this._statusBarItem.name = 'SFTPresso Remote File';
+    this._statusBarItem.name = vscode.l10n.t('SFTPresso Remote File');
     this._statusBarItem.command = COMMAND_REMOTEEXPLORER_REFRESH_ACTIVE_FILE;
 
     this._disposables.push(
@@ -163,7 +179,9 @@ export default class RemoteFileIndicator implements vscode.FileDecorationProvide
     const presentation = this._present(uri);
     return {
       badge: presentation.badge,
-      tooltip: presentation.writable ? 'Remote file: saving writes to the server' : 'Remote file',
+      tooltip: presentation.writable
+        ? vscode.l10n.t('Remote file: saving writes to the server')
+        : vscode.l10n.t('Remote file'),
       color: new vscode.ThemeColor(
         presentation.writable ? 'sftp.remoteFileForeground' : 'disabledForeground'
       ),
@@ -181,7 +199,12 @@ export default class RemoteFileIndicator implements vscode.FileDecorationProvide
     } catch {
       root = null;
     }
-    return presentRemoteFile(uri, root, this._activeProfile, !!getExtensionSetting().openRemoteFilesReadOnly);
+    return presentRemoteFile(
+      uri,
+      root,
+      this._activeProfile,
+      !!getExtensionSetting().openRemoteFilesReadOnly
+    );
   }
 
   // Tabs opening and closing change which uris are decorated, so both sides get re-asked.

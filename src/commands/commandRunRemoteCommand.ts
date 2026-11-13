@@ -1,6 +1,11 @@
-import { Uri, window } from 'vscode';
+import { l10n, Uri, window } from 'vscode';
 import { COMMAND_RUN_REMOTE_COMMAND } from '../constants';
-import { showConfirmMessage, showErrorMessage, showInformationMessage, isWorkspaceTrusted } from '../host';
+import {
+  showConfirmMessage,
+  showErrorMessage,
+  showInformationMessage,
+  isWorkspaceTrusted,
+} from '../host';
 import { RemoteFileSystem } from '../core/fs';
 import { execCommand } from '../core/remote-client/exec';
 import { SSHClient } from '../core/remote-client';
@@ -10,7 +15,6 @@ import { checkCommand } from './abstract/createCommand';
 import { resolveTargetService } from './shared';
 
 const DEFAULT_TIMEOUT = 60 * 1000;
-const ENTER_COMMAND = '$(edit) Enter a command…';
 
 interface CommandPick {
   label: string;
@@ -18,21 +22,21 @@ interface CommandPick {
   command?: string;
 }
 
-async function promptForCommand(remoteCommands?: Record<string, string>): Promise<string | undefined> {
+async function promptForCommand(
+  remoteCommands?: Record<string, string>
+): Promise<string | undefined> {
   const saved = remoteCommands ? Object.entries(remoteCommands) : [];
   if (saved.length <= 0) {
-    return window.showInputBox({
-      prompt: 'Command to run on the remote server',
-      placeHolder: 'e.g. php artisan cache:clear',
-      ignoreFocusOut: true,
-    });
+    return promptForCommandText();
   }
 
   const items: CommandPick[] = [
     ...saved.map(([label, command]) => ({ label, description: command, command })),
-    { label: ENTER_COMMAND },
+    { label: l10n.t('$(edit) Enter a command…') },
   ];
-  const picked = await window.showQuickPick(items, { placeHolder: 'Select a remote command to run' });
+  const picked = await window.showQuickPick(items, {
+    placeHolder: l10n.t('Select a remote command to run'),
+  });
   if (!picked) {
     return undefined;
   }
@@ -41,9 +45,13 @@ async function promptForCommand(remoteCommands?: Record<string, string>): Promis
     return picked.command;
   }
 
+  return promptForCommandText();
+}
+
+function promptForCommandText(): Thenable<string | undefined> {
   return window.showInputBox({
-    prompt: 'Command to run on the remote server',
-    placeHolder: 'e.g. php artisan cache:clear',
+    prompt: l10n.t('Command to run on the remote server'),
+    placeHolder: l10n.t('e.g. php artisan cache:clear'),
     ignoreFocusOut: true,
   });
 }
@@ -57,14 +65,16 @@ export default checkCommand({
     // shell command with an innocent-looking name and have the user run it.
     if (!isWorkspaceTrusted()) {
       showErrorMessage(
-        'Running a remote command requires a trusted workspace. Use "Workspaces: Manage Workspace Trust" to enable it.'
+        l10n.t(
+          'Running a remote command requires a trusted workspace. Use "Workspaces: Manage Workspace Trust" to enable it.'
+        )
       );
       return;
     }
 
-    const service = await resolveTargetService(uri, 'Select a config to run a command on');
+    const service = await resolveTargetService(uri, l10n.t('Select a config to run a command on'));
     if (!service) {
-      showErrorMessage('No SFTP config found.');
+      showErrorMessage(l10n.t('No SFTP config found.'));
       return;
     }
 
@@ -72,12 +82,12 @@ export default checkCommand({
     try {
       config = service.getConfig();
     } catch (error) {
-      showErrorMessage(`Invalid config: ${error.message}`);
+      showErrorMessage(l10n.t('Invalid config: {0}', error.message));
       return;
     }
 
     if (config.protocol !== 'sftp') {
-      showErrorMessage('SFTP: Run Remote Command is not supported over FTP.');
+      showErrorMessage(l10n.t('SFTP: Run Remote Command is not supported over FTP.'));
       return;
     }
 
@@ -87,22 +97,24 @@ export default checkCommand({
     }
 
     const confirmed = await showConfirmMessage(
-      `Run on ${config.host}: ${command}`,
-      'Run',
-      'Cancel'
+      l10n.t('Run on {0}: {1}', config.host, command),
+      l10n.t('Run'),
+      l10n.t('Cancel')
     );
     if (!confirmed) {
       return;
     }
 
     const timeout =
-      typeof config.remoteCommandTimeout === 'number' ? config.remoteCommandTimeout : DEFAULT_TIMEOUT;
+      typeof config.remoteCommandTimeout === 'number'
+        ? config.remoteCommandTimeout
+        : DEFAULT_TIMEOUT;
 
     let fs: RemoteFileSystem;
     try {
       fs = (await service.getRemoteFileSystem(config)) as RemoteFileSystem;
     } catch (error) {
-      showErrorMessage(`Failed to connect to ${config.host}: ${error.message}`);
+      showErrorMessage(l10n.t('Failed to connect to {0}: {1}', config.host, error.message));
       return;
     }
 
@@ -114,7 +126,7 @@ export default checkCommand({
       // (that's the check above). Kept only because RemoteClient itself
       // carries no protocol discriminant, so getRawClient() below still
       // needs an instanceof to narrow the type.
-      showErrorMessage(`Internal error: expected an SSH client for ${config.host}.`);
+      showErrorMessage(l10n.t('Internal error: expected an SSH client for {0}.', config.host));
       return;
     }
 
@@ -131,14 +143,14 @@ export default checkCommand({
       });
     } catch (error) {
       logger.error(error, 'runRemoteCommand');
-      showErrorMessage(`Failed to run command on ${config.host}: ${error.message}`);
+      showErrorMessage(l10n.t('Failed to run command on {0}: {1}', config.host, error.message));
       return;
     }
 
     if (result.timedOut) {
       print(`[timed out after ${timeout}ms; the command may still be running on the remote]`);
       logger.warn(`remote command on ${config.host} timed out after ${timeout}ms: ${command}`);
-      showErrorMessage(`Command timed out after ${timeout}ms.`);
+      showErrorMessage(l10n.t('Command timed out after {0}ms.', timeout));
       return;
     }
 
@@ -146,9 +158,9 @@ export default checkCommand({
     logger.info(`remote command on ${config.host} exited ${result.code}: ${command}`);
 
     if (result.code === 0) {
-      showInformationMessage(`Command finished on ${config.host} (exit 0).`);
+      showInformationMessage(l10n.t('Command finished on {0} (exit 0).', config.host));
     } else {
-      showErrorMessage(`Command on ${config.host} exited with code ${result.code}.`);
+      showErrorMessage(l10n.t('Command on {0} exited with code {1}.', config.host, result.code));
     }
   },
 });

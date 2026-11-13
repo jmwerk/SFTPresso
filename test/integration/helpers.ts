@@ -79,10 +79,7 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Connect with a few retries ONLY at setup (never wrap assertions in retries):
 // the compose stack may still be settling when the first spec runs.
-export async function connectFs(
-  server: ServerConfig,
-  attempts = 4
-): Promise<FTPFileSystem> {
+export async function connectFs(server: ServerConfig, attempts = 4): Promise<FTPFileSystem> {
   let lastError: unknown;
   for (let i = 0; i < attempts; i += 1) {
     const fs = newFs(server);

@@ -26,9 +26,7 @@ export type StrictHostKeyChecking = 'yes' | 'no' | 'ask' | 'accept-new';
 
 export const DEFAULT_STRICT_HOST_KEY_CHECKING: StrictHostKeyChecking = 'accept-new';
 
-export function normalizeStrictHostKeyChecking(
-  value: unknown
-): StrictHostKeyChecking {
+export function normalizeStrictHostKeyChecking(value: unknown): StrictHostKeyChecking {
   if (value === true || value === 'yes') {
     return 'yes';
   }
@@ -71,10 +69,7 @@ function readKeyType(key: Buffer): string {
 export function describeHostKey(key: Buffer): HostKeyInfo {
   return {
     type: readKeyType(key),
-    fingerprint: `SHA256:${createHash('sha256')
-      .update(key)
-      .digest('base64')
-      .replace(/=+$/, '')}`,
+    fingerprint: `SHA256:${createHash('sha256').update(key).digest('base64').replace(/=+$/, '')}`,
     base64: key.toString('base64'),
   };
 }
@@ -142,9 +137,7 @@ function patternMatches(pattern: string, token: string): boolean {
     if (salt.length === 0 || expected.length === 0) {
       return false;
     }
-    const actual = createHmac('sha1', salt)
-      .update(token)
-      .digest();
+    const actual = createHmac('sha1', salt).update(token).digest();
     return actual.length === expected.length && timingSafeEqual(actual, expected);
   }
 
@@ -190,9 +183,7 @@ export function parseKnownHosts(content: string, source: string): KnownHostEntry
     } else if (fields[0].startsWith('@')) {
       // an unknown marker means we do not understand what the line permits, so
       // ignoring it (and possibly trusting the key anyway) is not safe
-      logger.warn(
-        `ignoring ${source}:${index + 1}: unsupported known_hosts marker "${fields[0]}"`
-      );
+      logger.warn(`ignoring ${source}:${index + 1}: unsupported known_hosts marker "${fields[0]}"`);
       return;
     }
 
@@ -313,10 +304,7 @@ function opensshStorePaths(): string[] {
   }
 
   const home = os.homedir();
-  const paths = [
-    path.join(home, '.ssh', 'known_hosts'),
-    path.join(home, '.ssh', 'known_hosts2'),
-  ];
+  const paths = [path.join(home, '.ssh', 'known_hosts'), path.join(home, '.ssh', 'known_hosts2')];
   if (process.platform !== 'win32') {
     paths.push('/etc/ssh/ssh_known_hosts', '/etc/ssh/ssh_known_hosts2');
   }
@@ -382,8 +370,7 @@ export async function rememberHostKey(
 
   const token = hostToken(host, port);
   const line =
-    `# added by SFTPresso on ${new Date().toISOString()}\n` +
-    `${knownHostsLine(token, key)}\n`;
+    `# added by SFTPresso on ${new Date().toISOString()}\n` + `${knownHostsLine(token, key)}\n`;
 
   await fs.promises.mkdir(path.dirname(managedStorePath), { recursive: true });
   await fs.promises.appendFile(managedStorePath, line, { mode: 0o600 });
@@ -414,10 +401,7 @@ export async function isKnownHost(host: string, port?: number): Promise<boolean>
 }
 
 /** Everything any store holds for a host, for display. */
-export async function findHostKeys(
-  host: string,
-  port?: number
-): Promise<StoredHostKey[]> {
+export async function findHostKeys(host: string, port?: number): Promise<StoredHostKey[]> {
   const token = hostToken(host, port);
   return (await readAllKnownHosts())
     .filter(entry => entryMatchesHost(entry, token))
@@ -474,9 +458,7 @@ export async function forgetHostKey(
     }
 
     const trailingNewline = /\r?\n$/.test(content);
-    const kept = content
-      .split(/\r?\n/)
-      .filter((_line, index) => !doomed.has(index + 1));
+    const kept = content.split(/\r?\n/).filter((_line, index) => !doomed.has(index + 1));
     // splitting a file that ended in a newline leaves an empty last element;
     // drop it and re-add the newline so the file does not grow a blank line on
     // every edit

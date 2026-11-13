@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import * as vscode from 'vscode';
 import logger from '../logger';
 import { realpathSync } from 'fs';
@@ -55,9 +56,7 @@ function scheduleConfigReload(uri: vscode.Uri) {
 // only the workspace folder's own .vscode/sftp.json defines its services
 function isWorkspaceConfig(uri: vscode.Uri) {
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-  return (
-    !!workspaceFolder && uri.fsPath === path.join(workspaceFolder.uri.fsPath, CONFIG_PATH)
-  );
+  return !!workspaceFolder && uri.fsPath === path.join(workspaceFolder.uri.fsPath, CONFIG_PATH);
 }
 
 async function handleConfigSave(uri: vscode.Uri) {
@@ -114,8 +113,8 @@ function handleConfigDelete(uri: vscode.Uri) {
   // invalid) leaves nothing disposed above and would make this a false alarm.
   if (affectedServices.length > 0) {
     const label = workspaceFolder ? workspaceFolder.name : uri.fsPath;
-    showInformationMessage(`SFTP config removed. SFTP disabled for "${label}".`);
-    app.sftpBarItem.showMsg('SFTP config removed', uri.fsPath, 2000 * 2);
+    showInformationMessage(l10n.t('SFTP config removed. SFTP disabled for "{0}".', label));
+    app.sftpBarItem.showMsg(l10n.t('SFTP config removed'), uri.fsPath, 2000 * 2);
   }
 }
 
@@ -140,7 +139,7 @@ async function handleFileSave(uri: vscode.Uri) {
     uri = vscode.Uri.file(fspath);
     logger.info(`[file-save] ${fspath}`);
     try {
-      await uploadFile(uri);
+      await uploadFile(uri, { automatic: true });
     } catch (error) {
       logger.error(error, `download ${fspath}`);
       app.sftpBarItem.updateStatus(StatusBarItem.Status.error);
@@ -166,7 +165,7 @@ async function downloadOnOpen(uri: vscode.Uri) {
     }
 
     if (config.downloadOnOpen === 'confirm') {
-      const isConfirm = await showConfirmMessage('Do you want SFTP to download this file?');
+      const isConfirm = await showConfirmMessage(l10n.t('Do you want SFTP to download this file?'));
       if (!isConfirm) return;
     }
 

@@ -33,26 +33,26 @@ interface StatePresentation {
 function present(state: ConnectionState): StatePresentation {
   switch (state) {
     case ConnectionState.Connecting:
-      return { text: '$(sync~spin)', tooltip: 'connecting…' };
+      return { text: '$(sync~spin)', tooltip: vscode.l10n.t('connecting…') };
     case ConnectionState.Reconnecting:
-      return { text: '$(sync~spin)', tooltip: 'reconnecting…' };
+      return { text: '$(sync~spin)', tooltip: vscode.l10n.t('reconnecting…') };
     case ConnectionState.Connected:
-      return { text: '$(vm-active)', tooltip: 'connected' };
+      return { text: '$(vm-active)', tooltip: vscode.l10n.t('connected') };
     case ConnectionState.Lost:
       return {
         text: '$(debug-disconnect)',
         // no background: servers routinely close idle connections, which is benign
-        tooltip: 'connection lost, reconnects on next use',
+        tooltip: vscode.l10n.t('connection lost, reconnects on next use'),
       };
     case ConnectionState.Error:
       return {
         text: '$(error)',
-        tooltip: 'connection error',
+        tooltip: vscode.l10n.t('connection error'),
         background: 'statusBarItem.errorBackground',
       };
     case ConnectionState.Idle:
     default:
-      return { text: '$(plug)', tooltip: 'idle' };
+      return { text: '$(plug)', tooltip: vscode.l10n.t('idle') };
   }
 }
 
@@ -72,7 +72,7 @@ export default class ConnectionStatusBar {
       vscode.StatusBarAlignment.Left,
       STATUS_PRIORITY.connection
     );
-    this.statusBarItem.name = 'SFTPresso Connection';
+    this.statusBarItem.name = vscode.l10n.t('SFTPresso Connection');
     this.statusBarItem.command = COMMAND_TEST_CONNECTION;
     this._render();
   }
@@ -127,13 +127,14 @@ export default class ConnectionStatusBar {
   private _render() {
     const { text, tooltip, background } = present(this._aggregate());
     this.statusBarItem.text = text;
-    this.statusBarItem.tooltip = `SFTPresso: ${tooltip} — click to test connection`;
+    this.statusBarItem.tooltip = vscode.l10n.t(
+      'SFTPresso: {0} — click to test connection',
+      tooltip
+    );
     this.statusBarItem.accessibilityInformation = {
-      label: `SFTPresso connection: ${tooltip}`,
+      label: vscode.l10n.t('SFTPresso connection: {0}', tooltip),
       role: 'button',
     };
-    this.statusBarItem.backgroundColor = background
-      ? new vscode.ThemeColor(background)
-      : undefined;
+    this.statusBarItem.backgroundColor = background ? new vscode.ThemeColor(background) : undefined;
   }
 }

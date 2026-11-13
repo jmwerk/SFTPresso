@@ -81,7 +81,11 @@ export async function parallelCopy(
   let firstError: unknown;
 
   function claim(): { offset: number; length: number } | null {
-    if (firstError !== undefined || (token && token.isCancellationRequested) || nextOffset >= size) {
+    if (
+      firstError !== undefined ||
+      (token && token.isCancellationRequested) ||
+      nextOffset >= size
+    ) {
       return null;
     }
     const offset = nextOffset;
@@ -109,10 +113,7 @@ export async function parallelCopy(
           if (read <= 0) {
             throw new Error(`unexpected end of stream at offset ${chunk.offset + done}`);
           }
-          await abortable(
-            dst.write(buffer.subarray(0, read), chunk.offset + done, read),
-            token
-          );
+          await abortable(dst.write(buffer.subarray(0, read), chunk.offset + done, read), token);
           done += read;
           transferred += read;
           opts.onProgress?.(transferred);

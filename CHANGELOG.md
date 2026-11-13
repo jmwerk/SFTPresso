@@ -1,3 +1,17 @@
+## 1.42.0 - 2026-11-13
+
+* New Feature : **Run commands on the server after an upload.** The new `afterUpload` option runs one or more shell commands in `remotePath` once an upload, folder upload, sync or **Upload Changed Files** finishes — clearing a cache, restarting a queue. A batch runs them once, after uploads have been quiet for `delay` ms, and only if every upload succeeded. Set `onSave: true` to include upload on save. Because `sftp.json` can come from a cloned repo, the first run of each command set asks **Run / Always Run / Skip**, and untrusted workspaces never run them. Output goes to the SFTPresso output channel. SFTP only. ([#168](https://github.com/jmwerk/SFTPresso/pull/168))
+
+* New Feature : **Set Permissions from the Remote Explorer.** Right-click remote files or folders → **Set Permissions…**, prefilled with the current octal mode. For a folder, apply it to the folder only or to its contents too, with a separate mode for files (default `filePerm` or `644`). Symlinks are skipped, and a folder mode without the owner execute bit gets a warning. Works over SFTP and over FTP servers that support `SITE CHMOD`. ([#169](https://github.com/jmwerk/SFTPresso/pull/169))
+
+* New Feature : **Back up remote files before they're overwritten.** With `"backup": true`, every upload, sync or **Edit Remotely** save that would replace an existing remote file first downloads the current remote version to `.sftpresso-backup/<host>/<path>` locally, timestamped, keeping the newest 5 per file (`backup.dir` and `backup.keep` change both). If the backup fails, the upload doesn't happen. Backups stay on your machine rather than on the server, where a copy of `wp-config.php` under the web root could be served. ([#170](https://github.com/jmwerk/SFTPresso/pull/170))
+
+* New Feature : **Search Remote Files.** **SFTP: Search Remote Files…** searches file contents on the server with `grep` over the existing SSH connection, without downloading anything — from the palette across `remotePath`, or from a Remote Explorer folder. Matching is literal and case-insensitive unless the text has an uppercase letter. Results are grouped by file; picking one opens it from the server at the match. VCS folders, `node_modules` and `remoteExplorer.filesExclude` folders are skipped. SFTP only. ([#171](https://github.com/jmwerk/SFTPresso/pull/171))
+
+* Improvement : **Ready for translation.** Command titles, settings and every user-facing message now go through VS Code's localization (`package.nls.json` and `l10n/bundle.l10n.json`), so a translation can be added without code changes. English text is unchanged apart from fixing "Can't create file becase file already exist". ([#174](https://github.com/jmwerk/SFTPresso/pull/174))
+
+* Internal : Source formatted with Prettier, checked in CI; the reformat commit is listed in `.git-blame-ignore-revs`. Integration test FTP images pinned by digest. ([#172](https://github.com/jmwerk/SFTPresso/pull/172), [#173](https://github.com/jmwerk/SFTPresso/pull/173), [#167](https://github.com/jmwerk/SFTPresso/pull/167))
+
 ## 1.41.0 - 2026-11-12
 
 * Improvement : **Transfer logs show where each file went.** The output channel logged only the local path of a transfer, so a misconfigured `remotePath` or `context` was hard to spot. Each transfer is now logged on one line with its source and destination, e.g. `local ➞ remote /local/a.php -> /www/a.php`, and failed and cancelled transfers include the remote path too. (Pull request [#165](https://github.com/jmwerk/SFTPresso/pull/165) from @workman110.)

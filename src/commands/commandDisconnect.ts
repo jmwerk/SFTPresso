@@ -1,3 +1,4 @@
+import { l10n } from 'vscode';
 import { COMMAND_DISCONNECT } from '../constants';
 import { showInformationMessage } from '../host';
 import logger from '../logger';
@@ -14,7 +15,7 @@ export default checkCommand({
     // a list is not something you should have to do to get unstuck.
     const services = getAllFileService();
     if (!services.length) {
-      showInformationMessage('No SFTP config found.');
+      showInformationMessage(l10n.t('No SFTP config found.'));
       return;
     }
 
@@ -41,10 +42,10 @@ export default checkCommand({
     logger.info(`disconnected ${closed} connections across ${services.length} configs`);
     showInformationMessage(
       closed === 0
-        ? 'Nothing was connected.'
+        ? l10n.t('Nothing was connected.')
         : closed === 1
-        ? 'Disconnected. The next command will reconnect.'
-        : `Disconnected ${closed} connections. The next command will reconnect.`
+          ? l10n.t('Disconnected. The next command will reconnect.')
+          : l10n.t('Disconnected {0} connections. The next command will reconnect.', closed)
     );
   },
 });

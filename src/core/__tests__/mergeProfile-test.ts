@@ -7,7 +7,9 @@ describe('mergeProfile', () => {
         { syncOption: { delete: false, skipCreate: false, ignoreExisting: false, update: true } },
         { syncOption: { delete: true } }
       )
-    ).toEqual({ syncOption: { delete: true, skipCreate: false, ignoreExisting: false, update: true } });
+    ).toEqual({
+      syncOption: { delete: true, skipCreate: false, ignoreExisting: false, update: true },
+    });
   });
 
   test('deep-merges remoteExplorer and watcher settings', () => {
@@ -34,7 +36,10 @@ describe('mergeProfile', () => {
 
   test('does not recursively merge unrelated nested settings', () => {
     expect(
-      mergeProfile({ algorithms: { kex: ['curve25519'], cipher: ['aes256-ctr'] } }, { algorithms: { kex: ['ecdh'] } })
+      mergeProfile(
+        { algorithms: { kex: ['curve25519'], cipher: ['aes256-ctr'] } },
+        { algorithms: { kex: ['ecdh'] } }
+      )
     ).toEqual({ algorithms: { kex: ['ecdh'] } });
   });
 });
@@ -110,12 +115,17 @@ describe('baseEquivalentProfile', () => {
 
   test('finds the profile that only repeats base settings', () => {
     expect(
-      baseEquivalentProfile({ ...base, profiles: { Live: { port: 62909 }, Staging: { port: 15526 } } })
+      baseEquivalentProfile({
+        ...base,
+        profiles: { Live: { port: 62909 }, Staging: { port: 15526 } },
+      })
     ).toBe('Live');
   });
 
   test('is undefined when every profile changes something', () => {
-    expect(baseEquivalentProfile({ ...base, profiles: { Staging: { port: 15526 } } })).toBeUndefined();
+    expect(
+      baseEquivalentProfile({ ...base, profiles: { Staging: { port: 15526 } } })
+    ).toBeUndefined();
     expect(baseEquivalentProfile(base)).toBeUndefined();
   });
 });

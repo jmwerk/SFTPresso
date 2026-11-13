@@ -8,7 +8,10 @@ jest.mock('../fs', () => {
 
     ended = false;
 
-    constructor(public pathResolver: any, public option: any) {
+    constructor(
+      public pathResolver: any,
+      public option: any
+    ) {
       FakeRemoteFs.instances.push(this);
     }
 

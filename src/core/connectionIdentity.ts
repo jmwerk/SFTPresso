@@ -66,10 +66,7 @@ function canonicalize(value: unknown, seen: WeakSet<object>): string {
   return canonicalizeObject(object as Record<string, unknown>, seen);
 }
 
-function canonicalizeObject(
-  option: Record<string, unknown>,
-  seen: WeakSet<object>
-): string {
+function canonicalizeObject(option: Record<string, unknown>, seen: WeakSet<object>): string {
   const parts = Object.keys(option)
     .filter(key => {
       const value = option[key];
@@ -87,8 +84,7 @@ function canonicalizeObject(
 // logged identity is recognizable. Never includes the password.
 function describeRemote(option: Record<string, any>): string {
   const protocol = typeof option.protocol === 'string' ? option.protocol : 'sftp';
-  const port =
-    option.port !== undefined ? option.port : protocol === 'ftp' ? 21 : 22;
+  const port = option.port !== undefined ? option.port : protocol === 'ftp' ? 21 : 22;
   const username = option.username !== undefined ? option.username : '';
   const host = option.host !== undefined ? option.host : '';
   return `${protocol}://${username}@${host}:${port}`;
@@ -96,9 +92,7 @@ function describeRemote(option: Record<string, any>): string {
 
 export function connectionIdentity(option: Record<string, any>): string {
   const canonical = canonicalizeObject(option || {}, new WeakSet<object>());
-  const digest = createHash('sha256')
-    .update(canonical)
-    .digest('hex');
+  const digest = createHash('sha256').update(canonical).digest('hex');
 
   return `${describeRemote(option || {})}#${digest}`;
 }

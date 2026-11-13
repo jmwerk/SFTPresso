@@ -1,4 +1,4 @@
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import debounce from 'lodash.debounce';
 import app from '../app';
 import { COMMAND_REMOTEEXPLORER_FILTER } from '../constants';
@@ -11,7 +11,7 @@ export default checkCommand({
 
   handleCommand() {
     const quickPick = window.createQuickPick();
-    quickPick.placeholder = 'Filter Remote Explorer by name (substring match)';
+    quickPick.placeholder = l10n.t('Filter Remote Explorer by name (substring match)');
     quickPick.value = app.remoteExplorer.getFilter() || '';
 
     const debouncedSetFilter = debounce(

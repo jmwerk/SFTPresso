@@ -166,7 +166,9 @@ export function sshServerHasher(client: Client): ServerHasher {
         result = await execCommand(client, `${tool} -- ${args}`, { timeout, closeStdin: true });
       } catch (error) {
         // exec refused outright: a restricted shell, or no session channels
-        logger.info(`server-side hashing unavailable (${error && error.message}); streaming instead`);
+        logger.info(
+          `server-side hashing unavailable (${error && error.message}); streaming instead`
+        );
         s.tool = false;
         return null;
       }

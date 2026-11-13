@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { Uri } from 'vscode';
+import { l10n, Uri } from 'vscode';
 import { COMMAND_ADD_TO_IGNORE } from '../constants';
 import { FileType } from '../core';
 import { showErrorMessage, showInformationMessage } from '../host';
@@ -20,7 +20,7 @@ function matchServiceConfig(service) {
 async function addToIgnore(uri: Uri) {
   const service = getFileService(uri);
   if (!service) {
-    showErrorMessage(`No SFTP config found for ${uri.fsPath}.`);
+    showErrorMessage(l10n.t('No SFTP config found for {0}.', uri.fsPath));
     return;
   }
 
@@ -28,14 +28,11 @@ async function addToIgnore(uri: Uri) {
   try {
     stat = await service.getLocalFileSystem().lstat(uri.fsPath);
   } catch (error) {
-    showErrorMessage(`Failed to read ${uri.fsPath}: ${error.message}`);
+    showErrorMessage(l10n.t('Failed to read {0}: {1}', uri.fsPath, error.message));
     return;
   }
 
-  const relativePath = path
-    .relative(service.baseDir, uri.fsPath)
-    .split(path.sep)
-    .join('/');
+  const relativePath = path.relative(service.baseDir, uri.fsPath).split(path.sep).join('/');
   const entry = stat.type === FileType.Directory ? `${relativePath}/**` : relativePath;
 
   const configPath = getConfigPath(service.workspace);
@@ -44,12 +41,12 @@ async function addToIgnore(uri: Uri) {
     if (added) {
       const raw = service.getRawConfig();
       service.setConfigValue('ignore', [...(raw.ignore || []), entry]);
-      showInformationMessage(`Added "${entry}" to ignore in ${configPath}.`);
+      showInformationMessage(l10n.t('Added "{0}" to ignore in {1}.', entry, configPath));
     } else {
-      showInformationMessage(`"${entry}" is already in ignore.`);
+      showInformationMessage(l10n.t('"{0}" is already in ignore.', entry));
     }
   } catch (error) {
-    showErrorMessage(`Failed to update ${configPath}: ${error.message}`);
+    showErrorMessage(l10n.t('Failed to update {0}: {1}', configPath, error.message));
   }
 }
 

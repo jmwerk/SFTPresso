@@ -1,8 +1,9 @@
 import * as path from 'path';
-import { window, ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation, window } from 'vscode';
 import app from '../../app';
 import StatusBarItem from '../../ui/statusBarItem';
 import { FileEntry, TransferTask } from '../../core';
+import { createBackupHook } from '../../core/backup';
 import { ContentHasher, createContentHasher } from '../../core/contentHash';
 import logger from '../../logger';
 import { refreshRemoteExplorer } from '../shared';
@@ -20,6 +21,7 @@ import {
 } from './transfer';
 import { claimWatcherSuppression } from '../../modules/watcherSuppression';
 import { onTransferEvent } from '../../modules/serviceManager';
+import { reportUploadBatch } from '../../modules/afterUpload';
 
 function formatSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) {
@@ -111,8 +113,8 @@ async function withTransferProgress<T>(
         progress.report({
           message:
             failed > 0
-              ? `${completed}/${batchTasks.size} files — ${failed} failed`
-              : `${completed}/${batchTasks.size} files`,
+              ? l10n.t('{0}/{1} files — {2} failed', completed, batchTasks.size, failed)
+              : l10n.t('{0}/{1} files', completed, batchTasks.size),
         });
       });
       const cancelSub = cancelToken.onCancellationRequested(() => scheduler.stop());
@@ -127,7 +129,41 @@ async function withTransferProgress<T>(
   );
 }
 
-function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx: FileHandlerContext) => string) {
+/**
+ * Count how a batch's uploads ended, for afterUpload. Only local -> remote tasks
+ * count: in a two-way sync the downloads don't change the server.
+ */
+function trackUploads() {
+  const tasks = new Set<TransferTask>();
+  let uploaded = 0;
+  let failed = 0;
+  const sub = onTransferEvent(({ type, task, error }) => {
+    if (type !== 'done' || !tasks.has(task) || task.isCancelled()) {
+      return;
+    }
+    if (error) {
+      failed++;
+    } else {
+      uploaded++;
+    }
+  });
+  return {
+    track(task: TransferTask) {
+      if (task.transferType === TransferDirection.LOCAL_TO_REMOTE) {
+        tasks.add(task);
+      }
+    },
+    finish() {
+      sub.dispose();
+      return { uploaded, failed };
+    },
+  };
+}
+
+function createTransferHandle(
+  direction: TransferDirection,
+  progressTitle?: (ctx: FileHandlerContext) => string
+) {
   return async function handle(this: FileHandlerContext, option) {
     // Stale-remote guard (gated by conflictCheck). Anything but "proceed"
     // leaves the remote untouched.
@@ -165,6 +201,13 @@ function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx
       skipped,
     };
     let transferConfig;
+    const uploads = trackUploads();
+    // a batch that threw (lost connection, cancelled walk) counts as failed
+    let completed = false;
+    const queue = (t: TransferTask) => {
+      uploads.track(t);
+      scheduler.add(t);
+    };
 
     if (direction === TransferDirection.REMOTE_TO_LOCAL) {
       transferConfig = {
@@ -177,6 +220,7 @@ function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx
         transferDirection: TransferDirection.REMOTE_TO_LOCAL,
       };
     } else {
+      option.beforeOverwrite = createBackupHook(this.config, this.fileService.baseDir);
       transferConfig = {
         ...walkOption,
         srcFsPath: localFsPath,
@@ -194,16 +238,25 @@ function createTransferHandle(direction: TransferDirection, progressTitle?: (ctx
         await withTransferProgress(progressTitle(this), scheduler, async trackTask => {
           await transfer(transferConfig, t => {
             trackTask(t);
-            scheduler.add(t);
+            queue(t);
           });
           await scheduler.run();
         });
       } else {
-        await transfer(transferConfig, t => scheduler.add(t));
+        await transfer(transferConfig, queue);
         await scheduler.run();
       }
+      completed = true;
     } finally {
       releaseWatcherClaim?.();
+      const { uploaded, failed } = uploads.finish();
+      if (direction === TransferDirection.LOCAL_TO_REMOTE) {
+        reportUploadBatch(this.fileService, this.config, {
+          changed: uploaded,
+          failed: completed ? failed : failed + 1,
+          automatic: Boolean(option.automatic),
+        });
+      }
     }
     reportSkipped(direction === TransferDirection.LOCAL_TO_REMOTE ? 'Upload' : 'Download', skipped);
 
@@ -218,13 +271,11 @@ const downloadHandle = createTransferHandle(TransferDirection.REMOTE_TO_LOCAL);
 // Folder/project transfers can run long enough to need visible progress and a
 // way to cancel -- single-file transfers finish too fast for that to be
 // anything but noise, so only these two variants show a notification.
-const uploadFolderHandle = createTransferHandle(
-  TransferDirection.LOCAL_TO_REMOTE,
-  ctx => `SFTP: uploading ${path.basename(ctx.target.localFsPath)}`
+const uploadFolderHandle = createTransferHandle(TransferDirection.LOCAL_TO_REMOTE, ctx =>
+  l10n.t('SFTP: uploading {0}', path.basename(ctx.target.localFsPath))
 );
-const downloadFolderHandle = createTransferHandle(
-  TransferDirection.REMOTE_TO_LOCAL,
-  ctx => `SFTP: downloading ${path.basename(ctx.target.localFsPath)}`
+const downloadFolderHandle = createTransferHandle(TransferDirection.REMOTE_TO_LOCAL, ctx =>
+  l10n.t('SFTP: downloading {0}', path.basename(ctx.target.localFsPath))
 );
 
 // The preview's progress notification is gone once it is answered.
@@ -258,33 +309,48 @@ export const sync2Remote = createFileHandler<SyncOption>({
     // Attach filePerm and dirPerm to transferOption
     option.filePerm = this.config.filePerm;
     option.dirPerm = this.config.dirPerm;
+    option.beforeOverwrite = createBackupHook(this.config, this.fileService.baseDir);
     const skipped: SkippedEntry[] = [];
-    const deleted = await withTransferProgress(
-      `SFTP: sync local → remote (${path.basename(localFsPath)})`,
-      scheduler,
-      async trackTask => {
-        const result = await sync(
-          {
-            srcFsPath: localFsPath,
-            srcFs: localFs,
-            targetFsPath: remoteFsPath,
-            targetFs: remoteFs,
-            transferOption: option,
-            transferDirection: TransferDirection.LOCAL_TO_REMOTE,
-            walkConcurrency: this.config.concurrency,
-            token: { isCancelled: () => scheduler.isStopped() },
-            skipped,
-            hasher,
-          },
-          t => {
-            trackTask(t);
-            scheduler.add(t);
-          }
-        );
-        await scheduler.run();
-        return result;
-      }
-    );
+    const uploads = trackUploads();
+    let deleted: FileEntry[] = [];
+    let completed = false;
+    try {
+      deleted = await withTransferProgress(
+        l10n.t('SFTP: sync local → remote ({0})', path.basename(localFsPath)),
+        scheduler,
+        async trackTask => {
+          const result = await sync(
+            {
+              srcFsPath: localFsPath,
+              srcFs: localFs,
+              targetFsPath: remoteFsPath,
+              targetFs: remoteFs,
+              transferOption: option,
+              transferDirection: TransferDirection.LOCAL_TO_REMOTE,
+              walkConcurrency: this.config.concurrency,
+              token: { isCancelled: () => scheduler.isStopped() },
+              skipped,
+              hasher,
+            },
+            t => {
+              trackTask(t);
+              uploads.track(t);
+              scheduler.add(t);
+            }
+          );
+          await scheduler.run();
+          return result;
+        }
+      );
+      completed = true;
+    } finally {
+      const { uploaded, failed } = uploads.finish();
+      reportUploadBatch(this.fileService, this.config, {
+        changed: uploaded + deleted.length,
+        failed: completed ? failed : failed + 1,
+        automatic: false,
+      });
+    }
     reportDeletions('Sync Local → Remote', deleted);
     reportSkipped('Sync Local → Remote', skipped);
   },
@@ -341,7 +407,7 @@ export const sync2Local = createFileHandler<SyncOption>({
     let deleted: FileEntry[];
     try {
       deleted = await withTransferProgress(
-        `SFTP: sync remote → local (${path.basename(localFsPath)})`,
+        l10n.t('SFTP: sync remote → local ({0})', path.basename(localFsPath)),
         scheduler,
         async trackTask => {
           const result = await sync(

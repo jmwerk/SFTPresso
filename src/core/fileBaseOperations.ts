@@ -1,5 +1,5 @@
 import { FileSystem } from './fs';
-import { window } from 'vscode';
+import { l10n, window } from 'vscode';
 import { Readable } from 'stream';
 import logger from '../logger';
 
@@ -56,15 +56,13 @@ export async function createFile(path: string, fs: FileSystem, option): Promise<
   try {
     await fs.lstat(path);
     logger.warn(`Can't create file becase file already exist`);
-    window.showErrorMessage(`Can't create file becase file already exist`);
+    window.showErrorMessage(l10n.t("Can't create the file because it already exists."));
     return;
-  } catch (error) {
-
-  }
+  } catch (error) {}
 
   const targetFd = await fs.open(path, 'w');
   const s = new Readable();
-  s._read = () => { };
+  s._read = () => {};
   s.push(null);
   return fs.put(s, path, { fd: targetFd });
 }

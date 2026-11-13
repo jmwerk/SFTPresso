@@ -1,4 +1,4 @@
-import { Uri, window, ProgressLocation } from 'vscode';
+import { l10n, ProgressLocation, Uri, window } from 'vscode';
 import { COMMAND_COMPARE_FOLDERS } from '../constants';
 import { FileType, isNotFoundError } from '../core';
 import { ContentHasher, createContentHasher } from '../core/contentHash';
@@ -18,13 +18,20 @@ import { selectFolderFallbackToConfigContext, uriFromfspath, applySelector } fro
 import { reportError } from '../helper';
 import logger from '../logger';
 
-const STATUS_LABEL: { [key in CompareStatus]: string } = {
-  modified: '$(diff-modified) Modified',
-  localOnly: '$(diff-added) Local only',
-  remoteOnly: '$(diff-removed) Remote only',
-  same: '$(check) Identical',
-  error: '$(warning) Could not read',
-};
+function statusLabel(status: CompareStatus): string {
+  switch (status) {
+    case 'modified':
+      return l10n.t('$(diff-modified) Modified');
+    case 'localOnly':
+      return l10n.t('$(diff-added) Local only');
+    case 'remoteOnly':
+      return l10n.t('$(diff-removed) Remote only');
+    case 'same':
+      return l10n.t('$(check) Identical');
+    default:
+      return l10n.t('$(warning) Could not read');
+  }
+}
 
 // Opening more diff tabs than this at once asks first.
 const OPEN_ALL_CONFIRM_THRESHOLD = 10;
@@ -44,8 +51,9 @@ interface Pick {
   run(): Promise<void>;
 }
 
-function plural(count: number, noun: string): string {
-  return `${count.toLocaleString()} ${noun}${count === 1 ? '' : 's'}`;
+// Both forms are passed already translated so the l10n extractor sees each string.
+function plural(count: number, one: string, other: string): string {
+  return count === 1 ? one : other;
 }
 
 function modifiedFiles(results: CompareResult[]): CompareResult[] {
@@ -83,14 +91,21 @@ async function showResults(session: CompareSession, note?: string): Promise<void
   const timestampOnly = results.filter(r => r.timestampOnly).length;
   const timestampNote =
     timestampOnly > 0
-      ? `${plural(timestampOnly, 'file')} differ only in timestamp and ${
-          timestampOnly === 1 ? 'is' : 'are'
-        } treated as identical.`
+      ? plural(
+          timestampOnly,
+          l10n.t('1 file differs only in timestamp and is treated as identical.'),
+          l10n.t(
+            '{0} files differ only in timestamp and are treated as identical.',
+            timestampOnly.toLocaleString()
+          )
+        )
       : '';
 
   if (changed.length === 0) {
     window.showInformationMessage(
-      ['Compare Folders: local and remote are identical.', timestampNote].filter(Boolean).join(' ')
+      [l10n.t('Compare Folders: local and remote are identical.'), timestampNote]
+        .filter(Boolean)
+        .join(' ')
     );
     return;
   }
@@ -100,9 +115,15 @@ async function showResults(session: CompareSession, note?: string): Promise<void
   const modified = modifiedFiles(results);
   if (modified.length > 1) {
     picks.push({
-      label: '$(diff-multiple) Open All Diffs',
-      description: plural(modified.length, 'modified file'),
-      detail: 'Open each modified file side by side with its remote copy, one tab per file.',
+      label: l10n.t('$(diff-multiple) Open All Diffs'),
+      description: plural(
+        modified.length,
+        l10n.t('{0} modified file', modified.length.toLocaleString()),
+        l10n.t('{0} modified files', modified.length.toLocaleString())
+      ),
+      detail: l10n.t(
+        'Open each modified file side by side with its remote copy, one tab per file.'
+      ),
       run: () => openAllDiffs(session, modified),
     });
   }
@@ -110,19 +131,23 @@ async function showResults(session: CompareSession, note?: string): Promise<void
   const recheckable = session.byContent ? 0 : countRecheckable(results);
   if (recheckable > 0) {
     picks.push({
-      label: '$(search) Check Contents',
-      description: plural(recheckable, 'same-size file'),
-      detail:
-        'Hash these to drop the ones that differ only in timestamp. ' +
-        'Set "compareMode": "content" to always compare this way.',
+      label: l10n.t('$(search) Check Contents'),
+      description: plural(
+        recheckable,
+        l10n.t('{0} same-size file', recheckable.toLocaleString()),
+        l10n.t('{0} same-size files', recheckable.toLocaleString())
+      ),
+      detail: l10n.t(
+        'Hash these to drop the ones that differ only in timestamp. Set "compareMode": "content" to always compare this way.'
+      ),
       run: () => recheck(session),
     });
   }
 
   picks.push(
     ...changed.map(result => ({
-      label: `${STATUS_LABEL[result.status]}  ${result.relativePath}`,
-      description: result.type === FileType.Directory ? '(folder)' : '',
+      label: `${statusLabel(result.status)}  ${result.relativePath}`,
+      description: result.type === FileType.Directory ? l10n.t('(folder)') : '',
       detail: result.status === 'error' ? result.error : undefined,
       run: () => showActionsForResult(session, result),
     }))
@@ -130,9 +155,13 @@ async function showResults(session: CompareSession, note?: string): Promise<void
 
   const summary = [
     note,
-    `${plural(changed.length, 'difference')} found.`,
+    plural(
+      changed.length,
+      l10n.t('1 difference found.'),
+      l10n.t('{0} differences found.', changed.length.toLocaleString())
+    ),
     timestampNote,
-    'Select a file for actions...',
+    l10n.t('Select a file for actions...'),
   ]
     .filter(Boolean)
     .join(' ');
@@ -156,7 +185,7 @@ async function showResults(session: CompareSession, note?: string): Promise<void
 async function recheck(session: CompareSession): Promise<void> {
   const before = modifiedFiles(session.results).length;
   const done = await withHashProgress(
-    'Comparing file contents...',
+    l10n.t('Comparing file contents...'),
     async hasher => {
       await recheckByContent(session.ctx, session.results, hasher!);
       return true;
@@ -164,7 +193,7 @@ async function recheck(session: CompareSession): Promise<void> {
     isCancelled => new ContentHasher({ concurrency: session.ctx.config.concurrency, isCancelled })
   );
   if (!done) {
-    await showResults(session, 'Content check cancelled.');
+    await showResults(session, l10n.t('Content check cancelled.'));
     return;
   }
 
@@ -173,19 +202,24 @@ async function recheck(session: CompareSession): Promise<void> {
   await showResults(
     session,
     cleared > 0
-      ? `${plural(cleared, 'file')} turned out identical.`
-      : 'Every modified file really differs.'
+      ? plural(
+          cleared,
+          l10n.t('1 file turned out identical.'),
+          l10n.t('{0} files turned out identical.', cleared.toLocaleString())
+        )
+      : l10n.t('Every modified file really differs.')
   );
 }
 
 async function openAllDiffs(session: CompareSession, files: CompareResult[]): Promise<void> {
   if (files.length > OPEN_ALL_CONFIRM_THRESHOLD) {
+    const openAll = l10n.t('Open All');
     const choice = await window.showWarningMessage(
-      `Open ${files.length} diff tabs?`,
-      { modal: true, detail: 'Each one downloads the remote copy of the file.' },
-      'Open All'
+      l10n.t('Open {0} diff tabs?', files.length),
+      { modal: true, detail: l10n.t('Each one downloads the remote copy of the file.') },
+      openAll
     );
-    if (choice !== 'Open All') {
+    if (choice !== openAll) {
       await showResults(session);
       return;
     }
@@ -194,7 +228,7 @@ async function openAllDiffs(session: CompareSession, files: CompareResult[]): Pr
   const failed: string[] = [];
   let opened = 0;
   await window.withProgress(
-    { location: ProgressLocation.Notification, title: 'Opening diffs', cancellable: true },
+    { location: ProgressLocation.Notification, title: l10n.t('Opening diffs'), cancellable: true },
     async (progress, token) => {
       for (const file of files) {
         if (token.isCancellationRequested) {
@@ -219,7 +253,7 @@ async function openAllDiffs(session: CompareSession, files: CompareResult[]): Pr
   if (failed.length > 0) {
     failed.forEach(line => logger.warn(`open diff failed for ${line}`));
     window.showWarningMessage(
-      `Opened ${opened} of ${plural(files.length, 'diff')}. Failed: ${failed.join('; ')}`
+      l10n.t('Opened {0} of {1} diffs. Failed: {2}', opened, files.length, failed.join('; '))
     );
   }
 }
@@ -230,7 +264,11 @@ async function showActionsForResult(session: CompareSession, result: CompareResu
   // acting on a guess.
   if (result.status === 'error') {
     window.showWarningMessage(
-      `Compare Folders: ${result.relativePath} could not be compared — ${result.error}`
+      l10n.t(
+        'Compare Folders: {0} could not be compared — {1}',
+        result.relativePath,
+        String(result.error)
+      )
     );
     await showResults(session);
     return;
@@ -240,22 +278,22 @@ async function showActionsForResult(session: CompareSession, result: CompareResu
 
   if (result.status === 'modified' && result.type !== FileType.Directory) {
     actions.push({
-      label: '$(diff) Open Diff',
+      label: l10n.t('$(diff) Open Diff'),
       action: () => diff(Uri.file(result.localFsPath)),
     });
   }
 
   actions.push({
-    label: '$(arrow-up) Upload Local -> Remote',
+    label: l10n.t('$(arrow-up) Upload Local -> Remote'),
     action: () => uploadFile(Uri.file(result.localFsPath)),
   });
 
   actions.push({
-    label: '$(arrow-down) Download Remote -> Local',
+    label: l10n.t('$(arrow-down) Download Remote -> Local'),
     action: () => downloadFile(Uri.file(result.localFsPath)),
   });
 
-  actions.push({ label: '$(arrow-left) Back to list', action: () => showResults(session) });
+  actions.push({ label: l10n.t('$(arrow-left) Back to list'), action: () => showResults(session) });
 
   const pickedAction = await window.showQuickPick(actions, {
     placeHolder: result.relativePath,
@@ -294,8 +332,8 @@ export default checkFileCommand({
     // Cancelling stops the walk itself, not just the notification.
     const results = await withHashProgress(
       byContent
-        ? 'Comparing local and remote folders by content...'
-        : 'Comparing local and remote folders...',
+        ? l10n.t('Comparing local and remote folders by content...')
+        : l10n.t('Comparing local and remote folders...'),
       (hasher, isCancelled) => compareFolders(ctx, { isCancelled }, { hasher, missingRoot }),
       isCancelled => createContentHasher(ctx.config, { isCancelled })
     );

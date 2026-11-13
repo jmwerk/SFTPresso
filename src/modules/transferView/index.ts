@@ -37,7 +37,13 @@ export default class TransferView {
         }
         this._view.badge =
           count > 0
-            ? { value: count, tooltip: `${count} failed ${count === 1 ? 'transfer' : 'transfers'}` }
+            ? {
+                value: count,
+                tooltip:
+                  count === 1
+                    ? vscode.l10n.t('1 failed transfer')
+                    : vscode.l10n.t('{0} failed transfers', count),
+              }
             : undefined;
       }),
       // opening the view is the user's acknowledgement of whatever failed

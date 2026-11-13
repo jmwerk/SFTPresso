@@ -95,13 +95,15 @@ async function handleCommand(hint: any) {
     }
   }
 
-  await Promise.all(creates.concat(uploads).map(async change => {
-    try {
-      await uploadFile(change.uri);
-    } catch (e) {
-      logger.error('Upload failed.', e);
-    }
-  }));
+  await Promise.all(
+    creates.concat(uploads).map(async change => {
+      try {
+        await uploadFile(change.uri);
+      } catch (e) {
+        logger.error('Upload failed.', e);
+      }
+    })
+  );
   await Promise.all(
     renames.map(async change => {
       try {
@@ -121,13 +123,15 @@ async function handleCommand(hint: any) {
       }
     })
   );
-  await Promise.all(deletes.map(async change => {
-    try {
-      await removeRemote(change.uri);
-    } catch (e) {
-      logger.error('Deletion failed.', e);
-    }
-  }));
+  await Promise.all(
+    deletes.map(async change => {
+      try {
+        await removeRemote(change.uri);
+      } catch (e) {
+        logger.error('Deletion failed.', e);
+      }
+    })
+  );
 
   logger.log('');
   logger.log('------ Upload Changed Files Result ------');
@@ -157,7 +161,7 @@ async function getRepository(git: GitAPI): Promise<Repository | undefined> {
   }
 
   if (git.repositories.length === 0) {
-    throw new Error('There are no available repositories');
+    throw new Error(vscode.l10n.t('There are no available repositories'));
   }
 
   const picks = git.repositories.map(repo => {
@@ -171,7 +175,9 @@ async function getRepository(git: GitAPI): Promise<Repository | undefined> {
     };
   });
 
-  const pick = await vscode.window.showQuickPick(picks, { placeHolder: 'Choose a repository' });
+  const pick = await vscode.window.showQuickPick(picks, {
+    placeHolder: vscode.l10n.t('Choose a repository'),
+  });
 
   return pick && pick.repository;
 }

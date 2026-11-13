@@ -10,13 +10,13 @@ The file is read as **JSONC**: `// line comments`, `/* block comments */`, and t
 | --- | --- |
 | Connection | [`protocol`](#protocol) · [`host`](#host) · [`port`](#port) · [`username`](#username) · [`password`](#password) · [`warnPlaintextPassword`](#warnplaintextpassword) · [`profiles`](#profiles) · [`remote`](#remote) |
 | Mapping | [`name`](#name) · [`context`](#context) · [`remotePath`](#remotepath) · [`filePerm`](#fileperm) · [`dirPerm`](#dirperm) |
-| Uploads and downloads | [`uploadOnSave`](#uploadonsave) · [`useTempFile`](#usetempfile) · [`openSsh`](#openssh) · [`downloadOnOpen`](#downloadonopen) · [`conflictCheck`](#conflictcheck) · [`maxFileSize`](#maxfilesize) |
+| Uploads and downloads | [`uploadOnSave`](#uploadonsave) · [`useTempFile`](#usetempfile) · [`openSsh`](#openssh) · [`downloadOnOpen`](#downloadonopen) · [`conflictCheck`](#conflictcheck) · [`backup`](#backup) · [`maxFileSize`](#maxfilesize) |
 | Sync and compare | [`syncOption`](#syncoption) · [`syncConfirm`](#syncconfirm) · [`compareMode`](#comparemode) · [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) |
 | Ignoring files | [`ignore`](#ignore) · [`ignoreFile`](#ignorefile) |
 | Watching for changes | [`watcher`](#watcher) |
 | Remote Explorer | [`remoteExplorer`](#remoteexplorer) |
 | Performance and timeouts | [`concurrency`](#concurrency) · [`limitOpenFilesOnRemote`](#limitopenfilesonremote) · [`connectTimeout`](#connecttimeout) · [`retry`](#retry) · [`idleTimeout`](#idletimeout) · [`stallTimeout`](#stalltimeout) · [`operationTimeout`](#operationtimeout) |
-| Remote commands | [`remoteCommands`](#remotecommands) · [`remoteCommandTimeout`](#remotecommandtimeout) |
+| Remote commands | [`remoteCommands`](#remotecommands) · [`remoteCommandTimeout`](#remotecommandtimeout) · [`afterUpload`](#afterupload) |
 | SFTP authentication | [`agent`](#agent) · [`privateKeyPath`](#privatekeypath) · [`passphrase`](#passphrase) · [`interactiveAuth`](#interactiveauth) |
 | SFTP connection | [`hop`](#hop) · [`strictHostKeyChecking`](#stricthostkeychecking) · [`algorithms`](#algorithms) · [`sshConfigPath`](#sshconfigpath) · [`sshCustomParams`](#sshcustomparams) · [`keepaliveInterval`](#keepaliveinterval) · [`keepaliveCountMax`](#keepalivecountmax) · [`transferMode`](#transfermode) |
 | FTP(S) | [`secure`](#secure) · [`secureOptions`](#secureoptions) · [`ftpTransferType`](#ftptransfertype) |
@@ -239,6 +239,40 @@ Guard against uploads that would silently overwrite someone else's work. Before 
 It's smarter than a plain timestamp check, which matters because your local copy is always "newest" the moment you edit it — a naive check would wave through an upload even if a teammate changed the remote five minutes ago. So instead, after every transfer SFTPresso remembers what the remote looked like at that moment, and compares against *that* baseline rather than just "is remote newer than local right now." No baseline yet (nothing transferred this workspace) falls back to just checking whether the remote is newer than local.
 
 A few things to know: it only covers single-file uploads (including `uploadOnSave`) — folder uploads and [Sync](Commands.md#sync-commands) skip it, since prompting mid-batch doesn't really work; use [`syncConfirm`](#syncconfirm) there instead. It costs one extra round-trip per upload, which is part of why it's off by default. Baselines are per-workspace, so uploading from a second machine can trigger one stale-baseline prompt — just choose Overwrite and it's back in sync. And on FTP servers without `MFMT` support, the remote's mtime is just "whenever it was uploaded," which makes conflicts get flagged more often than they should — see [`remoteTimeOffsetInHours`](#remotetimeoffsetinhours) if that's biting you.
+
+### backup
+Keep a local copy of each remote file before an upload replaces it, so a bad deploy to a live site can be undone by hand. Before any upload, sync, or **Edit Remotely** save overwrites an existing remote file, SFTPresso downloads the current remote version into a local folder.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `backup` | boolean or object | *(off)* |
+| `backup.dir` | string | `.sftpresso-backup` |
+| `backup.keep` | number | `5` |
+
+```jsonc
+{
+  // defaults: .sftpresso-backup, last 5 versions of each file
+  "backup": true
+}
+```
+
+```jsonc
+{
+  "backup": { "dir": "../backups/client-site", "keep": 10 }
+}
+```
+
+Backups land at `<dir>/<host>/<path under remotePath>`, with a local timestamp before the extension so editors still highlight them:
+
+```
+.sftpresso-backup/example.com/wp-content/themes/site/functions.20261112-153000-123.php
+```
+
+- **Local, not on the server.** A copy next to the original on the server could be downloaded from the web root (`functions.php.bak` is served as plain text), so backups are never written remotely.
+- **Never uploaded.** A `dir` inside the [`context`](#context) is added to [`ignore`](#ignore) automatically for uploads, sync, and the [`watcher`](#watcher). Add it to `.gitignore` yourself.
+- **Per file.** Only the newest `keep` backups of each file are kept; `0` keeps every one. New remote files have nothing to back up and upload as usual.
+- **Blocks the upload if it fails.** If the backup can't be made, that file isn't uploaded and the transfer reports the error. A dropped connection is retried like any transfer.
+- It costs one download per overwritten file. Can be set per [profile](#profiles), for example only on the live server; `"backup": null` in a profile turns it off.
 
 ### ignore
 Files/folders excluded from transfers and sync. Gitignore-style patterns (wildcards with `*`), relative to the config's [`context`](#context). Bypass with the [Force commands](Commands.md#force-alt-commands).
@@ -531,6 +565,42 @@ How long, in milliseconds, a command started by [`SFTP: Run Remote Command`](Com
 ```
 
 > ℹ️ OpenSSH's server does not act on the kill request for a plain (non-pty) exec session, so a command that times out may keep running on the server after SFTPresso reports it as timed out — the SSH channel is closed on this end, but the remote process is not guaranteed to be. SFTP only.
+
+### afterUpload
+Shell command(s) to run on the server after an upload or **Sync Local → Remote** finishes — clearing a cache, restarting a queue, reloading PHP. They run in [`remotePath`](#remotepath) over the existing pooled SSH connection, so there's no second login, and output goes to the SFTPresso output channel.
+
+| Key | Type | Default |
+| --- | --- | --- |
+| `afterUpload` | string, string[], or object | *(none)* |
+| `afterUpload.command` | string or string[] | — |
+| `afterUpload.onSave` | boolean | `false` |
+| `afterUpload.delay` | number (ms) | `1000` |
+
+```jsonc
+{
+  // short form: one command after every upload/sync command
+  "afterUpload": "wp cache flush"
+}
+```
+
+```jsonc
+{
+  "afterUpload": {
+    // run in order; a failing command stops the rest
+    "command": ["php artisan optimize:clear", "php artisan queue:restart"],
+    // also run after upload on save and watcher uploads
+    "onSave": true
+  }
+}
+```
+
+- **Once per batch.** A folder upload, a sync, **Upload Changed Files**, or a burst of saves runs the commands once, after uploads have been quiet for `delay` ms. A sync that changes nothing runs nothing.
+- **Only after success.** If any upload in the batch failed, the commands are skipped and you get a warning, so a half-deployed site isn't flushed or restarted.
+- **Asks first.** Because `sftp.json` can come from a cloned repo, the first run of each command set on each server asks **Run / Always Run / Skip**. **Always Run** is remembered for this workspace until the commands or the server change. Untrusted workspaces never run them.
+- **Uploads only.** Downloads, **Sync Remote → Local**, and saves of files opened with **Edit Remotely** don't trigger it. In **Sync Both Directions**, only the uploaded side counts.
+- Each command gets [`remoteCommandTimeout`](#remotecommandtimeout). It can be set per [profile](#profiles), for example only on the live server; `"afterUpload": null` in a profile turns off the base config's command.
+
+> ℹ️ SFTP only. On an FTP config it is logged and skipped, since FTP has no remote shell.
 
 ## SFTP-only options
 

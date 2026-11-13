@@ -6,7 +6,10 @@ jest.mock('../fs', () => {
   class FakeRemoteFs {
     static instances: FakeRemoteFs[] = [];
 
-    constructor(public pathResolver: any, public option: any) {
+    constructor(
+      public pathResolver: any,
+      public option: any
+    ) {
       FakeRemoteFs.instances.push(this);
     }
 
@@ -41,10 +44,7 @@ import * as os from 'os';
 import * as path from 'path';
 import app from '../../app';
 import { SFTPFileSystem } from '../fs';
-import FileService, {
-  DEFAULT_CONNECT_TIMEOUT,
-  FileServiceConfig,
-} from '../fileService';
+import FileService, { DEFAULT_CONNECT_TIMEOUT, FileServiceConfig } from '../fileService';
 
 const FakeRemoteFs = SFTPFileSystem as any;
 
@@ -53,10 +53,7 @@ const SSH_CONFIG_PATH = path.join(os.homedir(), '.ssh', 'config');
 // each test needs its own entry in the module-level connection pool
 let hostCounter = 0;
 
-function createService(
-  sshConfig: string,
-  extra: Partial<FileServiceConfig> = {}
-): FileService {
+function createService(sshConfig: string, extra: Partial<FileServiceConfig> = {}): FileService {
   vol.fromJSON({ [SSH_CONFIG_PATH]: sshConfig });
   hostCounter += 1;
 
@@ -92,9 +89,7 @@ describe('~/.ssh/config durations', () => {
   });
 
   test('ConnectTimeout is seconds too', () => {
-    const config = createService(
-      ['Host myserver', '  ConnectTimeout 45'].join('\n')
-    ).getConfig();
+    const config = createService(['Host myserver', '  ConnectTimeout 45'].join('\n')).getConfig();
 
     expect(config.connectTimeout).toBe(45000);
     expect((config as any).connTimeout).toBeUndefined();
@@ -139,11 +134,7 @@ describe('~/.ssh/config durations', () => {
   // option the SSH library is handed.
   test('the resolved values reach the client connect option', async () => {
     const service = createService(
-      [
-        'Host myserver',
-        '  ServerAliveInterval 30',
-        '  ConnectTimeout 45',
-      ].join('\n')
+      ['Host myserver', '  ServerAliveInterval 30', '  ConnectTimeout 45'].join('\n')
     );
 
     await service.getRemoteFileSystem(service.getConfig());
@@ -158,9 +149,7 @@ describe('~/.ssh/config durations', () => {
   });
 
   test('a rejected value leaves the client on its own default', async () => {
-    const service = createService(
-      ['Host myserver', '  ServerAliveInterval nonsense'].join('\n')
-    );
+    const service = createService(['Host myserver', '  ServerAliveInterval nonsense'].join('\n'));
 
     await service.getRemoteFileSystem(service.getConfig());
 
@@ -171,12 +160,7 @@ describe('~/.ssh/config durations', () => {
 
   test('the non-duration directives are unaffected', () => {
     const config = createService(
-      [
-        'Host myserver',
-        '  HostName real.example.com',
-        '  Port 2222',
-        '  User alice',
-      ].join('\n')
+      ['Host myserver', '  HostName real.example.com', '  Port 2222', '  User alice'].join('\n')
     ).getConfig();
 
     expect(config.host).toBe('real.example.com');

@@ -27,20 +27,16 @@ const configScheme = Joi.object({
   useTempFile: Joi.boolean().optional(),
   openSsh: Joi.boolean().optional(),
   syncMode: Joi.any().valid('update', 'full'),
-  ignore: Joi.array()
-    .min(0)
-    .items(Joi.string()),
+  ignore: Joi.array().min(0).items(Joi.string()),
   watcher: {
-    files: Joi.string()
-      .allow(false, null)
-      .optional(),
+    files: Joi.string().allow(false, null).optional(),
     autoUpload: Joi.boolean().optional(),
     autoDelete: Joi.boolean().optional(),
   },
 });
 
-describe("validation config", () => {
-  test("default config", () => {
+describe('validation config', () => {
+  test('default config', () => {
     const config = {
       host: 'host',
       port: 22,
@@ -66,11 +62,7 @@ describe("validation config", () => {
         autoDelete: false,
       },
 
-      ignore: [
-        '**/.vscode',
-        '**/.git',
-        '**/.DS_Store',
-      ],
+      ignore: ['**/.vscode', '**/.git', '**/.DS_Store'],
     };
 
     const result = configScheme.validate(config, {
@@ -79,7 +71,7 @@ describe("validation config", () => {
     expect(result.error).toBeUndefined();
   });
 
-  test("partial config", () => {
+  test('partial config', () => {
     const config = {
       host: 'host',
       port: 22,
@@ -92,11 +84,7 @@ describe("validation config", () => {
 
       watcher: {},
 
-      ignore: [
-        '**/.vscode',
-        '**/.git',
-        '**/.DS_Store',
-      ],
+      ignore: ['**/.vscode', '**/.git', '**/.DS_Store'],
     };
 
     let result = configScheme.validate(config, {
@@ -111,7 +99,7 @@ describe("validation config", () => {
     expect(result.error).toBeUndefined();
   });
 
-  describe("key validaiton", () => {
+  describe('key validaiton', () => {
     test("protocol must be one of ['sftp', 'ftp']", () => {
       const config = {
         host: 'host',
@@ -135,11 +123,7 @@ describe("validation config", () => {
           autoDelete: false,
         },
 
-        ignore: [
-          '**/.vscode',
-          '**/.git',
-          '**/.DS_Store',
-        ],
+        ignore: ['**/.vscode', '**/.git', '**/.DS_Store'],
       };
 
       const result = configScheme.validate(config, {
@@ -148,7 +132,7 @@ describe("validation config", () => {
       expect(result.error).toBeDefined();
     });
 
-    test("watcher files must be false or string", () => {
+    test('watcher files must be false or string', () => {
       const config = {
         host: 'host',
         port: 22,
@@ -171,11 +155,7 @@ describe("validation config", () => {
           autoDelete: false,
         },
 
-        ignore: [
-          '**/.vscode',
-          '**/.git',
-          '**/.DS_Store',
-        ],
+        ignore: ['**/.vscode', '**/.git', '**/.DS_Store'],
       };
 
       let result = configScheme.validate(config, {
@@ -208,7 +188,7 @@ describe("validation config", () => {
       expect(result.error).toBeUndefined();
     });
 
-    test("ignore must be an array of string", () => {
+    test('ignore must be an array of string', () => {
       const config = {
         host: 'host',
         port: 22,
@@ -231,11 +211,7 @@ describe("validation config", () => {
           autoDelete: false,
         },
 
-        ignore: [
-          1,
-          '**/.git',
-          '**/.DS_Store',
-        ],
+        ignore: [1, '**/.git', '**/.DS_Store'],
       };
 
       let result = configScheme.validate(config, {
@@ -250,7 +226,7 @@ describe("validation config", () => {
       expect(result.error).toBeUndefined();
     });
 
-    test("pass", () => {
+    test('pass', () => {
       const config = {
         host: 'host',
         port: 22,
@@ -274,10 +250,7 @@ describe("validation config", () => {
           autoDelete: false,
         },
 
-        ignore: [
-          '**/.git',
-          '**/.DS_Store',
-        ],
+        ignore: ['**/.git', '**/.DS_Store'],
       };
 
       let result = configScheme.validate(config, {
