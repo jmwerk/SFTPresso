@@ -18,6 +18,7 @@ import commandRenameRemote from './commandRenameRemote';
 import commandSetPermissionsRemote from './commandSetPermissionsRemote';
 import commandRetryTransfer from './commandRetryTransfer';
 import commandRunRemoteCommand from './commandRunRemoteCommand';
+import commandSearchRemote from './commandSearchRemote';
 import commandSavePassword from './commandSavePassword';
 import commandSetProfile from './commandSetProfile';
 import commandShowHostKey from './commandShowHostKey';
@@ -82,6 +83,7 @@ export default {
   commandSetPermissionsRemote,
   commandRetryTransfer,
   commandRunRemoteCommand,
+  commandSearchRemote,
   commandSavePassword,
   commandSetProfile,
   commandShowHostKey,
