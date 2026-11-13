@@ -35,7 +35,7 @@ export function simplifyPath(absolutePath: string) {
   return pathRelativeToWorkspace(absolutePath);
 }
 
-// FIXME: use fs.pathResolver instead of upath
+// upath is every remote FileSystem's pathResolver (SFTP and FTP), so it is used directly here.
 export function toRemotePath(localPath: string, localContext: string, remoteContext: string) {
   return upath.join(
     remoteContext,
@@ -43,7 +43,6 @@ export function toRemotePath(localPath: string, localContext: string, remoteCont
   );
 }
 
-// FIXME: use fs.pathResolver instead of upath
 export function toLocalPath(remotePath: string, remoteContext: string, localContext: string) {
   return path.join(localContext, upath.relative(remoteContext, remotePath));
 }
