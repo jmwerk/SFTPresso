@@ -188,6 +188,12 @@
         "category": "SFTP"
       },
       {
+        "command": "sftp.searchRemote",
+        "title": "Search Remote Files…",
+        "category": "SFTP",
+        "icon": "$(search)"
+      },
+      {
         "command": "sftp.cancelAllTransfer",
         "title": "Cancel All Transfers",
         "category": "SFTP",
@@ -497,6 +503,10 @@
         },
         {
           "command": "sftp.runRemoteCommand",
+          "when": "sftp.enabled"
+        },
+        {
+          "command": "sftp.searchRemote",
           "when": "sftp.enabled"
         },
         {
@@ -872,6 +882,11 @@
         },
         {
           "command": "sftp.openConnectInTerminal",
+          "group": "navigation",
+          "when": "view == remoteExplorer && viewItem =~ /^(root|folder)\\.sftp$/"
+        },
+        {
+          "command": "sftp.searchRemote",
           "group": "navigation",
           "when": "view == remoteExplorer && viewItem =~ /^(root|folder)\\.sftp$/"
         },
