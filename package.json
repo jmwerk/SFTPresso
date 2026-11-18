@@ -1134,7 +1134,7 @@
     "@vscode/l10n-dev": "0.0.35",
     "@vscode/vsce": "^4.1.0",
     "esbuild": "^0.28.2",
-    "eslint": "^10.14.0",
+    "eslint": "^10.15.0",
     "jest": "^30.5.2",
     "memfs": "4.80.0",
     "patch-package": "^8.0.1",
