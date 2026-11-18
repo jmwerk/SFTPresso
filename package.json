@@ -1132,7 +1132,7 @@
     "@types/node": "^26.6.6",
     "@types/vscode": "~1.138.0",
     "@vscode/l10n-dev": "0.0.35",
-    "@vscode/vsce": "^4.1.0",
+    "@vscode/vsce": "^4.1.1",
     "esbuild": "^0.28.2",
     "eslint": "^10.14.0",
     "jest": "^30.5.2",
